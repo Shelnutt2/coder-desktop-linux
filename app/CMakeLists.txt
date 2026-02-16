@@ -71,6 +71,7 @@ qt_add_qml_module(coder-desktop
         qml/AppBrowserPage.qml
         qml/TasksPage.qml
         qml/TaskDetailPage.qml
+        qml/WorkspaceDetailPage.qml
         qml/DlpPage.qml
 )
 

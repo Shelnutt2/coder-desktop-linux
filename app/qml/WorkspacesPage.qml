@@ -10,6 +10,15 @@ Item {
 
     property string filterText: ""
 
+    // Set this to a workspace ID to show the detail page.
+    property string selectedWorkspaceId: ""
+    property string selectedWorkspaceName: ""
+    property string selectedWorkspaceOwner: ""
+    property string selectedWorkspaceTemplate: ""
+    property string selectedWorkspaceStatus: ""
+    property bool   selectedWorkspaceOutdated: false
+    property string selectedWorkspaceHealth: ""
+
     ColumnLayout {
         anchors.fill: parent
         anchors.margins: 16
@@ -77,6 +86,21 @@ Item {
                 color: Material.background
                 border.color: Material.dividerColor
                 border.width: 1
+
+                // Tap area to open detail — outside the layout to avoid
+                // "anchors on an item managed by a layout" warnings.
+                MouseArea {
+                    anchors.fill: parent
+                    onClicked: {
+                        workspacesPage.selectedWorkspaceId = model.id
+                        workspacesPage.selectedWorkspaceName = model.name
+                        workspacesPage.selectedWorkspaceOwner = model.ownerName
+                        workspacesPage.selectedWorkspaceTemplate = model.templateName
+                        workspacesPage.selectedWorkspaceStatus = model.statusString
+                        workspacesPage.selectedWorkspaceOutdated = model.outdated
+                        workspacesPage.selectedWorkspaceHealth = model.health || ""
+                    }
+                }
 
                 RowLayout {
                     id: delegateLayout
@@ -262,6 +286,23 @@ Item {
                     Qt.openUrlExternally(base + "/workspaces")
                 }
             }
+        }
+    }
+
+    // ---- Detail page loader ----
+    Loader {
+        id: wsDetailLoader
+        anchors.fill: parent
+        active: workspacesPage.selectedWorkspaceId.length > 0
+        sourceComponent: WorkspaceDetailPage {
+            workspaceId: workspacesPage.selectedWorkspaceId
+            workspaceName: workspacesPage.selectedWorkspaceName
+            workspaceOwner: workspacesPage.selectedWorkspaceOwner
+            workspaceTemplate: workspacesPage.selectedWorkspaceTemplate
+            workspaceStatus: workspacesPage.selectedWorkspaceStatus
+            workspaceOutdated: workspacesPage.selectedWorkspaceOutdated
+            workspaceHealth: workspacesPage.selectedWorkspaceHealth
+            onBackClicked: workspacesPage.selectedWorkspaceId = ""
         }
     }
 }

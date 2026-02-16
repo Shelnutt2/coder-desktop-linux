@@ -150,6 +150,50 @@ void CoderApiClient::fetchTasks()
     });
 }
 
+void CoderApiClient::fetchWorkspaceDetail(const QString &id)
+{
+    QNetworkReply *reply = getWorkspace(id);
+    connect(reply, &QNetworkReply::finished, this, [this, reply]() {
+        reply->deleteLater();
+        if (reply->error() != QNetworkReply::NoError)
+            return;  // requestFailed already emitted by connectErrorHandler
+
+        const QJsonDocument doc = QJsonDocument::fromJson(reply->readAll());
+        emit workspaceDetailReceived(doc.object());
+    });
+}
+
+void CoderApiClient::startWorkspace(const QString &id)
+{
+    QNetworkReply *reply = createWorkspaceBuild(id, QStringLiteral("start"));
+    connect(reply, &QNetworkReply::finished, this, [this, reply]() {
+        reply->deleteLater();
+        if (reply->error() != QNetworkReply::NoError)
+            return;  // requestFailed already emitted by connectErrorHandler
+
+        emit workspaceActionCompleted();
+    });
+}
+
+void CoderApiClient::stopWorkspace(const QString &id)
+{
+    QNetworkReply *reply = createWorkspaceBuild(id, QStringLiteral("stop"));
+    connect(reply, &QNetworkReply::finished, this, [this, reply]() {
+        reply->deleteLater();
+        if (reply->error() != QNetworkReply::NoError)
+            return;  // requestFailed already emitted by connectErrorHandler
+
+        emit workspaceActionCompleted();
+    });
+}
+
+void CoderApiClient::updateWorkspace(const QString &id)
+{
+    // TODO: Pass template_active_version_id for a real update transition.
+    // For now this is equivalent to startWorkspace().
+    startWorkspace(id);
+}
+
 // ---------------------------------------------------------------------------
 // Internal helpers
 // ---------------------------------------------------------------------------

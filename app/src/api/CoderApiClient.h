@@ -58,6 +58,14 @@ public:
     Q_INVOKABLE void fetchWorkspaces();
     /// Fetch tasks and emit tasksReceived() with the JSON array.
     Q_INVOKABLE void fetchTasks();
+    /// Fetch a single workspace and emit workspaceDetailReceived() with the JSON object.
+    Q_INVOKABLE void fetchWorkspaceDetail(const QString &id);
+    /// Start a workspace and emit workspaceActionCompleted() on success.
+    Q_INVOKABLE void startWorkspace(const QString &id);
+    /// Stop a workspace and emit workspaceActionCompleted() on success.
+    Q_INVOKABLE void stopWorkspace(const QString &id);
+    /// Update a workspace (currently an alias for start). TODO: pass templateActiveVersionId.
+    Q_INVOKABLE void updateWorkspace(const QString &id);
 
 signals:
     void baseUrlChanged();
@@ -69,6 +77,10 @@ signals:
     void workspacesReceived(const QJsonArray &workspaces);
     /// Emitted when fetchTasks() completes successfully.
     void tasksReceived(const QJsonArray &tasks);
+    /// Emitted when fetchWorkspaceDetail() completes successfully.
+    void workspaceDetailReceived(const QJsonObject &workspace);
+    /// Emitted when a workspace start/stop/update action completes successfully.
+    void workspaceActionCompleted();
 
 private:
     QNetworkAccessManager *m_nam = nullptr;  // Qt parent-owned (this)
