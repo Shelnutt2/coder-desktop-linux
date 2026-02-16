@@ -87,6 +87,21 @@ Item {
                 border.color: Material.dividerColor
                 border.width: 1
 
+                // Tap area to open detail — outside the layout to avoid
+                // "anchors on an item managed by a layout" warnings.
+                MouseArea {
+                    anchors.fill: parent
+                    onClicked: {
+                        tasksPage.selectedTaskId = model.id
+                        tasksPage.selectedTaskName = model.displayName || model.name
+                        tasksPage.selectedTaskStatus = model.statusString
+                        tasksPage.selectedTaskStateMessage = model.currentStateMessage
+                        tasksPage.selectedTaskPrompt = model.initialPrompt
+                        tasksPage.selectedTaskOwner = model.ownerName
+                        tasksPage.selectedTaskTemplate = model.templateName
+                    }
+                }
+
                 RowLayout {
                     id: delegateLayout
                     anchors.fill: parent
@@ -214,19 +229,7 @@ Item {
                         }
                     }
 
-                    // Tap area to open detail
-                    MouseArea {
-                        anchors.fill: parent
-                        onClicked: {
-                            tasksPage.selectedTaskId = model.id
-                            tasksPage.selectedTaskName = model.displayName || model.name
-                            tasksPage.selectedTaskStatus = model.statusString
-                            tasksPage.selectedTaskStateMessage = model.currentStateMessage
-                            tasksPage.selectedTaskPrompt = model.initialPrompt
-                            tasksPage.selectedTaskOwner = model.ownerName
-                            tasksPage.selectedTaskTemplate = model.templateName
-                        }
-                    }
+
                 }
 
                 // Hide the whole delegate when filtered out
