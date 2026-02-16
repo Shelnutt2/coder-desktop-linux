@@ -77,6 +77,10 @@ public:
     Q_PROPERTY(bool notificationsEnabled READ notificationsEnabled NOTIFY settingsChanged)
     Q_PROPERTY(bool notificationsEnabledLocked READ notificationsEnabledLocked NOTIFY settingsChanged)
 
+    // Updates
+    Q_PROPERTY(bool checkForUpdates READ checkForUpdates NOTIFY settingsChanged)
+    Q_PROPERTY(bool checkForUpdatesLocked READ checkForUpdatesLocked NOTIFY settingsChanged)
+
     // MDM meta
     Q_PROPERTY(bool mdmEnabled READ mdmEnabled NOTIFY settingsChanged)
 
@@ -109,6 +113,7 @@ public:
 
     [[nodiscard]] QString theme()                const;
     [[nodiscard]] bool    notificationsEnabled() const;
+    [[nodiscard]] bool    checkForUpdates()      const;
 
     [[nodiscard]] bool mdmEnabled() const;
 
@@ -128,6 +133,7 @@ public:
     [[nodiscard]] bool disableFileDownloadLocked()   const;
     [[nodiscard]] bool themeLocked()                 const;
     [[nodiscard]] bool notificationsEnabledLocked()  const;
+    [[nodiscard]] bool checkForUpdatesLocked()       const;
 
     // -- Invokables -------------------------------------------------------
 

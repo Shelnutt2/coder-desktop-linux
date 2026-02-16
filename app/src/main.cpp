@@ -18,10 +18,12 @@
 #include "models/TaskModel.h"
 #include "webview/AppBrowserWidget.h"
 #include "dlp/DlpCompositorWidget.h"
+#include "updater/AutoUpdater.h"
 
 int main(int argc, char* argv[])
 {
     QApplication app(argc, argv);
+    app.setApplicationVersion(QStringLiteral(APP_VERSION));
     app.setApplicationName(QStringLiteral("Coder Desktop"));
     app.setOrganizationName(QStringLiteral("Coder"));
     app.setOrganizationDomain(QStringLiteral("coder.com"));
@@ -66,7 +68,16 @@ int main(int argc, char* argv[])
     PeerModel peerModel;
     NotificationManager notificationManager;
 
+    // ---- Auto-updater ----
+    AutoUpdater autoUpdater(QStringLiteral(APP_VERSION), &settingsManager);
+    QObject::connect(&autoUpdater, &AutoUpdater::updateAvailable,
+                     [](const QString& version, const QString& url) {
+        qInfo() << "Update available:" << version << "—" << url;
+    });
+
     // Expose Phase 2 objects to QML.
+    engine.rootContext()->setContextProperty(
+        QStringLiteral("autoUpdater"), &autoUpdater);
     engine.rootContext()->setContextProperty(
         QStringLiteral("settingsManager"), &settingsManager);
     engine.rootContext()->setContextProperty(

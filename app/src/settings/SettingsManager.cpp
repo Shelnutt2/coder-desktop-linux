@@ -26,6 +26,7 @@ static const struct {
     { "disableFileDownload",    false              },
     { "theme",                  QStringLiteral("system") },
     { "notificationsEnabled",   true               },
+    { "checkForUpdates",        true               },
 };
 
 // ---------------------------------------------------------------------------
@@ -167,6 +168,11 @@ bool SettingsManager::notificationsEnabled() const
     return resolve(QStringLiteral("notificationsEnabled"), true).toBool();
 }
 
+bool SettingsManager::checkForUpdates() const
+{
+    return resolve(QStringLiteral("checkForUpdates"), true).toBool();
+}
+
 bool SettingsManager::mdmEnabled() const
 {
     return m_mdm->isEnabled();
@@ -190,6 +196,7 @@ bool SettingsManager::disableFileUploadLocked()     const { return m_mdm->isLock
 bool SettingsManager::disableFileDownloadLocked()   const { return m_mdm->isLocked(QStringLiteral("disableFileDownload")); }
 bool SettingsManager::themeLocked()                 const { return m_mdm->isLocked(QStringLiteral("theme")); }
 bool SettingsManager::notificationsEnabledLocked()  const { return m_mdm->isLocked(QStringLiteral("notificationsEnabled")); }
+bool SettingsManager::checkForUpdatesLocked()       const { return m_mdm->isLocked(QStringLiteral("checkForUpdates")); }
 
 // ---------------------------------------------------------------------------
 // Invokables

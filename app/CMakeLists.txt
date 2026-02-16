@@ -57,6 +57,8 @@ add_executable(coder-desktop
     src/util/UniqueFd.h
     src/dlp/DlpCompositorWidget.h
     src/dlp/DlpCompositorWidget.cpp
+    src/updater/AutoUpdater.h
+    src/updater/AutoUpdater.cpp
 )
 
 qt_add_qml_module(coder-desktop
@@ -76,6 +78,9 @@ qt_add_qml_module(coder-desktop
 )
 
 target_include_directories(coder-desktop PRIVATE src)
+target_compile_definitions(coder-desktop PRIVATE
+    APP_VERSION="${PROJECT_VERSION}"
+)
 target_link_libraries(coder-desktop PRIVATE
     Qt6::Core Qt6::Gui Qt6::Quick Qt6::QuickControls2
     Qt6::Network Qt6::Widgets
