@@ -30,9 +30,18 @@ void SystemTrayIcon::buildMenu()
 
     m_menu.addSeparator();
 
+    // Workspaces submenu — empty for now; will be populated by WorkspaceModel.
+    m_workspacesMenu = m_menu.addMenu(QStringLiteral("Workspaces"));
+
+    m_menu.addSeparator();
+
     m_openAction = m_menu.addAction(QStringLiteral("Open Coder Desktop"));
     connect(m_openAction, &QAction::triggered,
             this, &SystemTrayIcon::showWindowRequested);
+
+    m_settingsAction = m_menu.addAction(QStringLiteral("Settings..."));
+    connect(m_settingsAction, &QAction::triggered,
+            this, &SystemTrayIcon::showSettingsRequested);
 
     m_menu.addSeparator();
 

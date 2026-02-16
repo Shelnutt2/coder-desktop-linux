@@ -1,3 +1,9 @@
+// Include libsecret BEFORE any Qt headers to avoid the glib "signals"
+// struct member colliding with Qt's `#define signals public`.
+#ifdef HAS_LIBSECRET
+#include <libsecret/secret.h>
+#endif
+
 #include "data/SecureStorage.h"
 
 #include <QDebug>
@@ -6,10 +12,6 @@
 #include <QJsonDocument>
 #include <QJsonObject>
 #include <QStandardPaths>
-
-#ifdef HAS_LIBSECRET
-#include <libsecret/secret.h>
-#endif
 
 // ---------------------------------------------------------------------------
 // libsecret schema (compile-time only)

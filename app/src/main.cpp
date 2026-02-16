@@ -8,6 +8,14 @@
 #include "vpn/VpnBridge.h"
 #include "tray/SystemTrayIcon.h"
 
+#include "settings/SettingsManager.h"
+#include "data/SecureStorage.h"
+#include "api/CoderApiClient.h"
+#include "data/SessionManager.h"
+#include "models/WorkspaceModel.h"
+#include "models/PeerModel.h"
+#include "notifications/NotificationManager.h"
+
 int main(int argc, char* argv[])
 {
     QApplication app(argc, argv);
@@ -46,8 +54,33 @@ int main(int argc, char* argv[])
 
     engine.loadFromModule("CoderDesktop", "Main");
 
+    // ---- Phase 2 managers ----
+    SettingsManager settingsManager;
+    SecureStorage secureStorage;
+    CoderApiClient apiClient;
+    SessionManager sessionManager(&apiClient, &secureStorage);
+    WorkspaceModel workspaceModel;
+    PeerModel peerModel;
+    NotificationManager notificationManager;
+
+    // Expose Phase 2 objects to QML.
+    engine.rootContext()->setContextProperty(
+        QStringLiteral("settingsManager"), &settingsManager);
+    engine.rootContext()->setContextProperty(
+        QStringLiteral("sessionManager"), &sessionManager);
+    engine.rootContext()->setContextProperty(
+        QStringLiteral("apiClient"), &apiClient);
+    engine.rootContext()->setContextProperty(
+        QStringLiteral("workspaceModel"), &workspaceModel);
+    engine.rootContext()->setContextProperty(
+        QStringLiteral("peerModel"), &peerModel);
+    engine.rootContext()->setContextProperty(
+        QStringLiteral("notificationManager"), &notificationManager);
+
     // ---- System tray ----
     SystemTrayIcon tray(&vpnBridge);
+    notificationManager.setTrayIcon(tray.trayIcon());
+
     QObject::connect(&tray, &SystemTrayIcon::showWindowRequested,
                      &engine, [&engine]() {
         // Raise the first root window.
