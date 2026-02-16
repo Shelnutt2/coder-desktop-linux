@@ -19,6 +19,7 @@
 #include "webview/AppBrowserWidget.h"
 #include "dlp/DlpCompositorWidget.h"
 #include "updater/AutoUpdater.h"
+#include "auth/LoginFlowController.h"
 
 int main(int argc, char* argv[])
 {
@@ -56,6 +57,9 @@ int main(int argc, char* argv[])
     });
 
     TaskModel taskModel;
+
+    // ---- Login flow (browser-based auth) ----
+    LoginFlowController loginFlowController(sessionManager);
 
     // ---- Phase 3 components ----
     AppBrowserWidget appBrowser;
@@ -103,6 +107,8 @@ int main(int argc, char* argv[])
         QStringLiteral("appBrowser"), &appBrowser);
     engine.rootContext()->setContextProperty(
         QStringLiteral("dlpCompositor"), &dlpCompositor);
+    engine.rootContext()->setContextProperty(
+        QStringLiteral("loginFlowController"), &loginFlowController);
 
     // Load Main.qml directly from compiled-in Qt resources.  Using a
     // resource URL instead of engine.loadFromModule() avoids the need for

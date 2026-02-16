@@ -54,6 +54,8 @@ add_executable(coder-desktop
     src/dlp/DlpCompositorWidget.cpp
     src/updater/AutoUpdater.h
     src/updater/AutoUpdater.cpp
+    src/auth/LoginFlowController.h
+    src/auth/LoginFlowController.cpp
 )
 
 qt_add_qml_module(coder-desktop
