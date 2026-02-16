@@ -1,4 +1,5 @@
 #include "models/WorkspaceModel.h"
+#include "api/dto/Workspace.h"
 
 #include <QJsonArray>
 #include <QJsonValue>
@@ -138,18 +139,19 @@ void WorkspaceModel::setErrorMessage(const QString& msg)
 
 QString WorkspaceModel::statusToString(int status)
 {
-    // Mirrors typical Coder workspace statuses.
-    switch (status) {
-    case 0: return QStringLiteral("Unknown");
-    case 1: return QStringLiteral("Starting");
-    case 2: return QStringLiteral("Running");
-    case 3: return QStringLiteral("Stopping");
-    case 4: return QStringLiteral("Stopped");
-    case 5: return QStringLiteral("Failed");
-    case 6: return QStringLiteral("Deleting");
-    case 7: return QStringLiteral("Deleted");
-    case 8: return QStringLiteral("Canceling");
-    case 9: return QStringLiteral("Canceled");
+    // Maps WorkspaceStatus enum values to display strings.
+    switch (static_cast<WorkspaceStatus>(status)) {
+    case WorkspaceStatus::Running:   return QStringLiteral("Running");
+    case WorkspaceStatus::Stopped:   return QStringLiteral("Stopped");
+    case WorkspaceStatus::Starting:  return QStringLiteral("Starting");
+    case WorkspaceStatus::Stopping:  return QStringLiteral("Stopping");
+    case WorkspaceStatus::Failed:    return QStringLiteral("Failed");
+    case WorkspaceStatus::Canceling: return QStringLiteral("Canceling");
+    case WorkspaceStatus::Canceled:  return QStringLiteral("Canceled");
+    case WorkspaceStatus::Deleting:  return QStringLiteral("Deleting");
+    case WorkspaceStatus::Deleted:   return QStringLiteral("Deleted");
+    case WorkspaceStatus::Pending:   return QStringLiteral("Pending");
+    case WorkspaceStatus::Unknown:   return QStringLiteral("Unknown");
     }
     return QStringLiteral("Unknown");
 }
@@ -161,18 +163,24 @@ QString WorkspaceModel::statusToString(int status)
 WorkspaceModel::WorkspaceInfo WorkspaceModel::WorkspaceInfo::fromJson(
     const QJsonObject& obj)
 {
+    // Delegate to the full Workspace DTO parser which correctly handles
+    // the nested latest_build.status string and health object.
+    const Workspace ws = Workspace::fromJson(obj);
+
     WorkspaceInfo info;
-    info.id           = obj.value(QLatin1String("id")).toString();
-    info.name         = obj.value(QLatin1String("name")).toString();
-    info.ownerName    = obj.value(QLatin1String("owner_name")).toString();
-    info.templateName = obj.value(QLatin1String("template_name")).toString();
-    info.templateIcon = obj.value(QLatin1String("template_icon")).toString();
-    info.status       = obj.value(QLatin1String("status")).toInt(0);
-    info.health       = obj.value(QLatin1String("health")).toBool(true);
-    info.favorite     = obj.value(QLatin1String("favorite")).toBool(false);
-    info.outdated     = obj.value(QLatin1String("outdated")).toBool(false);
-    info.agentCount   = obj.value(QLatin1String("agent_count")).toInt(0);
-    info.agentStatus  = obj.value(QLatin1String("agent_status")).toInt(0);
+    info.id           = ws.id;
+    info.name         = ws.name;
+    info.ownerName    = ws.ownerName;
+    info.templateName = ws.templateName;
+    info.templateIcon = ws.templateIcon;
+    info.status       = static_cast<int>(ws.status);
+    info.health       = (ws.health == QLatin1String("healthy"));
+    info.favorite     = ws.favorite;
+    info.outdated     = ws.outdated;
+    info.agentCount   = static_cast<int>(ws.agents.size());
+    info.agentStatus  = ws.agents.isEmpty()
+        ? 0
+        : static_cast<int>(ws.agents.first().status);
 
     const QString ts = obj.value(QLatin1String("last_used_at")).toString();
     if (!ts.isEmpty())

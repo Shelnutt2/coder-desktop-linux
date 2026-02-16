@@ -16,6 +16,8 @@
 #include "models/PeerModel.h"
 #include "notifications/NotificationManager.h"
 #include "models/TaskModel.h"
+#include "api/dto/Workspace.h"
+#include "api/dto/Task.h"
 #include "webview/AppBrowserWidget.h"
 #include "dlp/DlpCompositorWidget.h"
 #include "updater/AutoUpdater.h"
@@ -57,6 +59,44 @@ int main(int argc, char* argv[])
     });
 
     TaskModel taskModel;
+
+    // ---- Wire API fetch signals to models ----
+    QObject::connect(&apiClient, &CoderApiClient::workspacesReceived,
+                     [&workspaceModel](const QJsonArray &arr) {
+        QList<WorkspaceModel::WorkspaceInfo> list;
+        list.reserve(arr.size());
+        for (const QJsonValue &v : arr)
+            list.append(WorkspaceModel::WorkspaceInfo::fromJson(v.toObject()));
+        workspaceModel.setWorkspaces(list);
+        workspaceModel.setLoading(false);
+        workspaceModel.setErrorMessage(QString());
+    });
+
+    QObject::connect(&apiClient, &CoderApiClient::tasksReceived,
+                     [&taskModel](const QJsonArray &arr) {
+        QList<TaskModel::TaskInfo> list;
+        list.reserve(arr.size());
+        for (const QJsonValue &v : arr)
+            list.append(TaskModel::TaskInfo::fromJson(v.toObject()));
+        taskModel.setTasks(list);
+        taskModel.setLoading(false);
+        taskModel.setErrorMessage(QString());
+    });
+
+    // Show loading state and handle errors for workspace/task fetches.
+    QObject::connect(&apiClient, &CoderApiClient::requestFailed,
+                     [&workspaceModel, &taskModel](const QString &endpoint,
+                                                   int /*statusCode*/,
+                                                   const QString &errorMessage) {
+        if (endpoint.contains(QLatin1String("workspaces"))) {
+            workspaceModel.setLoading(false);
+            workspaceModel.setErrorMessage(errorMessage);
+        }
+        if (endpoint.contains(QLatin1String("tasks"))) {
+            taskModel.setLoading(false);
+            taskModel.setErrorMessage(errorMessage);
+        }
+    });
 
     // ---- Login flow (browser-based auth) ----
     LoginFlowController loginFlowController(sessionManager);

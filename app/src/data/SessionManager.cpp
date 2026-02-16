@@ -53,6 +53,13 @@ QString SessionManager::currentUsername() const
     return m_activeDeployment.username;
 }
 
+QString SessionManager::sessionToken()
+{
+    if (m_activeDeployment.url.isEmpty())
+        return {};
+    return m_storage.retrieveToken(m_activeDeployment.url);
+}
+
 // ---------------------------------------------------------------------------
 // Login / Logout
 // ---------------------------------------------------------------------------

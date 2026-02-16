@@ -74,7 +74,7 @@ Item {
                     } else {
                         vpnPage.vpnError = ""
                         vpnBridge.start(sessionManager.currentUrl,
-                                        "") // Token is retrieved from SecureStorage by VpnBridge
+                                        sessionManager.sessionToken())
                     }
                 }
             }

@@ -36,6 +36,10 @@ public:
     [[nodiscard]] QString currentUrl() const;
     [[nodiscard]] QString currentUsername() const;
 
+    /// Returns the current session token (retrieved from SecureStorage).
+    /// Used by VPN bridge to authenticate with the Coder deployment.
+    [[nodiscard]] Q_INVOKABLE QString sessionToken();
+
     Q_INVOKABLE void login(const QString &url, const QString &token);
     Q_INVOKABLE void logout();
     Q_INVOKABLE void validateToken();

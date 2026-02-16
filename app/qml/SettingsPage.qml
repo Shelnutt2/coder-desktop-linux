@@ -219,6 +219,7 @@ Item {
                     }
 
                     ComboBox {
+                        Layout.alignment: Qt.AlignRight | Qt.AlignVCenter
                         model: ["System", "Light", "Dark"]
                         currentIndex: {
                             var t = settingsManager.theme
@@ -331,6 +332,7 @@ Item {
             }
 
             Switch {
+                Layout.alignment: Qt.AlignRight | Qt.AlignVCenter
                 checked: togglePane.checked
                 enabled: !togglePane.locked
                 onToggled: settingsManager.setUserPreference(togglePane.settingKey, checked)

@@ -47,14 +47,28 @@ public:
     // -- Templates -----------------------------------------------------------
     [[nodiscard]] QNetworkReply *listTemplates();                  // GET /api/v2/templates
 
+    // -- Tasks ---------------------------------------------------------------
+    [[nodiscard]] QNetworkReply *listTasks();                      // GET /api/v2/tasks
+
     // -- Build info ----------------------------------------------------------
     [[nodiscard]] QNetworkReply *getBuildInfo();                    // GET /api/v2/buildinfo
+
+    // -- High-level fetch (QML-callable) ------------------------------------
+    /// Fetch workspaces and emit workspacesReceived() with the JSON array.
+    Q_INVOKABLE void fetchWorkspaces();
+    /// Fetch tasks and emit tasksReceived() with the JSON array.
+    Q_INVOKABLE void fetchTasks();
 
 signals:
     void baseUrlChanged();
     void authStateChanged();
     void requestFailed(const QString &endpoint, int statusCode,
                        const QString &errorMessage);
+
+    /// Emitted when fetchWorkspaces() completes successfully.
+    void workspacesReceived(const QJsonArray &workspaces);
+    /// Emitted when fetchTasks() completes successfully.
+    void tasksReceived(const QJsonArray &tasks);
 
 private:
     QNetworkAccessManager *m_nam = nullptr;  // Qt parent-owned (this)
