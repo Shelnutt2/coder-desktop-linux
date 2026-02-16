@@ -27,6 +27,9 @@ Page {
     /// Session token for cookie-based authentication.
     property string sessionToken: ""
 
+    /// Emitted when the user wants to close the browser and return to the detail page.
+    signal closeRequested()
+
     /// The resolved app URL (computed when properties change).
     readonly property string appUrl: {
         if (!appSlug || (!vpnActive && !agentId)) {
@@ -43,6 +46,15 @@ Page {
         RowLayout {
             anchors.fill: parent
             spacing: 4
+
+            ToolButton {
+                icon.name: "window-close"
+                text: qsTr("Close")
+                display: AbstractButton.IconOnly
+                onClicked: root.closeRequested()
+                ToolTip.text: text
+                ToolTip.visible: hovered
+            }
 
             ToolButton {
                 id: backButton
@@ -209,6 +221,7 @@ Page {
         Button {
             Layout.alignment: Qt.AlignHCenter
             text: qsTr("Open in External Browser")
+            visible: typeof settingsManager !== "undefined" && settingsManager.externalBrowserAllowed
             enabled: root.appUrl !== ""
             onClicked: Qt.openUrlExternally(root.appUrl)
         }
@@ -227,11 +240,6 @@ Page {
     }
 
     // -- C++ backend instance --
-    // AppBrowserWidget must be registered as a QML type (e.g. via
-    // qmlRegisterType or QML_ELEMENT) before this page is loaded.
-    // When it is not yet registered, instantiation will produce a QML
-    // warning but the page still degrades gracefully.
-    AppBrowserWidget {
-        id: appBrowser
-    }
+    // AppBrowserWidget is exposed as the "appBrowser" context property
+    // from main.cpp — no QML instantiation needed.
 }

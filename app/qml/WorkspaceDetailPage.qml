@@ -25,6 +25,13 @@ Item {
 
     property bool detailLoading: false
 
+    // -- In-app browser state ------------------------------------------------
+    property string selectedAppSlug: ""
+    property string selectedAppUrl: ""
+    property string selectedAppName: ""
+    property string selectedAgentId: ""
+    property string selectedAgentName: ""
+
     function loadDetail() {
         detailLoading = true
         apiClient.fetchWorkspaceDetail(workspaceId)
@@ -65,7 +72,9 @@ Item {
                             appUrl:     app["url"] || "",
                             appIcon:    app["icon"] || "",
                             appCommand: app["command"] || "",
-                            appSlug:    app["slug"] || ""
+                            appSlug:    app["slug"] || "",
+                            agentId:    agent["id"] || "",
+                            agentName:  agent["name"] || ""
                         })
                     }
                 }
@@ -394,7 +403,13 @@ Item {
                                 enabled: model.appUrl.length > 0
                                 cursorShape: enabled ? Qt.PointingHandCursor
                                                      : Qt.ArrowCursor
-                                onClicked: Qt.openUrlExternally(model.appUrl)
+                                onClicked: {
+                                    workspaceDetailPage.selectedAppSlug = model.appSlug
+                                    workspaceDetailPage.selectedAppUrl = model.appUrl
+                                    workspaceDetailPage.selectedAppName = model.appName
+                                    workspaceDetailPage.selectedAgentId = model.agentId
+                                    workspaceDetailPage.selectedAgentName = model.agentName
+                                }
                             }
 
                             ColumnLayout {
@@ -424,6 +439,27 @@ Item {
                                     elide: Text.ElideRight
                                     horizontalAlignment: Text.AlignHCenter
                                     Layout.fillWidth: true
+                                }
+                            }
+
+                            // Overflow menu — only shown when external browser is allowed
+                            Button {
+                                anchors.top: parent.top
+                                anchors.right: parent.right
+                                anchors.margins: 2
+                                flat: true
+                                text: "⋮"
+                                font.pixelSize: 14
+                                z: 2
+                                visible: settingsManager.externalBrowserAllowed
+                                onClicked: appOverflowMenu.open()
+
+                                Menu {
+                                    id: appOverflowMenu
+                                    MenuItem {
+                                        text: qsTr("Open in Browser")
+                                        onTriggered: Qt.openUrlExternally(model.appUrl)
+                                    }
                                 }
                             }
                         }
@@ -475,6 +511,24 @@ Item {
                 // Bottom spacer
                 Item { Layout.fillHeight: true }
             }
+        }
+    }
+
+    // ---- In-app browser overlay ----
+    Loader {
+        id: appBrowserLoader
+        anchors.fill: parent
+        active: workspaceDetailPage.selectedAppSlug.length > 0
+        z: 10
+        sourceComponent: AppBrowserPage {
+            deploymentUrl: sessionManager.currentUrl
+            agentId: workspaceDetailPage.selectedAgentId
+            appSlug: workspaceDetailPage.selectedAppSlug
+            workspaceName: workspaceDetailPage.workspaceName
+            agentName: workspaceDetailPage.selectedAgentName
+            vpnActive: typeof vpnManager !== "undefined" && vpnManager ? vpnManager.connected : false
+            sessionToken: sessionManager.sessionToken || ""
+            onCloseRequested: workspaceDetailPage.selectedAppSlug = ""
         }
     }
 }

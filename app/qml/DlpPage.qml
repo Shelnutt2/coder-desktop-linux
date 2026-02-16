@@ -158,6 +158,11 @@ Page {
                         font.bold: true
                         color: settingsManager.dlpNetworkSandbox ? "#2E7D32" : "#757575"
                     }
+
+                    Label { text: "Force in-app browser:" }
+                    Label { text: settingsManager.dlpForceInAppBrowser ? "Yes" : "No"; font.bold: true }
+                    Label { text: "External browser:" }
+                    Label { text: settingsManager.externalBrowserAllowed ? "Allowed" : "Blocked"; font.bold: true }
                 }
             }
 

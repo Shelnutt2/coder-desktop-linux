@@ -168,6 +168,20 @@ Item {
                 locked: settingsManager.dlpNetworkSandboxLocked
             }
 
+            SettingToggle {
+                label: "Force in-app browser"
+                settingKey: "dlpForceInAppBrowser"
+                checked: settingsManager.dlpForceInAppBrowser
+                locked: settingsManager.dlpForceInAppBrowserLocked
+            }
+
+            SettingToggle {
+                label: "Disable external browser"
+                settingKey: "dlpDisableExternalBrowser"
+                checked: settingsManager.dlpDisableExternalBrowser
+                locked: settingsManager.dlpDisableExternalBrowserLocked
+            }
+
             Rectangle { Layout.fillWidth: true; height: 1; color: Material.dividerColor }
 
             // ================================================================
