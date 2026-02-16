@@ -57,9 +57,9 @@ public:
     explicit WorkspaceModel(QObject* parent = nullptr);
 
     // -- QAbstractListModel interface --
-    int rowCount(const QModelIndex& parent = QModelIndex()) const override;
-    QVariant data(const QModelIndex& index, int role) const override;
-    QHash<int, QByteArray> roleNames() const override;
+    [[nodiscard]] int rowCount(const QModelIndex& parent = QModelIndex()) const override;
+    [[nodiscard]] QVariant data(const QModelIndex& index, int role) const override;
+    [[nodiscard]] QHash<int, QByteArray> roleNames() const override;
 
     // -- Bulk / incremental updates (called from C++) --
     void setWorkspaces(const QList<WorkspaceInfo>& workspaces);
@@ -67,9 +67,9 @@ public:
     void clear();
 
     // -- Observable state --
-    bool isLoading() const;
+    [[nodiscard]] bool isLoading() const;
     void setLoading(bool loading);
-    QString errorMessage() const;
+    [[nodiscard]] QString errorMessage() const;
     void setErrorMessage(const QString& msg);
 
 signals:

@@ -91,43 +91,43 @@ public:
 
     // -- Getters (resolved value) -----------------------------------------
 
-    QString     deploymentUrl()         const;
-    QStringList allowedDeployments()    const;
-    bool        disableMultiDeployment() const;
+    [[nodiscard]] QString     deploymentUrl()         const;
+    [[nodiscard]] QStringList allowedDeployments()    const;
+    [[nodiscard]] bool        disableMultiDeployment() const;
 
-    bool requireVpn()       const;
-    bool autoConnectVpn()   const;
+    [[nodiscard]] bool requireVpn()       const;
+    [[nodiscard]] bool autoConnectVpn()   const;
 
-    bool dlpEnabled()        const;
-    bool dlpClipboardBlock() const;
-    bool dlpScreenshotBlock() const;
-    bool dlpFileSandbox()    const;
-    bool dlpNetworkSandbox() const;
+    [[nodiscard]] bool dlpEnabled()        const;
+    [[nodiscard]] bool dlpClipboardBlock() const;
+    [[nodiscard]] bool dlpScreenshotBlock() const;
+    [[nodiscard]] bool dlpFileSandbox()    const;
+    [[nodiscard]] bool dlpNetworkSandbox() const;
 
-    bool disableFileUpload()   const;
-    bool disableFileDownload() const;
+    [[nodiscard]] bool disableFileUpload()   const;
+    [[nodiscard]] bool disableFileDownload() const;
 
-    QString theme()                const;
-    bool    notificationsEnabled() const;
+    [[nodiscard]] QString theme()                const;
+    [[nodiscard]] bool    notificationsEnabled() const;
 
-    bool mdmEnabled() const;
+    [[nodiscard]] bool mdmEnabled() const;
 
     // -- Locked getters ---------------------------------------------------
 
-    bool deploymentUrlLocked()         const;
-    bool allowedDeploymentsLocked()    const;
-    bool disableMultiDeploymentLocked() const;
-    bool requireVpnLocked()            const;
-    bool autoConnectVpnLocked()        const;
-    bool dlpEnabledLocked()            const;
-    bool dlpClipboardBlockLocked()     const;
-    bool dlpScreenshotBlockLocked()    const;
-    bool dlpFileSandboxLocked()        const;
-    bool dlpNetworkSandboxLocked()     const;
-    bool disableFileUploadLocked()     const;
-    bool disableFileDownloadLocked()   const;
-    bool themeLocked()                 const;
-    bool notificationsEnabledLocked()  const;
+    [[nodiscard]] bool deploymentUrlLocked()         const;
+    [[nodiscard]] bool allowedDeploymentsLocked()    const;
+    [[nodiscard]] bool disableMultiDeploymentLocked() const;
+    [[nodiscard]] bool requireVpnLocked()            const;
+    [[nodiscard]] bool autoConnectVpnLocked()        const;
+    [[nodiscard]] bool dlpEnabledLocked()            const;
+    [[nodiscard]] bool dlpClipboardBlockLocked()     const;
+    [[nodiscard]] bool dlpScreenshotBlockLocked()    const;
+    [[nodiscard]] bool dlpFileSandboxLocked()        const;
+    [[nodiscard]] bool dlpNetworkSandboxLocked()     const;
+    [[nodiscard]] bool disableFileUploadLocked()     const;
+    [[nodiscard]] bool disableFileDownloadLocked()   const;
+    [[nodiscard]] bool themeLocked()                 const;
+    [[nodiscard]] bool notificationsEnabledLocked()  const;
 
     // -- Invokables -------------------------------------------------------
 
@@ -135,10 +135,10 @@ public:
     Q_INVOKABLE void setUserPreference(const QString& key, const QVariant& value);
 
     /// Returns true if the key is locked by MDM policy.
-    Q_INVOKABLE bool isLocked(const QString& key) const;
+    [[nodiscard]] Q_INVOKABLE bool isLocked(const QString& key) const;
 
     /// Returns the Source enum (as int) for QML consumption.
-    Q_INVOKABLE int settingSource(const QString& key) const;
+    [[nodiscard]] Q_INVOKABLE int settingSource(const QString& key) const;
 
 signals:
     void settingsChanged();

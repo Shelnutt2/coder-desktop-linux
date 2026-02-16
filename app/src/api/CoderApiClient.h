@@ -24,31 +24,31 @@ public:
     explicit CoderApiClient(QObject *parent = nullptr);
 
     // -- Properties ----------------------------------------------------------
-    QString baseUrl() const { return m_baseUrl; }
+    [[nodiscard]] QString baseUrl() const { return m_baseUrl; }
     void setBaseUrl(const QString &url);
 
     void setSessionToken(const QString &token);
-    bool isAuthenticated() const { return !m_sessionToken.isEmpty(); }
+    [[nodiscard]] bool isAuthenticated() const { return !m_sessionToken.isEmpty(); }
 
     // -- Auth ----------------------------------------------------------------
-    QNetworkReply *getAuthenticatedUser();           // GET /api/v2/users/me
+    [[nodiscard]] QNetworkReply *getAuthenticatedUser();           // GET /api/v2/users/me
 
     // -- Workspaces ----------------------------------------------------------
-    QNetworkReply *listWorkspaces(const QString &query = QString());
-    QNetworkReply *getWorkspace(const QString &id);
-    QNetworkReply *createWorkspaceBuild(
+    [[nodiscard]] QNetworkReply *listWorkspaces(const QString &query = QString());
+    [[nodiscard]] QNetworkReply *getWorkspace(const QString &id);
+    [[nodiscard]] QNetworkReply *createWorkspaceBuild(
         const QString &workspaceId,
         const QString &transition,
         const QString &templateVersionId = QString());
-    QNetworkReply *deleteWorkspace(const QString &id);
-    QNetworkReply *favoriteWorkspace(const QString &id);
-    QNetworkReply *unfavoriteWorkspace(const QString &id);
+    [[nodiscard]] QNetworkReply *deleteWorkspace(const QString &id);
+    [[nodiscard]] QNetworkReply *favoriteWorkspace(const QString &id);
+    [[nodiscard]] QNetworkReply *unfavoriteWorkspace(const QString &id);
 
     // -- Templates -----------------------------------------------------------
-    QNetworkReply *listTemplates();                  // GET /api/v2/templates
+    [[nodiscard]] QNetworkReply *listTemplates();                  // GET /api/v2/templates
 
     // -- Build info ----------------------------------------------------------
-    QNetworkReply *getBuildInfo();                    // GET /api/v2/buildinfo
+    [[nodiscard]] QNetworkReply *getBuildInfo();                    // GET /api/v2/buildinfo
 
 signals:
     void baseUrlChanged();
@@ -57,7 +57,7 @@ signals:
                        const QString &errorMessage);
 
 private:
-    QNetworkAccessManager *m_nam = nullptr;
+    QNetworkAccessManager *m_nam = nullptr;  // Qt parent-owned (this)
     QString m_baseUrl;
     QString m_sessionToken;
 

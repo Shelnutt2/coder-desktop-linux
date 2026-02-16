@@ -3,6 +3,8 @@
 
 #include <QString>
 
+#include "util/UniqueFd.h"
+
 /// Linux TUN device management for the Coder VPN tunnel.
 ///
 /// Uses /dev/net/tun with IFF_TUN | IFF_NO_PI to create a layer-3 tunnel
@@ -13,11 +15,8 @@ public:
     TunManager() = default;
 
     /// Create a TUN device with the given name.
-    /// @return file descriptor on success, -1 on error.
-    int createTun(const QString& name);
-
-    /// Close the TUN file descriptor.
-    static void destroyTun(int fd);
+    /// @return RAII-wrapped file descriptor (invalid on error).
+    [[nodiscard]] UniqueFd createTun(const QString& name);
 
     /// Add a route via the TUN device (stub — TODO: netlink).
     static void addRoute(const QString& cidr, const QString& dev);

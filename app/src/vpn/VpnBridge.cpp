@@ -1,6 +1,7 @@
 #include "vpn/VpnBridge.h"
 #include "vpn/TunManager.h"
 #include "vpn/DnsManager.h"
+#include "util/UniqueFd.h"
 
 #include <QDebug>
 #include <QMetaObject>
@@ -117,7 +118,7 @@ int32_t VpnBridge::onNetworkSettings(const char* addresses,
     // on *this* goroutine thread and return it; the main thread will receive
     // the configuration asynchronously for DNS / route setup.
     TunManager tunMgr;
-    int fd = tunMgr.createTun(QStringLiteral("coder0"));
+    UniqueFd fd = tunMgr.createTun(QStringLiteral("coder0"));
 
     // Fire-and-forget to main thread for DNS + bookkeeping.
     QMetaObject::invokeMethod(self, "handleNetworkSettings",
@@ -128,7 +129,8 @@ int32_t VpnBridge::onNetworkSettings(const char* addresses,
                               Q_ARG(QStringList, routeList),
                               Q_ARG(int, static_cast<int>(mtu)));
 
-    return static_cast<int32_t>(fd);
+    // Ownership of the fd transfers to the Go runtime via CoderVPN_UpdateTunFd.
+    return static_cast<int32_t>(fd.release());
 }
 
 void VpnBridge::onPeerUpdate(const char* workspaceName,

@@ -36,7 +36,7 @@ public:
     Q_INVOKABLE void notify(const QString& title, const QString& message,
                             const QString& category = QString());
 
-    bool isEnabled() const;
+    [[nodiscard]] bool isEnabled() const;
     void setEnabled(bool enabled);
 
     /// Set the system tray icon used for delivering notifications.
@@ -57,7 +57,7 @@ private:
     void cleanupRecent();
 
     bool m_enabled = true;
-    QSystemTrayIcon* m_trayIcon = nullptr;
+    QSystemTrayIcon* m_trayIcon = nullptr;  // non-owning
     int m_suppressMs = 5000;
     /// Maps "title\nmessage" → timestamp of last delivery.
     QHash<QString, QDateTime> m_recentNotifications;

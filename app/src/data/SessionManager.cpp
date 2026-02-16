@@ -14,7 +14,7 @@
 // Token validation interval: 30 minutes.
 static constexpr int kTokenValidateIntervalMs = 30 * 60 * 1000;
 
-SessionManager::SessionManager(CoderApiClient *apiClient, SecureStorage *storage,
+SessionManager::SessionManager(CoderApiClient &apiClient, SecureStorage &storage,
                                QObject *parent)
     : QObject(parent)
     , m_apiClient(apiClient)
@@ -25,10 +25,10 @@ SessionManager::SessionManager(CoderApiClient *apiClient, SecureStorage *storage
 
     // Restore active deployment credentials into the API client.
     if (!m_activeDeployment.url.isEmpty()) {
-        const QString token = m_storage->retrieveToken(m_activeDeployment.url);
+        const QString token = m_storage.retrieveToken(m_activeDeployment.url);
         if (!token.isEmpty()) {
-            m_apiClient->setBaseUrl(m_activeDeployment.url);
-            m_apiClient->setSessionToken(token);
+            m_apiClient.setBaseUrl(m_activeDeployment.url);
+            m_apiClient.setSessionToken(token);
             startTokenValidation();
         }
     }
@@ -40,7 +40,7 @@ SessionManager::SessionManager(CoderApiClient *apiClient, SecureStorage *storage
 
 bool SessionManager::isAuthenticated() const
 {
-    return m_apiClient->isAuthenticated();
+    return m_apiClient.isAuthenticated();
 }
 
 QString SessionManager::currentUrl() const
@@ -60,16 +60,16 @@ QString SessionManager::currentUsername() const
 void SessionManager::login(const QString &url, const QString &token)
 {
     // Configure the API client immediately so the request uses these creds.
-    m_apiClient->setBaseUrl(url);
-    m_apiClient->setSessionToken(token);
+    m_apiClient.setBaseUrl(url);
+    m_apiClient.setSessionToken(token);
 
-    QNetworkReply *reply = m_apiClient->getAuthenticatedUser();
+    QNetworkReply *reply = m_apiClient.getAuthenticatedUser();
     connect(reply, &QNetworkReply::finished, this, [this, reply, url, token]() {
         reply->deleteLater();
 
         if (reply->error() != QNetworkReply::NoError) {
             // Roll back API client state.
-            m_apiClient->setSessionToken(QString());
+            m_apiClient.setSessionToken(QString());
             emit loginFailed(reply->errorString());
             return;
         }
@@ -78,7 +78,7 @@ void SessionManager::login(const QString &url, const QString &token)
         const User user = User::fromJson(doc.object());
 
         // Store token securely.
-        m_storage->storeToken(url, token);
+        (void)m_storage.storeToken(url, token);
 
         // Build / update the deployment entry.
         Deployment dep;
@@ -118,10 +118,10 @@ void SessionManager::login(const QString &url, const QString &token)
 void SessionManager::logout()
 {
     if (!m_activeDeployment.url.isEmpty())
-        m_storage->removeToken(m_activeDeployment.url);
+        (void)m_storage.removeToken(m_activeDeployment.url);
 
-    m_apiClient->setSessionToken(QString());
-    m_apiClient->setBaseUrl(QString());
+    m_apiClient.setSessionToken(QString());
+    m_apiClient.setBaseUrl(QString());
 
     // Mark the deployment inactive but keep it in the list.
     for (auto &d : m_deployments) {
@@ -144,7 +144,7 @@ void SessionManager::validateToken()
     if (!isAuthenticated())
         return;
 
-    QNetworkReply *reply = m_apiClient->getAuthenticatedUser();
+    QNetworkReply *reply = m_apiClient.getAuthenticatedUser();
     connect(reply, &QNetworkReply::finished, this, [this, reply]() {
         reply->deleteLater();
 
@@ -199,7 +199,7 @@ void SessionManager::switchDeployment(const QString &url)
     if (!target)
         return;
 
-    const QString token = m_storage->retrieveToken(url);
+    const QString token = m_storage.retrieveToken(url);
     if (token.isEmpty()) {
         emit loginFailed(QStringLiteral("No stored token for %1").arg(url));
         return;
@@ -211,8 +211,8 @@ void SessionManager::switchDeployment(const QString &url)
     target->isActive = true;
     m_activeDeployment = *target;
 
-    m_apiClient->setBaseUrl(url);
-    m_apiClient->setSessionToken(token);
+    m_apiClient.setBaseUrl(url);
+    m_apiClient.setSessionToken(token);
     saveDeployments();
     startTokenValidation();
 
@@ -221,7 +221,7 @@ void SessionManager::switchDeployment(const QString &url)
 
 void SessionManager::removeDeployment(const QString &url)
 {
-    m_storage->removeToken(url);
+    (void)m_storage.removeToken(url);
 
     m_deployments.erase(
         std::remove_if(m_deployments.begin(), m_deployments.end(),
@@ -231,8 +231,8 @@ void SessionManager::removeDeployment(const QString &url)
     // If we just removed the active deployment, log out.
     if (m_activeDeployment.url == url) {
         m_activeDeployment = Deployment{};
-        m_apiClient->setSessionToken(QString());
-        m_apiClient->setBaseUrl(QString());
+        m_apiClient.setSessionToken(QString());
+        m_apiClient.setBaseUrl(QString());
         m_tokenValidator->stop();
         emit authStateChanged();
     }

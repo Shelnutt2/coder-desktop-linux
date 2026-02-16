@@ -29,19 +29,19 @@ class SessionManager : public QObject {
     Q_PROPERTY(QString currentUsername READ currentUsername NOTIFY authStateChanged)
 
 public:
-    explicit SessionManager(CoderApiClient *apiClient, SecureStorage *storage,
+    explicit SessionManager(CoderApiClient &apiClient, SecureStorage &storage,
                             QObject *parent = nullptr);
 
-    bool isAuthenticated() const;
-    QString currentUrl() const;
-    QString currentUsername() const;
+    [[nodiscard]] bool isAuthenticated() const;
+    [[nodiscard]] QString currentUrl() const;
+    [[nodiscard]] QString currentUsername() const;
 
     Q_INVOKABLE void login(const QString &url, const QString &token);
     Q_INVOKABLE void logout();
     Q_INVOKABLE void validateToken();
 
     // Multi-deployment
-    Q_INVOKABLE QVariantList deployments() const;
+    [[nodiscard]] Q_INVOKABLE QVariantList deployments() const;
     Q_INVOKABLE void switchDeployment(const QString &url);
     Q_INVOKABLE void removeDeployment(const QString &url);
 
@@ -52,11 +52,11 @@ signals:
     void loginFailed(const QString &error);
 
 private:
-    CoderApiClient *m_apiClient;
-    SecureStorage *m_storage;
+    CoderApiClient &m_apiClient;   // non-owning reference
+    SecureStorage &m_storage;      // non-owning reference
     Deployment m_activeDeployment;
     QList<Deployment> m_deployments;
-    QTimer *m_tokenValidator;
+    QTimer *m_tokenValidator;      // Qt parent-owned (this)
 
     void loadDeployments();
     void saveDeployments();

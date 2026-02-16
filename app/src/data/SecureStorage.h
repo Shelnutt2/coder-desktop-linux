@@ -20,19 +20,19 @@ public:
     explicit SecureStorage(QObject *parent = nullptr);
 
     /// Store a session token for a Coder deployment URL.
-    bool storeToken(const QString &deploymentUrl, const QString &token);
+    [[nodiscard]] bool storeToken(const QString &deploymentUrl, const QString &token);
 
     /// Retrieve a previously stored token (empty string on miss).
-    QString retrieveToken(const QString &deploymentUrl);
+    [[nodiscard]] QString retrieveToken(const QString &deploymentUrl);
 
     /// Remove the token for a deployment URL.
-    bool removeToken(const QString &deploymentUrl);
+    [[nodiscard]] bool removeToken(const QString &deploymentUrl);
 
     /// List all deployment URLs that have stored tokens.
-    QStringList storedDeploymentUrls();
+    [[nodiscard]] QStringList storedDeploymentUrls();
 
     /// Returns true when the secure backend (libsecret) is usable.
-    bool isSecureBackendAvailable() const;
+    [[nodiscard]] bool isSecureBackendAvailable() const;
 
 private:
     enum class Backend { LibSecret, EncryptedFile, None };

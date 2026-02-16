@@ -11,13 +11,13 @@
 #include <linux/if_tun.h>
 #include <sys/ioctl.h>
 
-int TunManager::createTun(const QString& name)
+UniqueFd TunManager::createTun(const QString& name)
 {
-    int fd = ::open("/dev/net/tun", O_RDWR | O_CLOEXEC);
-    if (fd < 0) {
+    UniqueFd fd(::open("/dev/net/tun", O_RDWR | O_CLOEXEC));
+    if (!fd) {
         qWarning() << "TunManager: failed to open /dev/net/tun:"
                     << strerror(errno);
-        return -1;
+        return {};
     }
 
     struct ifreq ifr {};
@@ -26,22 +26,15 @@ int TunManager::createTun(const QString& name)
     const QByteArray nameUtf8 = name.toUtf8();
     qstrncpy(ifr.ifr_name, nameUtf8.constData(), IFNAMSIZ);
 
-    if (::ioctl(fd, TUNSETIFF, &ifr) < 0) {
+    if (::ioctl(fd.get(), TUNSETIFF, &ifr) < 0) {
         qWarning() << "TunManager: TUNSETIFF failed for" << name
                     << ":" << strerror(errno);
-        ::close(fd);
-        return -1;
+        return {};
     }
 
     qInfo() << "TunManager: created TUN device" << ifr.ifr_name
-            << "fd=" << fd;
+            << "fd=" << fd.get();
     return fd;
-}
-
-void TunManager::destroyTun(int fd)
-{
-    if (fd >= 0)
-        ::close(fd);
 }
 
 void TunManager::addRoute(const QString& cidr, const QString& dev)

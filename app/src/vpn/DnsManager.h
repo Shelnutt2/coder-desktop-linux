@@ -17,11 +17,11 @@ public:
 
     explicit DnsManager();
 
-    Backend detectedBackend() const { return m_backend; }
+    [[nodiscard]] Backend detectedBackend() const { return m_backend; }
 
     /// Push DNS configuration for the given interface.
     /// @return true on success.
-    bool configure(const QStringList& nameservers,
+    [[nodiscard]] bool configure(const QStringList& nameservers,
                    const QStringList& searchDomains,
                    const QString& iface = QStringLiteral("coder0"));
 

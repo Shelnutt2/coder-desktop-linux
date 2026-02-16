@@ -58,7 +58,7 @@ int main(int argc, char* argv[])
     SettingsManager settingsManager;
     SecureStorage secureStorage;
     CoderApiClient apiClient;
-    SessionManager sessionManager(&apiClient, &secureStorage);
+    SessionManager sessionManager(apiClient, secureStorage);
     WorkspaceModel workspaceModel;
     PeerModel peerModel;
     NotificationManager notificationManager;

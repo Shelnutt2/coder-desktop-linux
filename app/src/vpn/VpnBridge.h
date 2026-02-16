@@ -53,17 +53,17 @@ public:
     ~VpnBridge() override;
 
     /// Singleton accessor (set once in main.cpp).
-    static VpnBridge* instance();
+    [[nodiscard]] static VpnBridge* instance();
     static void setInstance(VpnBridge* inst);
 
-    State state() const { return m_state; }
-    QString stateString() const;
-    bool connected() const { return m_state == State::Connected; }
-    QVariantList peers() const { return m_peers; }
+    [[nodiscard]] State state() const { return m_state; }
+    [[nodiscard]] QString stateString() const;
+    [[nodiscard]] bool connected() const { return m_state == State::Connected; }
+    [[nodiscard]] QVariantList peers() const { return m_peers; }
 
     Q_INVOKABLE void start(const QString& url, const QString& token);
     Q_INVOKABLE void stop();
-    Q_INVOKABLE bool isRunning() const;
+    [[nodiscard]] Q_INVOKABLE bool isRunning() const;
 
 signals:
     void stateChanged();
@@ -108,7 +108,7 @@ private:
     State m_state = State::Disconnected;
     QVariantList m_peers;
 
-    static VpnBridge* s_instance;
+    static VpnBridge* s_instance;  // non-owning — set/cleared in ctor/dtor
 };
 
 #endif // VPNBRIDGE_H
