@@ -73,6 +73,15 @@ coder_dlp_compositor *coder_dlp_create(void *parent_wl_surface) {
     comp->new_xdg_popup.notify = compositor_handle_new_xdg_popup;
     wl_signal_add(&comp->xdg_shell->events.new_popup, &comp->new_xdg_popup);
 
+    /* Seat (needed for keyboard/pointer/clipboard) */
+    comp->seat = wlr_seat_create(comp->wl_display, "seat0");
+
+    /* DLP clipboard mediation */
+    dlp_clipboard_init(comp);
+
+    /* Security context protocol */
+    dlp_security_context_init(comp);
+
     /* Listen for new outputs from the backend */
     comp->new_output.notify = compositor_handle_new_output;
     wl_signal_add(&comp->backend->events.new_output, &comp->new_output);

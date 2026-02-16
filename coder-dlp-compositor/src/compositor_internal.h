@@ -13,6 +13,8 @@
 #include <wlr/types/wlr_output_layout.h>
 #include <wlr/types/wlr_scene.h>
 #include <wlr/types/wlr_subcompositor.h>
+#include <wlr/types/wlr_seat.h>
+#include <wlr/types/wlr_security_context_v1.h>
 #include <wlr/types/wlr_xdg_shell.h>
 
 struct coder_dlp_toplevel {
@@ -68,9 +70,32 @@ struct coder_dlp_compositor {
     struct wl_listener new_output;
     struct wl_listener backend_destroy;
 
+    /* Seat (keyboard/pointer/clipboard) */
+    struct wlr_seat *seat;
+
+    /* Clipboard mediation */
+    struct wl_listener request_set_selection;
+    struct wl_listener request_set_primary_selection;
+
+    /* Security context */
+    struct wlr_security_context_manager_v1 *security_context_mgr;
+    struct wl_listener security_context_commit;
+
     /* Socket name for client connections */
     const char *socket;
 };
+
+/* Clipboard mediation (clipboard.c) */
+void dlp_clipboard_init(struct coder_dlp_compositor *comp);
+
+/* Security context protocol (security_context.c) */
+void dlp_security_context_init(struct coder_dlp_compositor *comp);
+
+/* Sandbox launcher helpers (sandbox_launcher.c) — exposed for testing */
+char **dlp_build_bwrap_args(const struct coder_dlp_compositor *comp,
+                            const char *command,
+                            const struct coder_dlp_sandbox_config *sandbox);
+void dlp_free_bwrap_args(char **argv);
 
 /* Output event handlers (output.c) */
 void compositor_handle_new_output(struct wl_listener *listener, void *data);
