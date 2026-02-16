@@ -15,6 +15,7 @@
 #include "models/WorkspaceModel.h"
 #include "models/PeerModel.h"
 #include "notifications/NotificationManager.h"
+#include "webview/AppBrowserWidget.h"
 
 int main(int argc, char* argv[])
 {
@@ -76,6 +77,11 @@ int main(int argc, char* argv[])
         QStringLiteral("peerModel"), &peerModel);
     engine.rootContext()->setContextProperty(
         QStringLiteral("notificationManager"), &notificationManager);
+
+    // ---- Phase 3 components ----
+    AppBrowserWidget appBrowser;
+    engine.rootContext()->setContextProperty(
+        QStringLiteral("appBrowser"), &appBrowser);
 
     // ---- System tray ----
     SystemTrayIcon tray(&vpnBridge);

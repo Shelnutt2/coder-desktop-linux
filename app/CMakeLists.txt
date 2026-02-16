@@ -41,6 +41,15 @@ add_executable(coder-desktop
     src/settings/SettingsManager.cpp
     src/settings/MdmConfigManager.h
     src/settings/MdmConfigManager.cpp
+    src/api/WebSocketBase.h
+    src/api/WebSocketBase.cpp
+    src/api/TerminalWebSocket.h
+    src/api/TerminalWebSocket.cpp
+    src/api/BuildLogWebSocket.h
+    src/api/BuildLogWebSocket.cpp
+    src/webview/AppBrowserWidget.h
+    src/webview/AppBrowserWidget.cpp
+    src/util/UniqueFd.h
 )
 
 qt_add_qml_module(coder-desktop
@@ -53,6 +62,7 @@ qt_add_qml_module(coder-desktop
         qml/VpnPage.qml
         qml/DeploymentPage.qml
         qml/SettingsPage.qml
+        qml/AppBrowserPage.qml
 )
 
 target_include_directories(coder-desktop PRIVATE src)
