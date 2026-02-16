@@ -36,17 +36,21 @@ ApplicationWindow {
                 TabButton { text: "Settings"; icon.name: "preferences-system" }
             }
 
-            StackLayout {
-                currentIndex: tabBar.currentIndex
+            // Use visibility-based switching instead of StackLayout so that
+            // pages keep their full dimensions when not active.  StackLayout
+            // resizes non-current children to 0×0 which causes ListView to
+            // cull all delegates; a model reset while at 0×0 then leaves the
+            // list visually empty when the user switches back.
+            Item {
                 Layout.fillWidth: true
                 Layout.fillHeight: true
 
-                WorkspacesPage {}
-                VpnPage {}
-                TasksPage {}
-                DeploymentPage {}
-                DlpPage {}
-                SettingsPage {}
+                WorkspacesPage  { anchors.fill: parent; visible: tabBar.currentIndex === 0 }
+                VpnPage         { anchors.fill: parent; visible: tabBar.currentIndex === 1 }
+                TasksPage       { anchors.fill: parent; visible: tabBar.currentIndex === 2 }
+                DeploymentPage  { anchors.fill: parent; visible: tabBar.currentIndex === 3 }
+                DlpPage         { anchors.fill: parent; visible: tabBar.currentIndex === 4 }
+                SettingsPage    { anchors.fill: parent; visible: tabBar.currentIndex === 5 }
             }
         }
     }
