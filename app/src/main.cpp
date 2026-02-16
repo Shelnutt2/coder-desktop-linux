@@ -94,11 +94,8 @@ int main(int argc, char* argv[])
     PollingController pollingController(apiClient, workspaceModel, taskModel,
                                         notificationManager, settingsManager);
 
-    // API signals → polling controller (handles models, change detection, caching).
-    QObject::connect(&apiClient, &CoderApiClient::workspacesReceived,
-                     &pollingController, &PollingController::handleWorkspacesReceived);
-    QObject::connect(&apiClient, &CoderApiClient::tasksReceived,
-                     &pollingController, &PollingController::handleTasksReceived);
+    // NOTE: PollingController's constructor already connects
+    // apiClient.workspacesReceived/tasksReceived to its handler slots.
 
     // Show loading state and handle errors for workspace/task fetches.
     QObject::connect(&apiClient, &CoderApiClient::requestFailed,
