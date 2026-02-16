@@ -56,6 +56,8 @@ add_executable(coder-desktop
     src/updater/AutoUpdater.cpp
     src/auth/LoginFlowController.h
     src/auth/LoginFlowController.cpp
+    src/api/PollingController.h
+    src/api/PollingController.cpp
 )
 
 qt_add_qml_module(coder-desktop

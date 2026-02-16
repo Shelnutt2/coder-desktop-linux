@@ -41,7 +41,15 @@ Item {
                 text: "Refresh"
                 icon.name: "view-refresh"
                 enabled: !taskModel.loading
-                onClicked: apiClient.fetchTasks()
+                onClicked: pollingController.refreshNow()
+            }
+
+            Label {
+                text: "Auto-refreshing every " + pollingController.refreshIntervalSec + "s"
+                font.pixelSize: 10
+                opacity: 0.4
+                visible: pollingController.polling
+                Layout.alignment: Qt.AlignVCenter
             }
         }
 

@@ -24,6 +24,7 @@
 #include "dlp/DlpCompositorWidget.h"
 #include "updater/AutoUpdater.h"
 #include "auth/LoginFlowController.h"
+#include "api/PollingController.h"
 
 int main(int argc, char* argv[])
 {
@@ -89,28 +90,15 @@ int main(int argc, char* argv[])
 
     TaskModel taskModel;
 
-    // ---- Wire API fetch signals to models ----
-    QObject::connect(&apiClient, &CoderApiClient::workspacesReceived,
-                     [&workspaceModel](const QJsonArray &arr) {
-        QList<WorkspaceModel::WorkspaceInfo> list;
-        list.reserve(arr.size());
-        for (const QJsonValue &v : arr)
-            list.append(WorkspaceModel::WorkspaceInfo::fromJson(v.toObject()));
-        workspaceModel.setWorkspaces(list);
-        workspaceModel.setLoading(false);
-        workspaceModel.setErrorMessage(QString());
-    });
+    // ---- Polling controller (auto-refresh, caching, notifications) ----
+    PollingController pollingController(apiClient, workspaceModel, taskModel,
+                                        notificationManager, settingsManager);
 
+    // API signals → polling controller (handles models, change detection, caching).
+    QObject::connect(&apiClient, &CoderApiClient::workspacesReceived,
+                     &pollingController, &PollingController::handleWorkspacesReceived);
     QObject::connect(&apiClient, &CoderApiClient::tasksReceived,
-                     [&taskModel](const QJsonArray &arr) {
-        QList<TaskModel::TaskInfo> list;
-        list.reserve(arr.size());
-        for (const QJsonValue &v : arr)
-            list.append(TaskModel::TaskInfo::fromJson(v.toObject()));
-        taskModel.setTasks(list);
-        taskModel.setLoading(false);
-        taskModel.setErrorMessage(QString());
-    });
+                     &pollingController, &PollingController::handleTasksReceived);
 
     // Show loading state and handle errors for workspace/task fetches.
     QObject::connect(&apiClient, &CoderApiClient::requestFailed,
@@ -126,6 +114,29 @@ int main(int argc, char* argv[])
             taskModel.setErrorMessage(errorMessage);
         }
     });
+
+    // Start/stop polling on auth state changes.
+    QObject::connect(&sessionManager, &SessionManager::authStateChanged,
+                     [&pollingController, &sessionManager]() {
+        if (sessionManager.isAuthenticated())
+            pollingController.start();
+        else
+            pollingController.stop();
+    });
+    QObject::connect(&sessionManager, &SessionManager::tokenExpired,
+                     &pollingController, &PollingController::stop);
+
+    // Re-fetch after workspace actions (start/stop/update/delete).
+    QObject::connect(&apiClient, &CoderApiClient::workspaceActionCompleted,
+                     &pollingController, &PollingController::refreshNow);
+
+    // Wire notificationsEnabled setting to NotificationManager.
+    auto syncNotifEnabled = [&]() {
+        notificationManager.setEnabled(settingsManager.notificationsEnabled());
+    };
+    syncNotifEnabled();
+    QObject::connect(&settingsManager, &SettingsManager::settingsChanged,
+                     syncNotifEnabled);
 
     // ---- Login flow (browser-based auth) ----
     LoginFlowController loginFlowController(sessionManager);
@@ -178,6 +189,8 @@ int main(int argc, char* argv[])
         QStringLiteral("dlpCompositor"), &dlpCompositor);
     engine.rootContext()->setContextProperty(
         QStringLiteral("loginFlowController"), &loginFlowController);
+    engine.rootContext()->setContextProperty(
+        QStringLiteral("pollingController"), &pollingController);
 
     // Load Main.qml directly from compiled-in Qt resources.  Using a
     // resource URL instead of engine.loadFromModule() avoids the need for
@@ -213,6 +226,11 @@ int main(int argc, char* argv[])
             }
         }
     });
+
+    // If already authenticated from a saved session, start polling immediately.
+    if (sessionManager.isAuthenticated()) {
+        pollingController.start();
+    }
 
     return app.exec();
 }

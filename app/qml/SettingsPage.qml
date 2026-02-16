@@ -185,6 +185,112 @@ Item {
             Rectangle { Layout.fillWidth: true; height: 1; color: Material.dividerColor }
 
             // ================================================================
+            // Data & Refresh
+            // ================================================================
+            Label {
+                text: "Data & Refresh"
+                font.pixelSize: 13
+                font.bold: true
+                opacity: 0.6
+                Layout.fillWidth: true
+                Layout.margins: 16
+                Layout.bottomMargin: 4
+            }
+
+            // Refresh interval
+            Pane {
+                Layout.fillWidth: true
+                padding: 16
+
+                RowLayout {
+                    width: parent.width - 32
+                    spacing: 12
+
+                    ColumnLayout {
+                        Layout.fillWidth: true
+                        spacing: 2
+
+                        RowLayout {
+                            spacing: 6
+                            Label {
+                                text: "Auto-refresh interval"
+                                font.pixelSize: 14
+                            }
+                            Label {
+                                text: "🔒"
+                                font.pixelSize: 12
+                                visible: settingsManager.refreshIntervalSecLocked
+                            }
+                        }
+                        Label {
+                            text: settingsManager.refreshIntervalSecLocked
+                                ? "Managed by your organization"
+                                : refreshSlider.value + " seconds"
+                            font.pixelSize: 11
+                            opacity: 0.5
+                        }
+                    }
+
+                    Slider {
+                        id: refreshSlider
+                        Layout.alignment: Qt.AlignRight | Qt.AlignVCenter
+                        Layout.preferredWidth: 140
+                        from: 5
+                        to: 60
+                        stepSize: 5
+                        value: settingsManager.refreshIntervalSec
+                        enabled: !settingsManager.refreshIntervalSecLocked
+                        onMoved: settingsManager.setUserPreference("refreshIntervalSec", value)
+                    }
+                }
+            }
+
+            // Cache toggle (inverted: toggle ON = caching enabled = disableDataCache is false)
+            Pane {
+                Layout.fillWidth: true
+                padding: 16
+
+                RowLayout {
+                    width: parent.width - 32
+                    spacing: 12
+
+                    ColumnLayout {
+                        Layout.fillWidth: true
+                        spacing: 2
+
+                        RowLayout {
+                            spacing: 6
+                            Label {
+                                text: "Cache workspace & task data"
+                                font.pixelSize: 14
+                            }
+                            Label {
+                                text: "🔒"
+                                font.pixelSize: 12
+                                visible: settingsManager.disableDataCacheLocked
+                            }
+                        }
+                        Label {
+                            text: settingsManager.disableDataCacheLocked
+                                ? "Managed by your organization"
+                                : "Store last-known data for faster startup"
+                            font.pixelSize: 11
+                            opacity: 0.5
+                        }
+                    }
+
+                    Switch {
+                        Layout.alignment: Qt.AlignRight | Qt.AlignVCenter
+                        checked: !settingsManager.disableDataCache
+                        enabled: !settingsManager.disableDataCacheLocked
+                        onToggled: settingsManager.setUserPreference("disableDataCache", !checked)
+                    }
+                }
+            }
+
+            Rectangle { Layout.fillWidth: true; height: 1; color: Material.dividerColor }
+
+            // ================================================================
             // Appearance
             // ================================================================
             Label {
