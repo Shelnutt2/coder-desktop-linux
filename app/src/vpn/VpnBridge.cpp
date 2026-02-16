@@ -189,7 +189,9 @@ void VpnBridge::handleNetworkSettings(const QStringList& addresses,
 
     // Configure DNS via the system resolver cascade.
     DnsManager dns;
-    dns.configure(dnsServers, searchDomains, QStringLiteral("coder0"));
+    if (!dns.configure(dnsServers, searchDomains, QStringLiteral("coder0"))) {
+        qWarning() << "DnsManager::configure failed";
+    }
 
     if (m_state == State::Connecting) {
         m_state = State::Connected;

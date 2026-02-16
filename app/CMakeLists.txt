@@ -99,50 +99,52 @@ if(LIBSECRET_FOUND)
 endif()
 
 # ---------------------------------------------------------------------------
-# Unit tests
+# Unit tests  (disable with -DBUILD_TESTING=OFF)
 # ---------------------------------------------------------------------------
-enable_testing()
+if(BUILD_TESTING)
+    enable_testing()
 
-add_executable(tst_dnsmanager
-    tests/unit/tst_dnsmanager.cpp
-    src/vpn/DnsManager.cpp
-)
-target_include_directories(tst_dnsmanager PRIVATE src)
-target_link_libraries(tst_dnsmanager PRIVATE Qt6::Core Qt6::Test)
-add_test(NAME DnsManagerTest COMMAND tst_dnsmanager)
+    add_executable(tst_dnsmanager
+        tests/unit/tst_dnsmanager.cpp
+        src/vpn/DnsManager.cpp
+    )
+    target_include_directories(tst_dnsmanager PRIVATE src)
+    target_link_libraries(tst_dnsmanager PRIVATE Qt6::Core Qt6::Test)
+    add_test(NAME DnsManagerTest COMMAND tst_dnsmanager)
 
-add_executable(tst_apiclient
-    tests/unit/tst_apiclient.cpp
-    src/api/CoderApiClient.cpp
-    src/data/SecureStorage.cpp
-)
-target_include_directories(tst_apiclient PRIVATE src)
-target_link_libraries(tst_apiclient PRIVATE Qt6::Core Qt6::Test Qt6::Network)
-if(LIBSECRET_FOUND)
-    target_link_libraries(tst_apiclient PRIVATE ${LIBSECRET_LIBRARIES})
-    target_include_directories(tst_apiclient PRIVATE ${LIBSECRET_INCLUDE_DIRS})
-    target_compile_definitions(tst_apiclient PRIVATE HAS_LIBSECRET)
+    add_executable(tst_apiclient
+        tests/unit/tst_apiclient.cpp
+        src/api/CoderApiClient.cpp
+        src/data/SecureStorage.cpp
+    )
+    target_include_directories(tst_apiclient PRIVATE src)
+    target_link_libraries(tst_apiclient PRIVATE Qt6::Core Qt6::Test Qt6::Network)
+    if(LIBSECRET_FOUND)
+        target_link_libraries(tst_apiclient PRIVATE ${LIBSECRET_LIBRARIES})
+        target_include_directories(tst_apiclient PRIVATE ${LIBSECRET_INCLUDE_DIRS})
+        target_compile_definitions(tst_apiclient PRIVATE HAS_LIBSECRET)
+    endif()
+    add_test(NAME ApiClientTest COMMAND tst_apiclient)
+
+    add_executable(tst_models
+        tests/unit/tst_models.cpp
+        src/models/WorkspaceModel.cpp
+        src/models/PeerModel.cpp
+        src/notifications/NotificationManager.cpp
+    )
+    target_include_directories(tst_models PRIVATE src)
+    target_link_libraries(tst_models PRIVATE Qt6::Core Qt6::Test Qt6::Widgets)
+    add_test(NAME ModelsTest COMMAND tst_models)
+
+    add_executable(tst_settings
+        tests/unit/tst_settings.cpp
+        src/settings/SettingsManager.cpp
+        src/settings/MdmConfigManager.cpp
+    )
+    target_include_directories(tst_settings PRIVATE src)
+    target_link_libraries(tst_settings PRIVATE Qt6::Core Qt6::Test)
+    add_test(NAME SettingsTest COMMAND tst_settings)
 endif()
-add_test(NAME ApiClientTest COMMAND tst_apiclient)
-
-add_executable(tst_models
-    tests/unit/tst_models.cpp
-    src/models/WorkspaceModel.cpp
-    src/models/PeerModel.cpp
-    src/notifications/NotificationManager.cpp
-)
-target_include_directories(tst_models PRIVATE src)
-target_link_libraries(tst_models PRIVATE Qt6::Core Qt6::Test Qt6::Widgets)
-add_test(NAME ModelsTest COMMAND tst_models)
-
-add_executable(tst_settings
-    tests/unit/tst_settings.cpp
-    src/settings/SettingsManager.cpp
-    src/settings/MdmConfigManager.cpp
-)
-target_include_directories(tst_settings PRIVATE src)
-target_link_libraries(tst_settings PRIVATE Qt6::Core Qt6::Test)
-add_test(NAME SettingsTest COMMAND tst_settings)
 
 # ---------------------------------------------------------------------------
 # Install  (GNUInstallDirs included at top level)

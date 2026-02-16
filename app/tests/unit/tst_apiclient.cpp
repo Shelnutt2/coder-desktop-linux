@@ -279,7 +279,7 @@ private slots:
         QVERIFY(!storage.removeToken(url1)); // already gone
 
         // Clean up url2
-        storage.removeToken(url2);
+        [[maybe_unused]] bool removed = storage.removeToken(url2);
     }
 };
 

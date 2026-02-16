@@ -12,6 +12,8 @@ endif()
 
 include(GNUInstallDirs)
 
+option(BUILD_TESTING "Build unit tests" ON)
+
 # Private library directory for bundled .so files
 set(CODER_LIB_DIR "${CMAKE_INSTALL_LIBDIR}/coder-desktop" CACHE PATH
     "Install directory for private shared libraries" FORCE)

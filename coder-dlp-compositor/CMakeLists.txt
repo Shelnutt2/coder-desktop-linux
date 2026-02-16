@@ -33,16 +33,18 @@ target_include_directories(coderdlp
 target_link_libraries(coderdlp PRIVATE ${WLROOTS_LIBRARIES} ${WAYLAND_LIBRARIES})
 target_compile_definitions(coderdlp PRIVATE WLR_USE_UNSTABLE)
 
-# Tests
-enable_testing()
-add_executable(test_dlp_policy tests/test_policy.c)
-target_include_directories(test_dlp_policy PRIVATE
-    ${WLROOTS_INCLUDE_DIRS} ${WAYLAND_INCLUDE_DIRS}
-    ${CMAKE_CURRENT_BINARY_DIR}
-)
-target_compile_definitions(test_dlp_policy PRIVATE WLR_USE_UNSTABLE)
-target_link_libraries(test_dlp_policy PRIVATE coderdlp)
-add_test(NAME DlpPolicyTest COMMAND test_dlp_policy)
+# Tests  (disable with -DBUILD_TESTING=OFF at top level)
+if(BUILD_TESTING)
+    enable_testing()
+    add_executable(test_dlp_policy tests/test_policy.c)
+    target_include_directories(test_dlp_policy PRIVATE
+        ${WLROOTS_INCLUDE_DIRS} ${WAYLAND_INCLUDE_DIRS}
+        ${CMAKE_CURRENT_BINARY_DIR}
+    )
+    target_compile_definitions(test_dlp_policy PRIVATE WLR_USE_UNSTABLE)
+    target_link_libraries(test_dlp_policy PRIVATE coderdlp)
+    add_test(NAME DlpPolicyTest COMMAND test_dlp_policy)
+endif()
 
 # ---------------------------------------------------------------------------
 # Install  (GNUInstallDirs + CODER_LIB_DIR set at top level)

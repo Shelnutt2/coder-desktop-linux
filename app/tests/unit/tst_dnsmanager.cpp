@@ -38,7 +38,7 @@ private slots:
         DnsManager dns;
         // With an empty nameserver list the call is essentially a no-op
         // even on real backends.
-        dns.configure({}, {}, QStringLiteral("coder-test0"));
+        [[maybe_unused]] bool ok = dns.configure({}, {}, QStringLiteral("coder-test0"));
         dns.teardown();
     }
 
