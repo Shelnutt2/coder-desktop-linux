@@ -104,17 +104,22 @@ int main(int argc, char* argv[])
     engine.rootContext()->setContextProperty(
         QStringLiteral("dlpCompositor"), &dlpCompositor);
 
+    // Load Main.qml directly from compiled-in Qt resources.  Using a
+    // resource URL instead of engine.loadFromModule() avoids the need for
+    // a qmldir file on disk, so the installed binary works from any prefix.
+    const QUrl mainQml(QStringLiteral("qrc:/CoderDesktop/qml/Main.qml"));
+
     QObject::connect(
         &engine, &QQmlApplicationEngine::objectCreated,
-        &app, [](QObject* obj, const QUrl& url) {
-            if (!obj) {
+        &app, [&mainQml](QObject* obj, const QUrl& url) {
+            if (!obj && url == mainQml) {
                 qCritical() << "Failed to load QML:" << url;
                 QCoreApplication::exit(-1);
             }
         },
         Qt::QueuedConnection);
 
-    engine.loadFromModule("CoderDesktop", "Main");
+    engine.load(mainQml);
 
     // ---- System tray ----
     SystemTrayIcon tray(&vpnBridge);
