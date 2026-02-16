@@ -27,6 +27,7 @@ static const struct {
     { "theme",                  QStringLiteral("system") },
     { "notificationsEnabled",   true               },
     { "checkForUpdates",        true               },
+    { "verbose",                false              },
 };
 
 // ---------------------------------------------------------------------------
@@ -171,6 +172,11 @@ bool SettingsManager::notificationsEnabled() const
 bool SettingsManager::checkForUpdates() const
 {
     return resolve(QStringLiteral("checkForUpdates"), true).toBool();
+}
+
+bool SettingsManager::verbose() const
+{
+    return resolve(QStringLiteral("verbose"), false).toBool();
 }
 
 bool SettingsManager::mdmEnabled() const

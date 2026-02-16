@@ -1,5 +1,7 @@
 #include <QApplication>
+#include <QCommandLineParser>
 #include <QIcon>
+#include <QLoggingCategory>
 #include <QQmlApplicationEngine>
 #include <QQmlContext>
 #include <QQuickStyle>
@@ -42,8 +44,35 @@ int main(int argc, char* argv[])
     VpnBridge vpnBridge;
     VpnBridge::setInstance(&vpnBridge);
 
+    // ---- CLI argument parsing ----
+    QCommandLineParser parser;
+    parser.setApplicationDescription(QStringLiteral("Coder Desktop for Linux"));
+    parser.addHelpOption();
+    parser.addVersionOption();
+
+    QCommandLineOption verboseOption(
+        QStringList() << QStringLiteral("v") << QStringLiteral("verbose"),
+        QStringLiteral("Enable verbose/debug logging"));
+    parser.addOption(verboseOption);
+    parser.process(app);
+
     // ---- Phase 2 managers ----
     SettingsManager settingsManager;
+
+    // ---- Logging configuration ----
+    const bool verbose = parser.isSet(verboseOption)
+        || settingsManager.verbose();
+
+    if (verbose) {
+        QLoggingCategory::setFilterRules(QStringLiteral("*.debug=true"));
+        qSetMessagePattern(QStringLiteral(
+            "[%{time yyyy-MM-dd hh:mm:ss.zzz}] [%{type}] %{category}: %{message}"));
+        qDebug() << "Verbose logging enabled";
+    } else {
+        qSetMessagePattern(QStringLiteral(
+            "[%{time hh:mm:ss}] [%{type}] %{message}"));
+    }
+
     SecureStorage secureStorage;
     CoderApiClient apiClient;
     SessionManager sessionManager(apiClient, secureStorage);

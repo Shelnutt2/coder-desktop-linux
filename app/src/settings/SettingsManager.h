@@ -114,6 +114,7 @@ public:
     [[nodiscard]] QString theme()                const;
     [[nodiscard]] bool    notificationsEnabled() const;
     [[nodiscard]] bool    checkForUpdates()      const;
+    [[nodiscard]] bool    verbose()              const;
 
     [[nodiscard]] bool mdmEnabled() const;
 
