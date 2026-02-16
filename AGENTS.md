@@ -85,6 +85,29 @@ coder-desktop (Qt app)
   └── REST → Coder deployment API
 ```
 
+## C++ Coding Standards
+
+The Qt application (`app/`) targets **C++20 or newer** and follows the [C++ Core Guidelines](https://isocpp.github.io/CppCoreGuidelines/CppCoreGuidelines) where practical.
+
+### RAII & Smart Pointers
+
+- **Prefer RAII for all resource management.** Every resource (memory, file descriptors, sockets, network connections) should be owned by an object whose destructor releases it.
+- **Use `std::unique_ptr` or `std::shared_ptr`** for owning pointers. Avoid bare `new` / `delete`.
+  - **Exception — Qt parent ownership:** `new QFoo(parent)` is acceptable because Qt's parent-child tree IS RAII: the parent's destructor deletes all children. Prefer this idiom for QObject-derived types that participate in the object tree.
+- **Non-owning pointers:** Raw pointers (`T*`) are allowed ONLY as non-owning observers/references (e.g., injected dependencies whose lifetime is guaranteed by the caller). Document these with a comment: `// non-owning`. Prefer `T&` (references) when null is never valid.
+- **File descriptors:** Wrap in a RAII class (e.g., `UniqueFd`) instead of passing raw `int` around with manual `close()` calls.
+- **Use `[[nodiscard]]` on functions where ignoring the return value is likely a bug** (factory functions, error codes, state queries).
+
+### Modern C++ Practices
+
+- Prefer `auto` with initializers for complex types, but be explicit for readability where the type isn't obvious.
+- Use `constexpr` and `const` liberally.
+- Use `enum class` (not unscoped `enum`) for all new enumerations.
+- Prefer range-based `for` loops.
+- Prefer `std::string_view`, `QStringView`, or `QLatin1StringView` for non-owning string parameters.
+- Use structured bindings (`auto [key, value] = ...`) where it improves clarity.
+- Use `= default` / `= delete` for special member functions.
+
 ## Key Patterns
 
 ### C callbacks from Go shared library
