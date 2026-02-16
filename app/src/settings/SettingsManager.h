@@ -86,6 +86,13 @@ public:
     Q_PROPERTY(bool notificationsEnabled READ notificationsEnabled NOTIFY settingsChanged)
     Q_PROPERTY(bool notificationsEnabledLocked READ notificationsEnabledLocked NOTIFY settingsChanged)
 
+    // Polling / caching
+    Q_PROPERTY(int refreshIntervalSec READ refreshIntervalSec NOTIFY settingsChanged)
+    Q_PROPERTY(bool refreshIntervalSecLocked READ refreshIntervalSecLocked NOTIFY settingsChanged)
+
+    Q_PROPERTY(bool disableDataCache READ disableDataCache NOTIFY settingsChanged)
+    Q_PROPERTY(bool disableDataCacheLocked READ disableDataCacheLocked NOTIFY settingsChanged)
+
     // Updates
     Q_PROPERTY(bool checkForUpdates READ checkForUpdates NOTIFY settingsChanged)
     Q_PROPERTY(bool checkForUpdatesLocked READ checkForUpdatesLocked NOTIFY settingsChanged)
@@ -126,6 +133,9 @@ public:
     [[nodiscard]] QString theme()                const;
     [[nodiscard]] bool    notificationsEnabled() const;
     [[nodiscard]] bool    checkForUpdates()      const;
+
+    [[nodiscard]] int  refreshIntervalSec() const;
+    [[nodiscard]] bool disableDataCache()   const;
     [[nodiscard]] bool    verbose()              const;
 
     [[nodiscard]] bool mdmEnabled() const;
@@ -149,6 +159,8 @@ public:
     [[nodiscard]] bool themeLocked()                 const;
     [[nodiscard]] bool notificationsEnabledLocked()  const;
     [[nodiscard]] bool checkForUpdatesLocked()       const;
+    [[nodiscard]] bool refreshIntervalSecLocked() const;
+    [[nodiscard]] bool disableDataCacheLocked()   const;
 
     // -- Invokables -------------------------------------------------------
 

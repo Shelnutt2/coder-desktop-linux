@@ -30,6 +30,8 @@ static const struct {
     { "notificationsEnabled",   true               },
     { "checkForUpdates",        true               },
     { "verbose",                false              },
+    { "refreshIntervalSec",     10                 },
+    { "disableDataCache",       false              },
 };
 
 // ---------------------------------------------------------------------------
@@ -196,6 +198,16 @@ bool SettingsManager::verbose() const
     return resolve(QStringLiteral("verbose"), false).toBool();
 }
 
+int SettingsManager::refreshIntervalSec() const
+{
+    return resolve(QStringLiteral("refreshIntervalSec"), 10).toInt();
+}
+
+bool SettingsManager::disableDataCache() const
+{
+    return resolve(QStringLiteral("disableDataCache"), false).toBool();
+}
+
 bool SettingsManager::mdmEnabled() const
 {
     return m_mdm->isEnabled();
@@ -222,6 +234,8 @@ bool SettingsManager::disableFileDownloadLocked()   const { return m_mdm->isLock
 bool SettingsManager::themeLocked()                 const { return m_mdm->isLocked(QStringLiteral("theme")); }
 bool SettingsManager::notificationsEnabledLocked()  const { return m_mdm->isLocked(QStringLiteral("notificationsEnabled")); }
 bool SettingsManager::checkForUpdatesLocked()       const { return m_mdm->isLocked(QStringLiteral("checkForUpdates")); }
+bool SettingsManager::refreshIntervalSecLocked() const { return m_mdm->isLocked(QStringLiteral("refreshIntervalSec")); }
+bool SettingsManager::disableDataCacheLocked()   const { return m_mdm->isLocked(QStringLiteral("disableDataCache")); }
 
 // ---------------------------------------------------------------------------
 // Invokables
