@@ -1,53 +1,47 @@
 import QtQuick
 import QtQuick.Controls
+import QtQuick.Controls.Material
 import QtQuick.Layouts
 
 ApplicationWindow {
     id: root
-    width: 400
-    height: 600
-    title: "Coder Desktop"
+    width: 480
+    height: 700
+    title: sessionManager.authenticated
+        ? "Coder Desktop — " + sessionManager.currentUsername
+        : "Coder Desktop"
     visible: true
 
-    ColumnLayout {
+    Material.accent: "#7C5CFC"  // Coder brand purple
+
+    StackLayout {
         anchors.fill: parent
-        anchors.margins: 16
+        currentIndex: sessionManager.authenticated ? 1 : 0
 
-        Label {
-            text: "Coder Desktop for Linux"
-            font.pixelSize: 24
-            font.bold: true
-            Layout.alignment: Qt.AlignHCenter
-        }
+        LoginPage { id: loginPage }
 
-        Item { Layout.preferredHeight: 16 }
+        ColumnLayout {
+            spacing: 0
 
-        Label {
-            text: "VPN Status: " + vpnBridge.stateString
-            font.pixelSize: 16
-            Layout.alignment: Qt.AlignHCenter
-        }
+            TabBar {
+                id: tabBar
+                Layout.fillWidth: true
+                Material.accent: "#7C5CFC"
 
-        Item { Layout.preferredHeight: 8 }
-
-        Button {
-            text: vpnBridge.connected ? "Disconnect VPN" : "Connect VPN"
-            Layout.alignment: Qt.AlignHCenter
-            onClicked: {
-                if (vpnBridge.connected) {
-                    vpnBridge.stop()
-                }
-                // else: would need URL/token — placeholder for Phase 2
+                TabButton { text: "Workspaces"; icon.name: "computer" }
+                TabButton { text: "VPN"; icon.name: "network-vpn" }
+                TabButton { text: "Settings"; icon.name: "preferences-system" }
             }
-        }
 
-        Item { Layout.fillHeight: true }
+            StackLayout {
+                currentIndex: tabBar.currentIndex
+                Layout.fillWidth: true
+                Layout.fillHeight: true
 
-        Label {
-            text: "Phase 1 — Foundation skeleton"
-            color: "gray"
-            font.pixelSize: 12
-            Layout.alignment: Qt.AlignHCenter
+                WorkspacesPage {}
+                VpnPage {}
+                SettingsPage {}
+            }
         }
     }
 }
