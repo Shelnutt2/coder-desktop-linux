@@ -1,0 +1,92 @@
+name: Release
+
+on:
+  push:
+    tags: ["v*"]
+
+permissions:
+  contents: write
+
+env:
+  GO_VERSION: "1.25"
+
+jobs:
+  build-release:
+    name: Build & Package Release
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Set up Go
+        uses: actions/setup-go@v5
+        with:
+          go-version: ${{ env.GO_VERSION }}
+          cache-dependency-path: coder-vpn-linux/go.sum
+
+      - name: Install system dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y --no-install-recommends \
+            qt6-base-dev \
+            qt6-declarative-dev \
+            qt6-tools-dev-tools \
+            libqt6quick3d6 \
+            libqt6websockets6-dev \
+            libqt6webengine6-dev \
+            libsecret-1-dev \
+            libwlroots-dev \
+            wayland-protocols \
+            pkg-config \
+            bubblewrap \
+            ninja-build \
+            dpkg-dev \
+            rpm
+
+      - name: CMake configure (Release)
+        run: |
+          cmake -B build \
+            -G Ninja \
+            -DCMAKE_BUILD_TYPE=Release \
+            -DCMAKE_INSTALL_PREFIX=/usr
+
+      - name: Build all targets
+        run: cmake --build build -j$(nproc)
+
+      - name: Run tests
+        run: |
+          ctest --test-dir build/app --output-on-failure
+          ctest --test-dir build/coder-dlp-compositor --output-on-failure
+          cd coder-vpn-linux && go test ./...
+
+      - name: Build deb package
+        run: |
+          cd packaging/deb
+          ./build.sh ../../build
+        continue-on-error: true
+
+      - name: Build rpm package
+        run: |
+          cd packaging/rpm
+          ./build.sh ../../build
+        continue-on-error: true
+
+      - name: Gather release artifacts
+        id: artifacts
+        run: |
+          mkdir -p dist
+          cp build/libcodervpn.so dist/ || true
+          cp build/coder-dlp-compositor/libcoderdlp.so dist/ || true
+          cp build/app/coder-desktop dist/ || true
+          cp packaging/deb/*.deb dist/ 2>/dev/null || true
+          cp packaging/rpm/*.rpm dist/ 2>/dev/null || true
+          ls -lh dist/
+
+      - name: Create GitHub Release
+        uses: softprops/action-gh-release@v2
+        with:
+          generate_release_notes: true
+          draft: false
+          prerelease: ${{ contains(github.ref_name, '-rc') || contains(github.ref_name, '-beta') || contains(github.ref_name, '-alpha') }}
+          files: dist/*

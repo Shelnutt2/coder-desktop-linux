@@ -1,0 +1,83 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+env:
+  GO_VERSION: "1.25"
+
+jobs:
+  lint:
+    name: Lint (clang-format)
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Run clang-format
+        run: |
+          find app/src -type f \( -name '*.h' -o -name '*.cpp' \) \
+            -exec clang-format --dry-run --Werror {} +
+          find coder-dlp-compositor/src -type f \( -name '*.c' -o -name '*.h' \) \
+            -exec clang-format --dry-run --Werror {} +
+
+  build-and-test:
+    name: Build & Test
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Go
+        uses: actions/setup-go@v5
+        with:
+          go-version: ${{ env.GO_VERSION }}
+          cache-dependency-path: coder-vpn-linux/go.sum
+
+      - name: Install system dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y --no-install-recommends \
+            qt6-base-dev \
+            qt6-declarative-dev \
+            qt6-tools-dev-tools \
+            libqt6quick3d6 \
+            libqt6websockets6-dev \
+            libqt6webengine6-dev \
+            libsecret-1-dev \
+            libwlroots-dev \
+            wayland-protocols \
+            pkg-config \
+            bubblewrap \
+            ccache \
+            ninja-build
+
+      - name: Set up ccache
+        uses: hendrikmuhs/ccache-action@v1
+        with:
+          key: build-ubuntu-24.04
+
+      - name: CMake configure
+        run: |
+          cmake -B build \
+            -G Ninja \
+            -DCMAKE_BUILD_TYPE=Debug \
+            -DCMAKE_C_COMPILER_LAUNCHER=ccache \
+            -DCMAKE_CXX_COMPILER_LAUNCHER=ccache
+
+      - name: Build all targets
+        run: cmake --build build -j$(nproc)
+
+      - name: Run C++ tests (app)
+        run: ctest --test-dir build/app --output-on-failure
+
+      - name: Run C tests (DLP compositor)
+        run: ctest --test-dir build/coder-dlp-compositor --output-on-failure
+
+      - name: Run Go tests
+        working-directory: coder-vpn-linux
+        run: go test ./...
