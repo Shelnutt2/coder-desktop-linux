@@ -47,6 +47,11 @@ add_executable(coder-desktop
     src/api/TerminalWebSocket.cpp
     src/api/BuildLogWebSocket.h
     src/api/BuildLogWebSocket.cpp
+    src/api/dto/Task.h
+    src/api/TaskWatchWebSocket.h
+    src/api/TaskWatchWebSocket.cpp
+    src/models/TaskModel.h
+    src/models/TaskModel.cpp
     src/webview/AppBrowserWidget.h
     src/webview/AppBrowserWidget.cpp
     src/util/UniqueFd.h
@@ -63,6 +68,8 @@ qt_add_qml_module(coder-desktop
         qml/DeploymentPage.qml
         qml/SettingsPage.qml
         qml/AppBrowserPage.qml
+        qml/TasksPage.qml
+        qml/TaskDetailPage.qml
 )
 
 target_include_directories(coder-desktop PRIVATE src)

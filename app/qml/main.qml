@@ -30,6 +30,7 @@ ApplicationWindow {
 
                 TabButton { text: "Workspaces"; icon.name: "computer" }
                 TabButton { text: "VPN"; icon.name: "network-vpn" }
+                TabButton { text: "Tasks"; icon.name: "dialog-information" }
                 TabButton { text: "Deployments"; icon.name: "network-server" }
                 TabButton { text: "Settings"; icon.name: "preferences-system" }
             }
@@ -41,6 +42,7 @@ ApplicationWindow {
 
                 WorkspacesPage {}
                 VpnPage {}
+                TasksPage {}
                 DeploymentPage {}
                 SettingsPage {}
             }

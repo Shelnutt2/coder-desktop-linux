@@ -15,6 +15,7 @@
 #include "models/WorkspaceModel.h"
 #include "models/PeerModel.h"
 #include "notifications/NotificationManager.h"
+#include "models/TaskModel.h"
 #include "webview/AppBrowserWidget.h"
 
 int main(int argc, char* argv[])
@@ -77,6 +78,10 @@ int main(int argc, char* argv[])
         QStringLiteral("peerModel"), &peerModel);
     engine.rootContext()->setContextProperty(
         QStringLiteral("notificationManager"), &notificationManager);
+
+    TaskModel taskModel;
+    engine.rootContext()->setContextProperty(
+        QStringLiteral("taskModel"), &taskModel);
 
     // ---- Phase 3 components ----
     AppBrowserWidget appBrowser;
