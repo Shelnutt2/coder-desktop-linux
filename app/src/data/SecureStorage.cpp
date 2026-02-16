@@ -89,8 +89,17 @@ bool SecureStorage::storeToken(const QString &deploymentUrl,
                                const QString &token)
 {
 #ifdef HAS_LIBSECRET
-    if (m_backend == Backend::LibSecret)
-        return libsecretStore(deploymentUrl, token);
+    if (m_backend == Backend::LibSecret) {
+        if (!libsecretStore(deploymentUrl, token))
+            return false;
+        // Mirror the URL (not the token) to the fallback file so that
+        // storedDeploymentUrls() works — libsecret has no schema-scoped
+        // enumeration in its simple API.
+        QJsonObject root = loadFallbackFile();
+        root.insert(deploymentUrl, QStringLiteral("libsecret"));
+        saveFallbackFile(root);
+        return true;
+    }
 #endif
     return fileStore(deploymentUrl, token);
 }
@@ -107,8 +116,14 @@ QString SecureStorage::retrieveToken(const QString &deploymentUrl)
 bool SecureStorage::removeToken(const QString &deploymentUrl)
 {
 #ifdef HAS_LIBSECRET
-    if (m_backend == Backend::LibSecret)
-        return libsecretRemove(deploymentUrl);
+    if (m_backend == Backend::LibSecret) {
+        bool removed = libsecretRemove(deploymentUrl);
+        // Also remove the mirrored URL entry from the fallback file.
+        QJsonObject root = loadFallbackFile();
+        root.remove(deploymentUrl);
+        saveFallbackFile(root);
+        return removed;
+    }
 #endif
     return fileRemove(deploymentUrl);
 }
