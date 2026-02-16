@@ -3,14 +3,33 @@
 
 #include <QApplication>
 #include <QIcon>
+#include <QPainter>
+#include <QPixmap>
+
+/// Create a simple fallback icon when no theme icon is available.
+static QIcon makeFallbackIcon()
+{
+    QPixmap pix(64, 64);
+    pix.fill(QColor(0x7C, 0x5C, 0xFC)); // Coder brand purple
+    QPainter p(&pix);
+    p.setPen(Qt::white);
+    p.setFont(QFont(QStringLiteral("sans-serif"), 36, QFont::Bold));
+    p.drawText(pix.rect(), Qt::AlignCenter, QStringLiteral("C"));
+    p.end();
+    return QIcon(pix);
+}
 
 SystemTrayIcon::SystemTrayIcon(VpnBridge* vpn, QObject* parent)
     : QSystemTrayIcon(parent)
     , m_vpn(vpn)
 {
-    // Use a themed icon; fall back to a generic network icon.
-    setIcon(QIcon::fromTheme(QStringLiteral("network-vpn"),
-                             QIcon::fromTheme(QStringLiteral("network-wired"))));
+    // Use a themed icon; fall back to a simple branded icon.
+    QIcon icon = QIcon::fromTheme(QStringLiteral("network-vpn"));
+    if (icon.isNull())
+        icon = QIcon::fromTheme(QStringLiteral("network-wired"));
+    if (icon.isNull())
+        icon = makeFallbackIcon();
+    setIcon(icon);
     setToolTip(QStringLiteral("Coder Desktop"));
 
     buildMenu();

@@ -39,26 +39,6 @@ int main(int argc, char* argv[])
     VpnBridge vpnBridge;
     VpnBridge::setInstance(&vpnBridge);
 
-    // ---- QML engine ----
-    QQmlApplicationEngine engine;
-
-    // Expose VpnBridge to QML as a context property (the QML_SINGLETON
-    // registration also makes it available via the CoderDesktop import,
-    // but a context property is simpler for the Phase 1 skeleton).
-    engine.rootContext()->setContextProperty(
-        QStringLiteral("vpnBridge"), &vpnBridge);
-
-    const QUrl mainQml(QStringLiteral("qrc:/CoderDesktop/qml/main.qml"));
-    QObject::connect(
-        &engine, &QQmlApplicationEngine::objectCreated,
-        &app, [&mainQml](QObject* obj, const QUrl& url) {
-            if (!obj && url == mainQml)
-                QCoreApplication::exit(-1);
-        },
-        Qt::QueuedConnection);
-
-    engine.loadFromModule("CoderDesktop", "Main");
-
     // ---- Phase 2 managers ----
     SettingsManager settingsManager;
     SecureStorage secureStorage;
@@ -75,7 +55,34 @@ int main(int argc, char* argv[])
         qInfo() << "Update available:" << version << "—" << url;
     });
 
-    // Expose Phase 2 objects to QML.
+    TaskModel taskModel;
+
+    // ---- Phase 3 components ----
+    AppBrowserWidget appBrowser;
+
+    // ---- DLP compositor ----
+    DlpCompositorWidget dlpCompositor;
+
+    // Wire DLP settings changes to the compositor policy.
+    QObject::connect(&settingsManager, &SettingsManager::settingsChanged, [&]() {
+        if (dlpCompositor.isRunning()) {
+            dlpCompositor.updatePolicy(
+                settingsManager.dlpClipboardBlock(),
+                settingsManager.dlpClipboardBlock(),  // both directions
+                true,  // screenshot always blocked
+                settingsManager.dlpFileSandbox(),
+                settingsManager.dlpNetworkSandbox()
+            );
+        }
+    });
+
+    // ---- QML engine ----
+    // All context properties must be set BEFORE loadFromModule() so they
+    // are available when QML bindings are first evaluated.
+    QQmlApplicationEngine engine;
+
+    engine.rootContext()->setContextProperty(
+        QStringLiteral("vpnBridge"), &vpnBridge);
     engine.rootContext()->setContextProperty(
         QStringLiteral("autoUpdater"), &autoUpdater);
     engine.rootContext()->setContextProperty(
@@ -90,33 +97,24 @@ int main(int argc, char* argv[])
         QStringLiteral("peerModel"), &peerModel);
     engine.rootContext()->setContextProperty(
         QStringLiteral("notificationManager"), &notificationManager);
-
-    TaskModel taskModel;
     engine.rootContext()->setContextProperty(
         QStringLiteral("taskModel"), &taskModel);
-
-    // ---- Phase 3 components ----
-    AppBrowserWidget appBrowser;
     engine.rootContext()->setContextProperty(
         QStringLiteral("appBrowser"), &appBrowser);
-
-    // ---- DLP compositor ----
-    DlpCompositorWidget dlpCompositor;
     engine.rootContext()->setContextProperty(
         QStringLiteral("dlpCompositor"), &dlpCompositor);
 
-    // Wire DLP settings changes to the compositor policy.
-    QObject::connect(&settingsManager, &SettingsManager::settingsChanged, [&]() {
-        if (dlpCompositor.isRunning()) {
-            dlpCompositor.updatePolicy(
-                settingsManager.dlpClipboardBlock(),
-                settingsManager.dlpClipboardBlock(),  // both directions
-                true,  // screenshot always blocked
-                settingsManager.dlpFileSandbox(),
-                settingsManager.dlpNetworkSandbox()
-            );
-        }
-    });
+    QObject::connect(
+        &engine, &QQmlApplicationEngine::objectCreated,
+        &app, [](QObject* obj, const QUrl& url) {
+            if (!obj) {
+                qCritical() << "Failed to load QML:" << url;
+                QCoreApplication::exit(-1);
+            }
+        },
+        Qt::QueuedConnection);
+
+    engine.loadFromModule("CoderDesktop", "Main");
 
     // ---- System tray ----
     SystemTrayIcon tray(&vpnBridge);

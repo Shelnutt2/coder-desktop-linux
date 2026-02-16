@@ -60,7 +60,7 @@ qt_add_qml_module(coder-desktop
     URI CoderDesktop
     VERSION 1.0
     QML_FILES
-        qml/main.qml
+        qml/Main.qml
         qml/LoginPage.qml
         qml/WorkspacesPage.qml
         qml/VpnPage.qml
