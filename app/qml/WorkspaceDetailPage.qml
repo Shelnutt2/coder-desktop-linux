@@ -554,7 +554,7 @@ Item {
             workspaceName: workspaceDetailPage.workspaceName
             agentName: workspaceDetailPage.selectedAgentName
             vpnActive: typeof vpnManager !== "undefined" && vpnManager ? vpnManager.connected : false
-            sessionToken: sessionManager.sessionToken || ""
+            sessionToken: sessionManager.sessionToken ? sessionManager.sessionToken : ""
             onCloseRequested: workspaceDetailPage.selectedAppSlug = ""
         }
     }
