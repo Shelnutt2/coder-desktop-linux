@@ -1,0 +1,46 @@
+Source: coder-desktop
+Section: devel
+Priority: optional
+Maintainer: Coder Technologies Inc. <support@coder.com>
+Build-Depends:
+ debhelper-compat (= 13),
+ cmake (>= 3.21),
+ pkg-config,
+ golang (>= 2:1.21~) | golang-1.21,
+ qt6-base-dev (>= 6.5),
+ qt6-declarative-dev (>= 6.5),
+ qt6-quickcontrols2-dev | qt6-declarative-dev (>= 6.5),
+ libgl-dev,
+ libsecret-1-dev,
+ libwlroots-dev (>= 0.19),
+ libwayland-dev,
+ wayland-protocols,
+Standards-Version: 4.6.2
+Homepage: https://coder.com
+Vcs-Git: https://github.com/coder/coder-desktop-linux.git
+Vcs-Browser: https://github.com/coder/coder-desktop-linux
+Rules-Requires-Root: no
+
+Package: coder-desktop
+Architecture: amd64
+Depends:
+ ${shlibs:Depends},
+ ${misc:Depends},
+ qt6-base-abi (>= 6.5) | libqt6core6 (>= 6.5),
+ libqt6gui6 (>= 6.5),
+ libqt6quick6 (>= 6.5),
+ libqt6network6 (>= 6.5),
+ libqt6widgets6 (>= 6.5),
+ qml6-module-qtquick-controls,
+ libsecret-1-0,
+Recommends:
+ libwlroots12 (>= 0.19) | libwlroots-0.19-0,
+Description: Coder Desktop for Linux — Remote development workspace manager
+ Coder Desktop provides a native Linux desktop experience for managing
+ Coder remote development workspaces. Features include:
+ .
+  * Built-in VPN tunnel for seamless workspace connectivity
+  * System tray integration for quick workspace access
+  * Workspace lifecycle management (start, stop, rebuild)
+  * Data Loss Prevention compositor for secure environments
+  * Native credential storage via libsecret

@@ -143,3 +143,12 @@ add_executable(tst_settings
 target_include_directories(tst_settings PRIVATE src)
 target_link_libraries(tst_settings PRIVATE Qt6::Core Qt6::Test)
 add_test(NAME SettingsTest COMMAND tst_settings)
+
+# ---------------------------------------------------------------------------
+# Install
+# ---------------------------------------------------------------------------
+include(GNUInstallDirs)
+install(TARGETS coder-desktop
+    RUNTIME DESTINATION "${CMAKE_INSTALL_BINDIR}"
+    COMPONENT runtime
+)

@@ -24,3 +24,33 @@ add_subdirectory(coder-dlp-compositor)
 
 # Target 3: coder-desktop (Qt / C++)
 add_subdirectory(app)
+
+# ---------------------------------------------------------------------------
+# Install targets
+# ---------------------------------------------------------------------------
+include(GNUInstallDirs)
+
+# Private library directory for bundled .so files
+set(CODER_LIB_DIR "${CMAKE_INSTALL_LIBDIR}/coder-desktop")
+
+# Install the Go VPN shared library (built via custom command)
+install(FILES ${CMAKE_BINARY_DIR}/libcodervpn.so
+    DESTINATION "${CODER_LIB_DIR}"
+    COMPONENT runtime
+)
+
+# Desktop file and icon
+install(FILES packaging/resources/com.coder.CoderDesktop.desktop
+    DESTINATION "${CMAKE_INSTALL_DATADIR}/applications"
+    COMPONENT runtime
+)
+install(FILES packaging/resources/coder-desktop.svg
+    DESTINATION "${CMAKE_INSTALL_DATADIR}/icons/hicolor/scalable/apps"
+    COMPONENT runtime
+)
+
+# AppStream metainfo (optional, for software centres)
+# install(FILES packaging/resources/com.coder.CoderDesktop.metainfo.xml
+#     DESTINATION "${CMAKE_INSTALL_DATADIR}/metainfo"
+#     COMPONENT runtime
+# )

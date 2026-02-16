@@ -1,0 +1,18 @@
+#!/usr/bin/make -f
+
+export DH_VERBOSE = 1
+
+%:
+	dh $@
+
+override_dh_auto_configure:
+	dh_auto_configure -- \
+		-DCMAKE_BUILD_TYPE=Release \
+		-DCMAKE_INSTALL_PREFIX=/usr
+
+override_dh_auto_build:
+	dh_auto_build -- -j$$(nproc)
+
+override_dh_shlibdeps:
+	# Private libs live in /usr/lib/coder-desktop; tell dpkg-shlibdeps
+	dh_shlibdeps -l/usr/lib/coder-desktop

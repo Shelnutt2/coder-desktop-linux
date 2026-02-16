@@ -1,0 +1,13 @@
+[Desktop Entry]
+Type=Application
+Name=Coder Desktop
+GenericName=Remote Development Workspace Manager
+Comment=Manage Coder remote development workspaces with built-in VPN
+Exec=coder-desktop %U
+Icon=coder-desktop
+Terminal=false
+Categories=Development;IDE;Network;
+Keywords=coder;remote;development;workspace;vpn;
+StartupNotify=true
+StartupWMClass=coder-desktop
+MimeType=x-scheme-handler/coder;

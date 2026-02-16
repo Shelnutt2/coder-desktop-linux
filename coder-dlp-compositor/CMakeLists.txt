@@ -47,3 +47,13 @@ target_include_directories(test_dlp_policy PRIVATE
 target_compile_definitions(test_dlp_policy PRIVATE WLR_USE_UNSTABLE)
 target_link_libraries(test_dlp_policy PRIVATE coderdlp)
 add_test(NAME DlpPolicyTest COMMAND test_dlp_policy)
+
+# ---------------------------------------------------------------------------
+# Install
+# ---------------------------------------------------------------------------
+include(GNUInstallDirs)
+set(CODER_LIB_DIR "${CMAKE_INSTALL_LIBDIR}/coder-desktop")
+install(TARGETS coderdlp
+    LIBRARY DESTINATION "${CODER_LIB_DIR}"
+    COMPONENT runtime
+)

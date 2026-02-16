@@ -1,0 +1,5 @@
+usr/bin/coder-desktop
+usr/lib/coder-desktop/libcoderdlp.so
+usr/lib/coder-desktop/libcodervpn.so
+usr/share/applications/com.coder.CoderDesktop.desktop
+usr/share/icons/hicolor/scalable/apps/coder-desktop.svg
