@@ -19,6 +19,16 @@ set(CODER_LIB_DIR "${CMAKE_INSTALL_LIBDIR}/coder-desktop" CACHE PATH
     "Install directory for private shared libraries" FORCE)
 
 # ---------------------------------------------------------------------------
+# RPATH — ensure the installed binary finds private .so files.
+# At install time the binary's RUNPATH is set to $ORIGIN/../<libdir>/coder-desktop
+# so it works regardless of the chosen install prefix.
+# ---------------------------------------------------------------------------
+set(CMAKE_SKIP_BUILD_RPATH OFF)
+set(CMAKE_BUILD_WITH_INSTALL_RPATH OFF)
+set(CMAKE_INSTALL_RPATH "\$ORIGIN/../${CODER_LIB_DIR}")
+set(CMAKE_INSTALL_RPATH_USE_LINK_LIBRARIES ON)
+
+# ---------------------------------------------------------------------------
 # Centralized dependency detection
 # ---------------------------------------------------------------------------
 include(cmake/FindDependencies.cmake)
@@ -36,12 +46,16 @@ add_custom_command(
 )
 add_custom_target(codervpn_so DEPENDS ${CMAKE_BINARY_DIR}/libcodervpn.so)
 
-add_library(codervpn SHARED IMPORTED)
-set_target_properties(codervpn PROPERTIES
-    IMPORTED_LOCATION ${CMAKE_BINARY_DIR}/libcodervpn.so
-    INTERFACE_INCLUDE_DIRECTORIES ${CMAKE_BINARY_DIR}
-)
+# The Go toolchain produces a .so without a SONAME. If we link via the full
+# path the dynamic linker records a path-relative NEEDED entry (e.g.
+# "../libcodervpn.so") which breaks at runtime.  Instead we create an
+# INTERFACE library that passes -L<dir> -l:libcodervpn.so so the linker
+# records the bare filename, and RPATH (set above) handles the rest.
+add_library(codervpn INTERFACE)
 add_dependencies(codervpn codervpn_so)
+target_link_options(codervpn INTERFACE
+    "-L${CMAKE_BINARY_DIR}" "-l:libcodervpn.so")
+target_include_directories(codervpn INTERFACE ${CMAKE_BINARY_DIR})
 
 # ---------------------------------------------------------------------------
 # Target 2: libcoderdlp.so (C / wlroots)
