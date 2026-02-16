@@ -48,13 +48,15 @@ Page {
             spacing: 4
 
             ToolButton {
-                icon.name: "window-close"
-                text: qsTr("Close")
-                display: AbstractButton.IconOnly
+                icon.name: "go-previous"
+                text: qsTr("Back to workspace")
+                display: AbstractButton.TextBesideIcon
                 onClicked: root.closeRequested()
                 ToolTip.text: text
                 ToolTip.visible: hovered
             }
+
+            ToolSeparator {}
 
             ToolButton {
                 id: backButton

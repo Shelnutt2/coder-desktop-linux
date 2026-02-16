@@ -418,18 +418,45 @@ Item {
                                 anchors.margins: 8
                                 spacing: 4
 
-                                // Icon placeholder
-                                Rectangle {
-                                    width: 32; height: 32; radius: 4
-                                    color: Material.color(Material.Blue, Material.Shade50)
+                                // App icon — loaded from Coder deployment, with letter fallback
+                                Item {
+                                    width: 32; height: 32
                                     Layout.alignment: Qt.AlignHCenter
 
-                                    Label {
-                                        anchors.centerIn: parent
-                                        text: model.appName.charAt(0).toUpperCase()
-                                        font.pixelSize: 16
-                                        font.bold: true
-                                        color: Material.color(Material.Blue)
+                                    Image {
+                                        id: appIconImage
+                                        anchors.fill: parent
+                                        visible: status === Image.Ready
+                                        source: {
+                                            if (!model.appIcon || model.appIcon.length === 0)
+                                                return "";
+                                            // Relative paths (e.g. "/icon/code.svg") need the deployment base URL
+                                            if (model.appIcon.startsWith("/")) {
+                                                var base = sessionManager.currentUrl.replace(/\/+$/, "");
+                                                return base + model.appIcon;
+                                            }
+                                            return model.appIcon;
+                                        }
+                                        sourceSize: Qt.size(32, 32)
+                                        fillMode: Image.PreserveAspectFit
+                                        smooth: true
+                                        cache: true
+                                    }
+
+                                    // Fallback: letter initial in a colored rectangle
+                                    Rectangle {
+                                        anchors.fill: parent
+                                        radius: 4
+                                        color: Material.color(Material.Blue, Material.Shade50)
+                                        visible: appIconImage.status !== Image.Ready
+
+                                        Label {
+                                            anchors.centerIn: parent
+                                            text: model.appName.charAt(0).toUpperCase()
+                                            font.pixelSize: 16
+                                            font.bold: true
+                                            color: Material.color(Material.Blue)
+                                        }
                                     }
                                 }
 
