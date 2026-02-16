@@ -1,12 +1,8 @@
 cmake_minimum_required(VERSION 3.16)
 project(coder-dlp-compositor C)
 
-find_package(PkgConfig REQUIRED)
-pkg_check_modules(WLROOTS REQUIRED wlroots-0.19)
-pkg_check_modules(WAYLAND REQUIRED wayland-server)
-pkg_check_modules(WAYLAND_PROTOCOLS REQUIRED wayland-protocols)
-pkg_get_variable(WAYLAND_PROTOCOLS_DIR wayland-protocols pkgdatadir)
-pkg_get_variable(WAYLAND_SCANNER_BIN wayland-scanner wayland_scanner)
+# Dependencies (wlroots, wayland, wayland-protocols) are found centrally in
+# cmake/FindDependencies.cmake — variables are inherited from the parent scope.
 
 # Generate xdg-shell protocol header (required by wlroots xdg_shell.h)
 set(XDG_SHELL_XML "${WAYLAND_PROTOCOLS_DIR}/stable/xdg-shell/xdg-shell.xml")
@@ -49,10 +45,8 @@ target_link_libraries(test_dlp_policy PRIVATE coderdlp)
 add_test(NAME DlpPolicyTest COMMAND test_dlp_policy)
 
 # ---------------------------------------------------------------------------
-# Install
+# Install  (GNUInstallDirs + CODER_LIB_DIR set at top level)
 # ---------------------------------------------------------------------------
-include(GNUInstallDirs)
-set(CODER_LIB_DIR "${CMAKE_INSTALL_LIBDIR}/coder-desktop")
 install(TARGETS coderdlp
     LIBRARY DESTINATION "${CODER_LIB_DIR}"
     COMPONENT runtime

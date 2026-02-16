@@ -2,13 +2,8 @@ set(CMAKE_CXX_STANDARD 20)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
 set(CMAKE_AUTOMOC ON)
 
-find_package(Qt6 REQUIRED COMPONENTS Core Gui Quick QuickControls2 Network Widgets Test)
-# Optional components — available on some distros/configurations.
-find_package(Qt6 COMPONENTS WebSockets QUIET)
-find_package(Qt6 COMPONENTS WebEngineQuick QUIET)
-
-find_package(PkgConfig REQUIRED)
-pkg_check_modules(LIBSECRET libsecret-1)  # optional — credential storage
+# Dependencies (Qt6, libsecret, etc.) are found centrally in
+# cmake/FindDependencies.cmake — variables are inherited from the parent scope.
 
 add_executable(coder-desktop
     src/main.cpp
@@ -150,9 +145,8 @@ target_link_libraries(tst_settings PRIVATE Qt6::Core Qt6::Test)
 add_test(NAME SettingsTest COMMAND tst_settings)
 
 # ---------------------------------------------------------------------------
-# Install
+# Install  (GNUInstallDirs included at top level)
 # ---------------------------------------------------------------------------
-include(GNUInstallDirs)
 install(TARGETS coder-desktop
     RUNTIME DESTINATION "${CMAKE_INSTALL_BINDIR}"
     COMPONENT runtime
