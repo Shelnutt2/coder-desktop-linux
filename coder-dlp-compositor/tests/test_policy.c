@@ -2,13 +2,16 @@
 
 #include <assert.h>
 #include <stdio.h>
+#include <stdlib.h>
 #include <string.h>
 
 /* Expose internals for testing */
 #include "../src/compositor_internal.h"
 
 static void test_set_policy(void) {
-    coder_dlp_compositor* comp = coder_dlp_create(NULL);
+    /* Allocate the struct directly to test policy logic without needing
+     * a running Wayland display (coder_dlp_create requires one). */
+    coder_dlp_compositor* comp = calloc(1, sizeof(*comp));
     assert(comp != NULL);
 
     coder_dlp_policy policy;
@@ -27,7 +30,7 @@ static void test_set_policy(void) {
     assert(comp->policy.file_sandbox == true);
     assert(comp->policy.network_sandbox == false);
 
-    coder_dlp_destroy(comp);
+    free(comp);
     printf("test_set_policy: PASSED\n");
 }
 
