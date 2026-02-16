@@ -78,9 +78,40 @@ QHash<int, QByteArray> TaskModel::roleNames() const
 
 void TaskModel::setTasks(const QList<TaskInfo> &tasks)
 {
-    beginResetModel();
-    m_tasks = tasks;
-    endResetModel();
+    // --- Handle removed items ---
+    QSet<QString> newIds;
+    newIds.reserve(tasks.size());
+    for (const auto &t : tasks)
+        newIds.insert(t.id);
+
+    for (int i = m_tasks.size() - 1; i >= 0; --i) {
+        if (!newIds.contains(m_tasks[i].id)) {
+            beginRemoveRows(QModelIndex(), i, i);
+            m_tasks.removeAt(i);
+            endRemoveRows();
+        }
+    }
+
+    // --- Handle updates and additions ---
+    QHash<QString, int> currentPositions;
+    currentPositions.reserve(m_tasks.size());
+    for (int i = 0; i < m_tasks.size(); ++i)
+        currentPositions[m_tasks[i].id] = i;
+
+    for (int i = 0; i < tasks.size(); ++i) {
+        const auto &task = tasks[i];
+        if (currentPositions.contains(task.id)) {
+            const int row = currentPositions[task.id];
+            m_tasks[row] = task;
+            emit dataChanged(index(row), index(row));
+        } else {
+            const int row = m_tasks.size();
+            beginInsertRows(QModelIndex(), row, row);
+            m_tasks.append(task);
+            endInsertRows();
+        }
+    }
+
     emit countChanged();
 }
 

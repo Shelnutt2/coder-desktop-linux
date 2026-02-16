@@ -75,9 +75,44 @@ QHash<int, QByteArray> WorkspaceModel::roleNames() const
 
 void WorkspaceModel::setWorkspaces(const QList<WorkspaceInfo>& workspaces)
 {
-    beginResetModel();
-    m_workspaces = workspaces;
-    endResetModel();
+    // --- Handle removed items ---
+    // Remove items that are no longer in the new list.
+    QSet<QString> newIds;
+    newIds.reserve(workspaces.size());
+    for (const auto &ws : workspaces)
+        newIds.insert(ws.id);
+
+    for (int i = m_workspaces.size() - 1; i >= 0; --i) {
+        if (!newIds.contains(m_workspaces[i].id)) {
+            beginRemoveRows(QModelIndex(), i, i);
+            m_workspaces.removeAt(i);
+            endRemoveRows();
+        }
+    }
+
+    // --- Handle updates and additions ---
+    // Build a map of current positions for O(1) lookup.
+    QHash<QString, int> currentPositions;
+    currentPositions.reserve(m_workspaces.size());
+    for (int i = 0; i < m_workspaces.size(); ++i)
+        currentPositions[m_workspaces[i].id] = i;
+
+    for (int i = 0; i < workspaces.size(); ++i) {
+        const auto &ws = workspaces[i];
+        if (currentPositions.contains(ws.id)) {
+            // Existing item — update in-place (no delegate destruction).
+            const int row = currentPositions[ws.id];
+            m_workspaces[row] = ws;
+            emit dataChanged(index(row), index(row));
+        } else {
+            // New item — append.
+            const int row = m_workspaces.size();
+            beginInsertRows(QModelIndex(), row, row);
+            m_workspaces.append(ws);
+            endInsertRows();
+        }
+    }
+
     emit countChanged();
 }
 

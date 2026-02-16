@@ -90,6 +90,8 @@ bool PollingController::isPolling() const
 void PollingController::start()
 {
     m_firstFetch = true;
+    m_lastWorkspaceJson = QJsonArray();
+    m_lastTaskJson = QJsonArray();
     loadCache();
     refreshNow();
     m_pollTimer.start();
@@ -114,6 +116,15 @@ void PollingController::refreshNow()
 
 void PollingController::handleWorkspacesReceived(const QJsonArray &arr)
 {
+    // Skip if data is unchanged since last poll — avoids model resets that
+    // destroy ListView delegates on background tabs.
+    if (arr == m_lastWorkspaceJson && !m_firstFetch) {
+        m_workspaceModel.setLoading(false);
+        m_workspaceModel.setErrorMessage(QString());
+        return;
+    }
+    m_lastWorkspaceJson = arr;
+
     QList<WorkspaceModel::WorkspaceInfo> list;
     list.reserve(arr.size());
     for (const auto &v : arr) {
@@ -133,6 +144,15 @@ void PollingController::handleWorkspacesReceived(const QJsonArray &arr)
 
 void PollingController::handleTasksReceived(const QJsonArray &arr)
 {
+    // Skip if data is unchanged since last poll — avoids model resets that
+    // destroy ListView delegates on background tabs.
+    if (arr == m_lastTaskJson && !m_firstFetch) {
+        m_taskModel.setLoading(false);
+        m_taskModel.setErrorMessage(QString());
+        return;
+    }
+    m_lastTaskJson = arr;
+
     QList<TaskModel::TaskInfo> list;
     list.reserve(arr.size());
     for (const auto &v : arr) {
