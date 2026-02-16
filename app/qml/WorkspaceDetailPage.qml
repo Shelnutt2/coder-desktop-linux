@@ -547,15 +547,18 @@ Item {
         anchors.fill: parent
         active: workspaceDetailPage.selectedAppSlug.length > 0
         z: 10
-        sourceComponent: AppBrowserPage {
-            deploymentUrl: sessionManager.currentUrl
-            agentId: workspaceDetailPage.selectedAgentId
-            appSlug: workspaceDetailPage.selectedAppSlug
-            workspaceName: workspaceDetailPage.workspaceName
-            agentName: workspaceDetailPage.selectedAgentName
-            vpnActive: typeof vpnManager !== "undefined" && vpnManager ? vpnManager.connected : false
-            sessionToken: sessionManager.sessionToken ? sessionManager.sessionToken : ""
-            onCloseRequested: workspaceDetailPage.selectedAppSlug = ""
+        source: "AppBrowserPage.qml"
+        onLoaded: {
+            item.deploymentUrl = Qt.binding(function() { return sessionManager.currentUrl; });
+            item.agentId = Qt.binding(function() { return workspaceDetailPage.selectedAgentId; });
+            item.appSlug = Qt.binding(function() { return workspaceDetailPage.selectedAppSlug; });
+            item.workspaceName = Qt.binding(function() { return workspaceDetailPage.workspaceName; });
+            item.agentName = Qt.binding(function() { return workspaceDetailPage.selectedAgentName; });
+            item.vpnActive = Qt.binding(function() {
+                return typeof vpnManager !== "undefined" && vpnManager ? vpnManager.connected : false;
+            });
+            item.sessionToken = Qt.binding(function() { return sessionManager.sessionToken(); });
+            item.closeRequested.connect(function() { workspaceDetailPage.selectedAppSlug = ""; });
         }
     }
 }
