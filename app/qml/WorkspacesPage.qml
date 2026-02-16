@@ -173,12 +173,26 @@ Item {
                         spacing: 4
                         Layout.alignment: Qt.AlignVCenter
 
+                        // Update & Start — shown for outdated+stopped workspaces
+                        Button {
+                            flat: true
+                            text: "Update & Start"
+                            visible: model.outdated
+                                     && model.statusString === "Stopped"
+                            onClicked: {
+                                apiClient.updateWorkspace(model.id)
+                                apiClient.startWorkspace(model.id)
+                            }
+                        }
+
                         // Start / Stop toggle
                         Button {
                             flat: true
                             text: model.statusString === "Running" ? "Stop" : "Start"
                             enabled: model.statusString === "Running"
                                      || model.statusString === "Stopped"
+                            visible: !(model.outdated
+                                       && model.statusString === "Stopped")
                             onClicked: {
                                 if (model.statusString === "Running")
                                     apiClient.stopWorkspace(model.id)

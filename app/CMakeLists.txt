@@ -51,6 +51,7 @@ qt_add_qml_module(coder-desktop
         qml/LoginPage.qml
         qml/WorkspacesPage.qml
         qml/VpnPage.qml
+        qml/DeploymentPage.qml
         qml/SettingsPage.qml
 )
 
