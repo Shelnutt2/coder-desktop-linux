@@ -44,6 +44,18 @@ Item {
             // WebEngine unavailable — switched to manual token entry.
             loginPage.currentStep = "token"
         }
+        function onProbeFailed(errorMessage) {
+            // Neither https nor http reached the server.
+            loginPage.errorText = errorMessage
+        }
+        function onProbingChanged() {
+            // When probing finishes and flow becomes active, transition to
+            // the browser step (if WebEngine is available).
+            if (!loginFlowController.probing && loginFlowController.flowActive) {
+                if (loginFlowController.webEngineAvailable)
+                    loginPage.currentStep = "browser"
+            }
+        }
     }
 
     // =======================================================================
@@ -111,22 +123,37 @@ Item {
 
         Button {
             id: signInButton
-            text: "Sign In"
+            text: loginFlowController.probing ? "Connecting…" : "Sign In"
             Layout.fillWidth: true
             Layout.preferredHeight: 44
             enabled: urlField.text.trim().length > 0
+                     && !loginFlowController.probing
             highlighted: true
             Material.background: Material.accent
 
             onClicked: {
                 loginPage.errorText = ""
                 loginFlowController.startFlow(urlField.text.trim())
-                if (loginFlowController.webEngineAvailable) {
+                // If the URL already has a scheme, startFlow() calls
+                // continueStartFlow() synchronously and flowActive becomes
+                // true immediately.  Transition now.
+                if (loginFlowController.flowActive
+                        && loginFlowController.webEngineAvailable) {
                     loginPage.currentStep = "browser"
                 }
+                // If scheme probing is needed, the probingChanged handler
+                // (above) transitions when probing finishes.
                 // If WebEngine unavailable, the externalBrowserOpened signal
                 // switches to "token" step automatically.
             }
+        }
+
+        BusyIndicator {
+            Layout.alignment: Qt.AlignHCenter
+            Layout.preferredWidth: 32
+            Layout.preferredHeight: 32
+            running: loginFlowController.probing
+            visible: loginFlowController.probing
         }
 
         Label {

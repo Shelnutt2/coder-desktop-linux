@@ -4,6 +4,9 @@
 #include <QObject>
 #include <QString>
 
+class QNetworkAccessManager;
+class QNetworkReply;
+
 #ifdef HAS_WEBENGINE
 class QWebEngineCookieStore;
 class QWebEngineProfile;
@@ -25,6 +28,7 @@ class LoginFlowController : public QObject {
     Q_OBJECT
     Q_PROPERTY(bool webEngineAvailable READ isWebEngineAvailable CONSTANT)
     Q_PROPERTY(bool flowActive READ isFlowActive NOTIFY flowActiveChanged)
+    Q_PROPERTY(bool probing READ isProbing NOTIFY probingChanged)
     Q_PROPERTY(QString loginUrl READ loginUrl NOTIFY loginUrlChanged)
 
 public:
@@ -37,6 +41,7 @@ public:
 
     [[nodiscard]] bool isWebEngineAvailable() const;
     [[nodiscard]] bool isFlowActive() const;
+    [[nodiscard]] bool isProbing() const;
     [[nodiscard]] QString loginUrl() const;
 
     /// Start a browser-based login flow for the given deployment URL.
@@ -66,14 +71,30 @@ signals:
     /// Emitted when the flow active state changes.
     void flowActiveChanged();
 
+    /// Emitted when scheme probing starts or finishes.
+    void probingChanged();
+
     /// Emitted if we can't use WebEngine and opened an external browser instead.
     void externalBrowserOpened(const QString &cliAuthUrl);
 
+    /// Emitted when scheme probing fails for both https and http.
+    void probeFailed(const QString &errorMessage);
+
 private:
+    /// Probe /api/v2/buildinfo to determine the correct scheme (https vs http).
+    /// Calls continueStartFlow() when done.
+    void probeScheme(const QString &hostWithoutScheme);
+
+    /// Continue the login flow after the scheme has been resolved.
+    void continueStartFlow(const QString &resolvedBaseUrl);
+
     SessionManager &m_sessionManager;  // non-owning reference
+    QNetworkAccessManager *m_nam = nullptr;  // owned by this (parent)
     QString m_deploymentUrl;
     QString m_loginUrl;
+    QString m_pendingHost;  // host being probed (no scheme)
     bool m_flowActive = false;
+    bool m_probing = false;
 
 #ifdef HAS_WEBENGINE
     QWebEngineProfile *m_profile = nullptr;   // owned by this

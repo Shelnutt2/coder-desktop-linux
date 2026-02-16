@@ -2,6 +2,10 @@
 #include "data/SessionManager.h"
 
 #include <QDesktopServices>
+#include <QNetworkAccessManager>
+#include <QNetworkReply>
+#include <QNetworkRequest>
+#include <QSslError>
 #include <QUrl>
 
 #ifdef HAS_WEBENGINE
@@ -13,10 +17,19 @@
 // Cookie name used by Coder deployments for session authentication.
 static const QByteArray kSessionCookieName = "coder_session_token";
 
+// Unauthenticated endpoint used to probe whether a Coder deployment is
+// reachable at a given scheme.  A 200 response (or even a non-network error
+// HTTP status) tells us the server is there.
+static const QString kProbeEndpoint = QStringLiteral("/api/v2/buildinfo");
+
+// Probe timeout in milliseconds.
+static constexpr int kProbeTimeoutMs = 10000;
+
 LoginFlowController::LoginFlowController(SessionManager &sessionManager,
                                          QObject *parent)
     : QObject(parent)
     , m_sessionManager(sessionManager)
+    , m_nam(new QNetworkAccessManager(this))
 {
 #ifdef HAS_WEBENGINE
     // Off-the-record profile — cookies are not persisted to disk.
@@ -42,6 +55,11 @@ bool LoginFlowController::isFlowActive() const
     return m_flowActive;
 }
 
+bool LoginFlowController::isProbing() const
+{
+    return m_probing;
+}
+
 QString LoginFlowController::loginUrl() const
 {
     return m_loginUrl;
@@ -57,26 +75,102 @@ void LoginFlowController::startFlow(const QString &deploymentUrl)
     if (base.isEmpty())
         return;
 
-    // Ensure the URL has a scheme.
-    if (!base.startsWith(QLatin1String("http://")) &&
-        !base.startsWith(QLatin1String("https://"))) {
-        base.prepend(QLatin1String("https://"));
+    // If the URL already has a scheme, proceed directly.
+    if (base.startsWith(QLatin1String("http://")) ||
+        base.startsWith(QLatin1String("https://"))) {
+        continueStartFlow(base);
+        return;
     }
 
-    m_deploymentUrl = base;
+    // No scheme — probe https first, then fall back to http.
+    probeScheme(base);
+}
+
+void LoginFlowController::probeScheme(const QString &hostWithoutScheme)
+{
+    m_pendingHost = hostWithoutScheme;
+    m_probing = true;
+    emit probingChanged();
+
+    const QUrl httpsUrl(QStringLiteral("https://") + hostWithoutScheme + kProbeEndpoint);
+    QNetworkRequest request(httpsUrl);
+    request.setTransferTimeout(kProbeTimeoutMs);
+
+    QNetworkReply *reply = m_nam->get(request);
+    connect(reply, &QNetworkReply::finished, this, [this, reply]() {
+        reply->deleteLater();
+
+        // If we're no longer probing (e.g. flow was cancelled), ignore.
+        if (!m_probing)
+            return;
+
+        if (reply->error() == QNetworkReply::NoError ||
+            reply->error() == QNetworkReply::AuthenticationRequiredError ||
+            reply->error() == QNetworkReply::ContentAccessDenied ||
+            reply->error() == QNetworkReply::ContentNotFoundError ||
+            reply->error() == QNetworkReply::InternalServerError) {
+            // Got an HTTP-level response — https works.
+            qInfo() << "LoginFlowController: https probe succeeded for" << m_pendingHost;
+            m_probing = false;
+            emit probingChanged();
+            continueStartFlow(QStringLiteral("https://") + m_pendingHost);
+            return;
+        }
+
+        // HTTPS failed (connection refused, SSL error, timeout, etc.) — try HTTP.
+        qInfo() << "LoginFlowController: https probe failed (" << reply->errorString()
+                << "), trying http for" << m_pendingHost;
+
+        const QUrl httpUrl(QStringLiteral("http://") + m_pendingHost + kProbeEndpoint);
+        QNetworkRequest httpReq(httpUrl);
+        httpReq.setTransferTimeout(kProbeTimeoutMs);
+
+        QNetworkReply *httpReply = m_nam->get(httpReq);
+        connect(httpReply, &QNetworkReply::finished, this, [this, httpReply]() {
+            httpReply->deleteLater();
+
+            if (!m_probing)
+                return;
+
+            m_probing = false;
+            emit probingChanged();
+
+            if (httpReply->error() == QNetworkReply::NoError ||
+                httpReply->error() == QNetworkReply::AuthenticationRequiredError ||
+                httpReply->error() == QNetworkReply::ContentAccessDenied ||
+                httpReply->error() == QNetworkReply::ContentNotFoundError ||
+                httpReply->error() == QNetworkReply::InternalServerError) {
+                // HTTP works.
+                qInfo() << "LoginFlowController: http probe succeeded for" << m_pendingHost;
+                continueStartFlow(QStringLiteral("http://") + m_pendingHost);
+            } else {
+                // Neither scheme works — default to https and let the user
+                // see the actual connection error during login.
+                qWarning() << "LoginFlowController: both probes failed for"
+                           << m_pendingHost << "— defaulting to https";
+                emit probeFailed(
+                    QStringLiteral("Could not reach server. Check the URL and try again."));
+            }
+        });
+    });
+}
+
+void LoginFlowController::continueStartFlow(const QString &resolvedBaseUrl)
+{
+    m_deploymentUrl = resolvedBaseUrl;
 
 #ifdef HAS_WEBENGINE
     // Clear any previous session cookies so the user gets a fresh login.
     clearCookies();
 
     // Point the embedded browser at the login page.
-    m_loginUrl = base + QStringLiteral("/login");
+    m_loginUrl = resolvedBaseUrl + QStringLiteral("/login");
     m_flowActive = true;
     emit loginUrlChanged();
     emit flowActiveChanged();
 #else
     // No WebEngine — open external browser to /cli-auth.
-    openExternalCliAuth(base);
+    openExternalCliAuth(resolvedBaseUrl);
 #endif
 }
 
@@ -85,6 +179,13 @@ void LoginFlowController::cancelFlow()
     m_flowActive = false;
     m_loginUrl.clear();
     m_deploymentUrl.clear();
+
+    // Cancel any in-progress scheme probe.
+    if (m_probing) {
+        m_probing = false;
+        m_pendingHost.clear();
+        emit probingChanged();
+    }
 
 #ifdef HAS_WEBENGINE
     clearCookies();
