@@ -36,7 +36,7 @@ private slots:
         ws.id   = QStringLiteral("ws-1");
         ws.name = QStringLiteral("dev");
         ws.ownerName = QStringLiteral("alice");
-        ws.status = 2;  // Running
+        ws.status = 0;  // Running
 
         model.setWorkspaces({ws});
 
@@ -49,7 +49,7 @@ private slots:
                  QStringLiteral("ws-1"));
         QCOMPARE(model.data(idx, WorkspaceModel::NameRole).toString(),
                  QStringLiteral("dev"));
-        QCOMPARE(model.data(idx, WorkspaceModel::StatusRole).toInt(), 2);
+        QCOMPARE(model.data(idx, WorkspaceModel::StatusRole).toInt(), 0);
         QCOMPARE(model.data(idx, WorkspaceModel::StatusStringRole).toString(),
                  QStringLiteral("Running"));
     }
@@ -61,13 +61,13 @@ private slots:
         WorkspaceModel::WorkspaceInfo ws;
         ws.id   = QStringLiteral("ws-1");
         ws.name = QStringLiteral("dev");
-        ws.status = 2;
+        ws.status = 0;  // Running
         model.setWorkspaces({ws});
 
         QSignalSpy dataSpy(&model, &WorkspaceModel::dataChanged);
 
         // Update the existing workspace.
-        ws.status = 4;  // Stopped
+        ws.status = 4;  // Failed
         model.updateWorkspace(ws);
 
         QCOMPARE(model.rowCount(), 1);  // still one entry
@@ -145,20 +145,23 @@ private slots:
 
     void testWorkspaceFromJson()
     {
+        QJsonObject latestBuild;
+        latestBuild[QLatin1String("status")] = QStringLiteral("running");
+
         QJsonObject obj;
         obj[QLatin1String("id")]            = QStringLiteral("abc-123");
         obj[QLatin1String("name")]          = QStringLiteral("myws");
         obj[QLatin1String("owner_name")]    = QStringLiteral("bob");
         obj[QLatin1String("template_name")] = QStringLiteral("docker");
-        obj[QLatin1String("status")]        = 2;
         obj[QLatin1String("favorite")]      = true;
         obj[QLatin1String("last_used_at")]  = QStringLiteral("2025-01-15T10:30:00Z");
+        obj[QLatin1String("latest_build")]  = latestBuild;
 
         auto info = WorkspaceModel::WorkspaceInfo::fromJson(obj);
         QCOMPARE(info.id, QStringLiteral("abc-123"));
         QCOMPARE(info.name, QStringLiteral("myws"));
         QCOMPARE(info.ownerName, QStringLiteral("bob"));
-        QCOMPARE(info.status, 2);
+        QCOMPARE(info.status, 0);  // Running
         QVERIFY(info.favorite);
         QVERIFY(info.lastUsedAt.isValid());
     }
