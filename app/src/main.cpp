@@ -17,6 +17,7 @@
 #include "notifications/NotificationManager.h"
 #include "models/TaskModel.h"
 #include "webview/AppBrowserWidget.h"
+#include "dlp/DlpCompositorWidget.h"
 
 int main(int argc, char* argv[])
 {
@@ -87,6 +88,24 @@ int main(int argc, char* argv[])
     AppBrowserWidget appBrowser;
     engine.rootContext()->setContextProperty(
         QStringLiteral("appBrowser"), &appBrowser);
+
+    // ---- DLP compositor ----
+    DlpCompositorWidget dlpCompositor;
+    engine.rootContext()->setContextProperty(
+        QStringLiteral("dlpCompositor"), &dlpCompositor);
+
+    // Wire DLP settings changes to the compositor policy.
+    QObject::connect(&settingsManager, &SettingsManager::settingsChanged, [&]() {
+        if (dlpCompositor.isRunning()) {
+            dlpCompositor.updatePolicy(
+                settingsManager.dlpClipboardBlock(),
+                settingsManager.dlpClipboardBlock(),  // both directions
+                true,  // screenshot always blocked
+                settingsManager.dlpFileSandbox(),
+                settingsManager.dlpNetworkSandbox()
+            );
+        }
+    });
 
     // ---- System tray ----
     SystemTrayIcon tray(&vpnBridge);
