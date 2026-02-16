@@ -22,6 +22,8 @@ static const struct {
     { "dlpScreenshotBlock",     false              },
     { "dlpFileSandbox",         false              },
     { "dlpNetworkSandbox",      false              },
+    { "dlpForceInAppBrowser",     false              },
+    { "dlpDisableExternalBrowser", false              },
     { "disableFileUpload",      false              },
     { "disableFileDownload",    false              },
     { "theme",                  QStringLiteral("system") },
@@ -149,6 +151,21 @@ bool SettingsManager::dlpNetworkSandbox() const
     return resolve(QStringLiteral("dlpNetworkSandbox"), false).toBool();
 }
 
+bool SettingsManager::dlpForceInAppBrowser() const
+{
+    return resolve(QStringLiteral("dlpForceInAppBrowser"), false).toBool();
+}
+
+bool SettingsManager::dlpDisableExternalBrowser() const
+{
+    return resolve(QStringLiteral("dlpDisableExternalBrowser"), false).toBool();
+}
+
+bool SettingsManager::externalBrowserAllowed() const
+{
+    return !dlpForceInAppBrowser() && !dlpDisableExternalBrowser();
+}
+
 bool SettingsManager::disableFileUpload() const
 {
     return resolve(QStringLiteral("disableFileUpload"), false).toBool();
@@ -198,6 +215,8 @@ bool SettingsManager::dlpClipboardBlockLocked()     const { return m_mdm->isLock
 bool SettingsManager::dlpScreenshotBlockLocked()    const { return m_mdm->isLocked(QStringLiteral("dlpScreenshotBlock")); }
 bool SettingsManager::dlpFileSandboxLocked()        const { return m_mdm->isLocked(QStringLiteral("dlpFileSandbox")); }
 bool SettingsManager::dlpNetworkSandboxLocked()     const { return m_mdm->isLocked(QStringLiteral("dlpNetworkSandbox")); }
+bool SettingsManager::dlpForceInAppBrowserLocked()     const { return m_mdm->isLocked(QStringLiteral("dlpForceInAppBrowser")); }
+bool SettingsManager::dlpDisableExternalBrowserLocked() const { return m_mdm->isLocked(QStringLiteral("dlpDisableExternalBrowser")); }
 bool SettingsManager::disableFileUploadLocked()     const { return m_mdm->isLocked(QStringLiteral("disableFileUpload")); }
 bool SettingsManager::disableFileDownloadLocked()   const { return m_mdm->isLocked(QStringLiteral("disableFileDownload")); }
 bool SettingsManager::themeLocked()                 const { return m_mdm->isLocked(QStringLiteral("theme")); }

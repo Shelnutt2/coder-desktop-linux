@@ -66,6 +66,9 @@ private slots:
         QCOMPARE(mgr.dlpScreenshotBlock(), false);
         QCOMPARE(mgr.dlpFileSandbox(), false);
         QCOMPARE(mgr.dlpNetworkSandbox(), false);
+        QCOMPARE(mgr.dlpForceInAppBrowser(), false);
+        QCOMPARE(mgr.dlpDisableExternalBrowser(), false);
+        QCOMPARE(mgr.externalBrowserAllowed(), true);
         QCOMPARE(mgr.disableFileUpload(), false);
         QCOMPARE(mgr.disableFileDownload(), false);
         QCOMPARE(mgr.theme(), QStringLiteral("system"));
@@ -228,7 +231,56 @@ private slots:
     }
 
     // -----------------------------------------------------------------
-    // 7. Invalid / missing MDM JSON handled gracefully
+    // 7. externalBrowserAllowed computed property
+    // -----------------------------------------------------------------
+    void testExternalBrowserAllowed()
+    {
+        QTemporaryDir tmpDir;
+        QVERIFY(tmpDir.isValid());
+
+        const QString prefsPath = userSettingsPath(tmpDir);
+
+        // Both false → allowed
+        {
+            SettingsManager mgr(
+                tmpDir.filePath(QStringLiteral("no-such-policy.json")),
+                prefsPath);
+            QCOMPARE(mgr.externalBrowserAllowed(), true);
+        }
+
+        // dlpForceInAppBrowser=true, dlpDisableExternalBrowser=false → not allowed
+        {
+            SettingsManager mgr(
+                tmpDir.filePath(QStringLiteral("no-such-policy.json")),
+                prefsPath);
+            mgr.setUserPreference(QStringLiteral("dlpForceInAppBrowser"), true);
+            mgr.setUserPreference(QStringLiteral("dlpDisableExternalBrowser"), false);
+            QCOMPARE(mgr.externalBrowserAllowed(), false);
+        }
+
+        // dlpForceInAppBrowser=false, dlpDisableExternalBrowser=true → not allowed
+        {
+            SettingsManager mgr(
+                tmpDir.filePath(QStringLiteral("no-such-policy.json")),
+                prefsPath);
+            mgr.setUserPreference(QStringLiteral("dlpForceInAppBrowser"), false);
+            mgr.setUserPreference(QStringLiteral("dlpDisableExternalBrowser"), true);
+            QCOMPARE(mgr.externalBrowserAllowed(), false);
+        }
+
+        // Both true → not allowed
+        {
+            SettingsManager mgr(
+                tmpDir.filePath(QStringLiteral("no-such-policy.json")),
+                prefsPath);
+            mgr.setUserPreference(QStringLiteral("dlpForceInAppBrowser"), true);
+            mgr.setUserPreference(QStringLiteral("dlpDisableExternalBrowser"), true);
+            QCOMPARE(mgr.externalBrowserAllowed(), false);
+        }
+    }
+
+    // -----------------------------------------------------------------
+    // 8. Invalid / missing MDM JSON handled gracefully
     // -----------------------------------------------------------------
     void testInvalidMdmJson()
     {

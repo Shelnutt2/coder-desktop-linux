@@ -63,6 +63,15 @@ public:
     Q_PROPERTY(bool dlpNetworkSandbox READ dlpNetworkSandbox NOTIFY settingsChanged)
     Q_PROPERTY(bool dlpNetworkSandboxLocked READ dlpNetworkSandboxLocked NOTIFY settingsChanged)
 
+    Q_PROPERTY(bool dlpForceInAppBrowser READ dlpForceInAppBrowser NOTIFY settingsChanged)
+    Q_PROPERTY(bool dlpForceInAppBrowserLocked READ dlpForceInAppBrowserLocked NOTIFY settingsChanged)
+
+    Q_PROPERTY(bool dlpDisableExternalBrowser READ dlpDisableExternalBrowser NOTIFY settingsChanged)
+    Q_PROPERTY(bool dlpDisableExternalBrowserLocked READ dlpDisableExternalBrowserLocked NOTIFY settingsChanged)
+
+    // Convenience: true when external browser is allowed by DLP policy
+    Q_PROPERTY(bool externalBrowserAllowed READ externalBrowserAllowed NOTIFY settingsChanged)
+
     // File transfer
     Q_PROPERTY(bool disableFileUpload READ disableFileUpload NOTIFY settingsChanged)
     Q_PROPERTY(bool disableFileUploadLocked READ disableFileUploadLocked NOTIFY settingsChanged)
@@ -107,6 +116,9 @@ public:
     [[nodiscard]] bool dlpScreenshotBlock() const;
     [[nodiscard]] bool dlpFileSandbox()    const;
     [[nodiscard]] bool dlpNetworkSandbox() const;
+    [[nodiscard]] bool dlpForceInAppBrowser()     const;
+    [[nodiscard]] bool dlpDisableExternalBrowser() const;
+    [[nodiscard]] bool externalBrowserAllowed()    const;
 
     [[nodiscard]] bool disableFileUpload()   const;
     [[nodiscard]] bool disableFileDownload() const;
@@ -130,6 +142,8 @@ public:
     [[nodiscard]] bool dlpScreenshotBlockLocked()    const;
     [[nodiscard]] bool dlpFileSandboxLocked()        const;
     [[nodiscard]] bool dlpNetworkSandboxLocked()     const;
+    [[nodiscard]] bool dlpForceInAppBrowserLocked()     const;
+    [[nodiscard]] bool dlpDisableExternalBrowserLocked() const;
     [[nodiscard]] bool disableFileUploadLocked()     const;
     [[nodiscard]] bool disableFileDownloadLocked()   const;
     [[nodiscard]] bool themeLocked()                 const;
