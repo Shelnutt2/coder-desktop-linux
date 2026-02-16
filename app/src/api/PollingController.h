@@ -95,11 +95,6 @@ private:
     /// Suppresses notifications on the very first data load so the user is
     /// not spammed with "changed" alerts for every existing workspace/task.
     bool m_firstFetch = true;
-
-    /// Cached JSON from the last successful poll — used to skip redundant
-    /// model updates that would destroy ListView delegates on background tabs.
-    QJsonArray m_lastWorkspaceJson;
-    QJsonArray m_lastTaskJson;
 };
 
 #endif // POLLINGCONTROLLER_H
