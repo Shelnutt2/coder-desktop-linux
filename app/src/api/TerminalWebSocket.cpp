@@ -4,14 +4,9 @@
 #include <QJsonObject>
 #include <QUuid>
 
-TerminalWebSocket::TerminalWebSocket(QObject *parent)
-    : WebSocketBase(parent)
-{
-}
+TerminalWebSocket::TerminalWebSocket(QObject* parent) : WebSocketBase(parent) {}
 
-void TerminalWebSocket::connectToPty(const QString &agentId,
-                                     int cols, int rows)
-{
+void TerminalWebSocket::connectToPty(const QString& agentId, int cols, int rows) {
     m_agentId = agentId;
     m_cols = cols;
     m_rows = rows;
@@ -21,25 +16,23 @@ void TerminalWebSocket::connectToPty(const QString &agentId,
         m_sessionId = QUuid::createUuid().toString(QUuid::WithoutBraces);
     }
 
-    const QString path = QStringLiteral(
-        "/api/v2/workspaceagents/%1/pty?reconnect=%2&width=%3&height=%4")
-        .arg(m_agentId, m_sessionId)
-        .arg(m_cols)
-        .arg(m_rows);
+    const QString path =
+        QStringLiteral("/api/v2/workspaceagents/%1/pty?reconnect=%2&width=%3&height=%4")
+            .arg(m_agentId, m_sessionId)
+            .arg(m_cols)
+            .arg(m_rows);
 
     connectToEndpoint(path);
 }
 
-void TerminalWebSocket::sendInput(const QString &data)
-{
+void TerminalWebSocket::sendInput(const QString& data) {
     QJsonObject msg;
     msg[QStringLiteral("data")] = data;
     // Coder PTY API expects binary WebSocket frames (matching Android client).
     sendBinaryMessage(QJsonDocument(msg).toJson(QJsonDocument::Compact));
 }
 
-void TerminalWebSocket::resize(int cols, int rows)
-{
+void TerminalWebSocket::resize(int cols, int rows) {
     m_cols = cols;
     m_rows = rows;
 
@@ -50,17 +43,14 @@ void TerminalWebSocket::resize(int cols, int rows)
     sendBinaryMessage(QJsonDocument(msg).toJson(QJsonDocument::Compact));
 }
 
-QString TerminalWebSocket::sessionId() const
-{
+QString TerminalWebSocket::sessionId() const {
     return m_sessionId;
 }
 
-void TerminalWebSocket::onTextMessage(const QString &message)
-{
+void TerminalWebSocket::onTextMessage(const QString& message) {
     emit outputReceived(message);
 }
 
-void TerminalWebSocket::onBinaryMessage(const QByteArray &data)
-{
+void TerminalWebSocket::onBinaryMessage(const QByteArray& data) {
     emit outputReceived(QString::fromUtf8(data));
 }

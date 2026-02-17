@@ -29,10 +29,10 @@ public:
     struct PeerInfo {
         QString workspaceName;
         QString agentName;
-        QString hostname;       ///< e.g. "myworkspace.coder"
-        int status = 0;        ///< 0=disconnected, 1=connecting, 2=connected
-        qint64 lastPingMs = -1; ///< -1 if unknown
-        bool isP2P = false;     ///< true=direct, false=relayed
+        QString hostname;        ///< e.g. "myworkspace.coder"
+        int status = 0;          ///< 0=disconnected, 1=connecting, 2=connected
+        qint64 lastPingMs = -1;  ///< -1 if unknown
+        bool isP2P = false;      ///< true=direct, false=relayed
     };
 
     explicit PeerModel(QObject* parent = nullptr);
@@ -56,4 +56,4 @@ private:
     QList<PeerInfo> m_peers;
 };
 
-#endif // PEERMODEL_H
+#endif  // PEERMODEL_H

@@ -66,4 +66,4 @@ private:
     QString m_lastCategory;
 };
 
-#endif // NOTIFICATIONMANAGER_H
+#endif  // NOTIFICATIONMANAGER_H

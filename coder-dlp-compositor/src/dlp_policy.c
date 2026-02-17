@@ -3,8 +3,7 @@
 
 #include <string.h>
 
-void coder_dlp_set_policy(coder_dlp_compositor* comp,
-                           const coder_dlp_policy* policy) {
+void coder_dlp_set_policy(coder_dlp_compositor* comp, const coder_dlp_policy* policy) {
     if (!comp || !policy) {
         return;
     }

@@ -7,25 +7,25 @@
 #include <QQuickStyle>
 #include <QQuickWindow>
 
-#include "vpn/VpnBridge.h"
 #include "tray/SystemTrayIcon.h"
+#include "vpn/VpnBridge.h"
 
-#include "settings/SettingsManager.h"
-#include "data/SecureStorage.h"
 #include "api/CoderApiClient.h"
-#include "data/SessionManager.h"
-#include "models/WorkspaceModel.h"
-#include "models/PeerModel.h"
-#include "notifications/NotificationManager.h"
-#include "models/TaskModel.h"
-#include "api/dto/Workspace.h"
-#include "api/dto/Task.h"
-#include "webview/AppBrowserWidget.h"
-#include "dlp/DlpCompositorWidget.h"
-#include "updater/AutoUpdater.h"
-#include "auth/LoginFlowController.h"
 #include "api/PollingController.h"
+#include "api/dto/Task.h"
+#include "api/dto/Workspace.h"
+#include "auth/LoginFlowController.h"
+#include "data/SecureStorage.h"
+#include "data/SessionManager.h"
+#include "dlp/DlpCompositorWidget.h"
+#include "models/PeerModel.h"
+#include "models/TaskModel.h"
+#include "models/WorkspaceModel.h"
+#include "notifications/NotificationManager.h"
+#include "settings/SettingsManager.h"
 #include "terminal/TerminalBridge.h"
+#include "updater/AutoUpdater.h"
+#include "webview/AppBrowserWidget.h"
 
 #include <QtQml/qqml.h>
 
@@ -33,8 +33,7 @@
 #include <QtWebEngineQuick/qtwebenginequickglobal.h>
 #endif
 
-int main(int argc, char* argv[])
-{
+int main(int argc, char* argv[]) {
     // QtWebEngine requires initialization before QApplication is created.
 #ifdef HAS_WEBENGINE
     QtWebEngineQuick::initialize();
@@ -65,8 +64,7 @@ int main(int argc, char* argv[])
     QCommandLineOption logLevelOption(
         QStringList() << QStringLiteral("l") << QStringLiteral("log-level"),
         QStringLiteral("Set log level (trace, debug, info, warn, error). Default: info"),
-        QStringLiteral("level"),
-        QStringLiteral("info"));
+        QStringLiteral("level"), QStringLiteral("info"));
     parser.addOption(logLevelOption);
     parser.process(app);
 
@@ -74,9 +72,8 @@ int main(int argc, char* argv[])
     SettingsManager settingsManager;
 
     // ---- Logging configuration ----
-    QString logLevel = parser.isSet(logLevelOption)
-        ? parser.value(logLevelOption)
-        : settingsManager.logLevel();
+    QString logLevel =
+        parser.isSet(logLevelOption) ? parser.value(logLevelOption) : settingsManager.logLevel();
 
     // Qt log types: debug, info, warning, critical, fatal
     // Map our levels to Qt filter rules:
@@ -86,24 +83,20 @@ int main(int argc, char* argv[])
     //   error       → hide debug + info + warning; show critical only
     if (logLevel == QStringLiteral("trace") || logLevel == QStringLiteral("debug")) {
         QLoggingCategory::setFilterRules(QStringLiteral("*.debug=true"));
-        qSetMessagePattern(QStringLiteral(
-            "[%{time yyyy-MM-dd hh:mm:ss.zzz}] [%{type}] %{category}: %{message}"));
+        qSetMessagePattern(
+            QStringLiteral("[%{time yyyy-MM-dd hh:mm:ss.zzz}] [%{type}] %{category}: %{message}"));
         qDebug() << "Debug logging enabled (level:" << logLevel << ")";
     } else if (logLevel == QStringLiteral("error")) {
-        QLoggingCategory::setFilterRules(QStringLiteral(
-            "*.debug=false\n*.info=false\n*.warning=false"));
-        qSetMessagePattern(QStringLiteral(
-            "[%{time hh:mm:ss}] [%{type}] %{message}"));
+        QLoggingCategory::setFilterRules(
+            QStringLiteral("*.debug=false\n*.info=false\n*.warning=false"));
+        qSetMessagePattern(QStringLiteral("[%{time hh:mm:ss}] [%{type}] %{message}"));
     } else if (logLevel == QStringLiteral("warn")) {
-        QLoggingCategory::setFilterRules(QStringLiteral(
-            "*.debug=false\n*.info=false"));
-        qSetMessagePattern(QStringLiteral(
-            "[%{time hh:mm:ss}] [%{type}] %{message}"));
+        QLoggingCategory::setFilterRules(QStringLiteral("*.debug=false\n*.info=false"));
+        qSetMessagePattern(QStringLiteral("[%{time hh:mm:ss}] [%{type}] %{message}"));
     } else {
         // "info" or unrecognized → default: suppress debug messages
         QLoggingCategory::setFilterRules(QStringLiteral("*.debug=false"));
-        qSetMessagePattern(QStringLiteral(
-            "[%{time hh:mm:ss}] [%{type}] %{message}"));
+        qSetMessagePattern(QStringLiteral("[%{time hh:mm:ss}] [%{type}] %{message}"));
     }
 
     SecureStorage secureStorage;
@@ -117,55 +110,53 @@ int main(int argc, char* argv[])
     AutoUpdater autoUpdater(QStringLiteral(APP_VERSION), &settingsManager);
     QObject::connect(&autoUpdater, &AutoUpdater::updateAvailable,
                      [](const QString& version, const QString& url) {
-        qInfo() << "Update available:" << version << "—" << url;
-    });
+                         qInfo() << "Update available:" << version << "—" << url;
+                     });
 
     TaskModel taskModel;
 
     // ---- Polling controller (auto-refresh, caching, notifications) ----
-    PollingController pollingController(apiClient, workspaceModel, taskModel,
-                                        notificationManager, settingsManager);
+    PollingController pollingController(apiClient, workspaceModel, taskModel, notificationManager,
+                                        settingsManager);
 
     // NOTE: PollingController's constructor already connects
     // apiClient.workspacesReceived/tasksReceived to its handler slots.
 
     // Show loading state and handle errors for workspace/task fetches.
     QObject::connect(&apiClient, &CoderApiClient::requestFailed,
-                     [&workspaceModel, &taskModel](const QString &endpoint,
-                                                   int /*statusCode*/,
-                                                   const QString &errorMessage) {
-        if (endpoint.contains(QLatin1String("workspaces"))) {
-            workspaceModel.setLoading(false);
-            workspaceModel.setErrorMessage(errorMessage);
-        }
-        if (endpoint.contains(QLatin1String("tasks"))) {
-            taskModel.setLoading(false);
-            taskModel.setErrorMessage(errorMessage);
-        }
-    });
+                     [&workspaceModel, &taskModel](const QString& endpoint, int /*statusCode*/,
+                                                   const QString& errorMessage) {
+                         if (endpoint.contains(QLatin1String("workspaces"))) {
+                             workspaceModel.setLoading(false);
+                             workspaceModel.setErrorMessage(errorMessage);
+                         }
+                         if (endpoint.contains(QLatin1String("tasks"))) {
+                             taskModel.setLoading(false);
+                             taskModel.setErrorMessage(errorMessage);
+                         }
+                     });
 
     // Start/stop polling on auth state changes.
     QObject::connect(&sessionManager, &SessionManager::authStateChanged,
                      [&pollingController, &sessionManager]() {
-        if (sessionManager.isAuthenticated())
-            pollingController.start();
-        else
-            pollingController.stop();
-    });
-    QObject::connect(&sessionManager, &SessionManager::tokenExpired,
-                     &pollingController, &PollingController::stop);
+                         if (sessionManager.isAuthenticated())
+                             pollingController.start();
+                         else
+                             pollingController.stop();
+                     });
+    QObject::connect(&sessionManager, &SessionManager::tokenExpired, &pollingController,
+                     &PollingController::stop);
 
     // Re-fetch after workspace actions (start/stop/update/delete).
-    QObject::connect(&apiClient, &CoderApiClient::workspaceActionCompleted,
-                     &pollingController, &PollingController::refreshNow);
+    QObject::connect(&apiClient, &CoderApiClient::workspaceActionCompleted, &pollingController,
+                     &PollingController::refreshNow);
 
     // Wire notificationsEnabled setting to NotificationManager.
     auto syncNotifEnabled = [&]() {
         notificationManager.setEnabled(settingsManager.notificationsEnabled());
     };
     syncNotifEnabled();
-    QObject::connect(&settingsManager, &SettingsManager::settingsChanged,
-                     syncNotifEnabled);
+    QObject::connect(&settingsManager, &SettingsManager::settingsChanged, syncNotifEnabled);
 
     // ---- Login flow (browser-based auth) ----
     LoginFlowController loginFlowController(sessionManager);
@@ -179,13 +170,11 @@ int main(int argc, char* argv[])
     // Wire DLP settings changes to the compositor policy.
     QObject::connect(&settingsManager, &SettingsManager::settingsChanged, [&]() {
         if (dlpCompositor.isRunning()) {
-            dlpCompositor.updatePolicy(
-                settingsManager.dlpClipboardBlock(),
-                settingsManager.dlpClipboardBlock(),  // both directions
-                true,  // screenshot always blocked
-                settingsManager.dlpFileSandbox(),
-                settingsManager.dlpNetworkSandbox()
-            );
+            dlpCompositor.updatePolicy(settingsManager.dlpClipboardBlock(),
+                                       settingsManager.dlpClipboardBlock(),  // both directions
+                                       true,  // screenshot always blocked
+                                       settingsManager.dlpFileSandbox(),
+                                       settingsManager.dlpNetworkSandbox());
         }
     });
 
@@ -197,32 +186,22 @@ int main(int argc, char* argv[])
 
     QQmlApplicationEngine engine;
 
-    engine.rootContext()->setContextProperty(
-        QStringLiteral("vpnBridge"), &vpnBridge);
-    engine.rootContext()->setContextProperty(
-        QStringLiteral("autoUpdater"), &autoUpdater);
-    engine.rootContext()->setContextProperty(
-        QStringLiteral("settingsManager"), &settingsManager);
-    engine.rootContext()->setContextProperty(
-        QStringLiteral("sessionManager"), &sessionManager);
-    engine.rootContext()->setContextProperty(
-        QStringLiteral("apiClient"), &apiClient);
-    engine.rootContext()->setContextProperty(
-        QStringLiteral("workspaceModel"), &workspaceModel);
-    engine.rootContext()->setContextProperty(
-        QStringLiteral("peerModel"), &peerModel);
-    engine.rootContext()->setContextProperty(
-        QStringLiteral("notificationManager"), &notificationManager);
-    engine.rootContext()->setContextProperty(
-        QStringLiteral("taskModel"), &taskModel);
-    engine.rootContext()->setContextProperty(
-        QStringLiteral("appBrowser"), &appBrowser);
-    engine.rootContext()->setContextProperty(
-        QStringLiteral("dlpCompositor"), &dlpCompositor);
-    engine.rootContext()->setContextProperty(
-        QStringLiteral("loginFlowController"), &loginFlowController);
-    engine.rootContext()->setContextProperty(
-        QStringLiteral("pollingController"), &pollingController);
+    engine.rootContext()->setContextProperty(QStringLiteral("vpnBridge"), &vpnBridge);
+    engine.rootContext()->setContextProperty(QStringLiteral("autoUpdater"), &autoUpdater);
+    engine.rootContext()->setContextProperty(QStringLiteral("settingsManager"), &settingsManager);
+    engine.rootContext()->setContextProperty(QStringLiteral("sessionManager"), &sessionManager);
+    engine.rootContext()->setContextProperty(QStringLiteral("apiClient"), &apiClient);
+    engine.rootContext()->setContextProperty(QStringLiteral("workspaceModel"), &workspaceModel);
+    engine.rootContext()->setContextProperty(QStringLiteral("peerModel"), &peerModel);
+    engine.rootContext()->setContextProperty(QStringLiteral("notificationManager"),
+                                             &notificationManager);
+    engine.rootContext()->setContextProperty(QStringLiteral("taskModel"), &taskModel);
+    engine.rootContext()->setContextProperty(QStringLiteral("appBrowser"), &appBrowser);
+    engine.rootContext()->setContextProperty(QStringLiteral("dlpCompositor"), &dlpCompositor);
+    engine.rootContext()->setContextProperty(QStringLiteral("loginFlowController"),
+                                             &loginFlowController);
+    engine.rootContext()->setContextProperty(QStringLiteral("pollingController"),
+                                             &pollingController);
 
     // Load Main.qml directly from compiled-in Qt resources.  Using a
     // resource URL instead of engine.loadFromModule() avoids the need for
@@ -230,8 +209,8 @@ int main(int argc, char* argv[])
     const QUrl mainQml(QStringLiteral("qrc:/CoderDesktop/qml/Main.qml"));
 
     QObject::connect(
-        &engine, &QQmlApplicationEngine::objectCreated,
-        &app, [&mainQml](QObject* obj, const QUrl& url) {
+        &engine, &QQmlApplicationEngine::objectCreated, &app,
+        [&mainQml](QObject* obj, const QUrl& url) {
             if (!obj && url == mainQml) {
                 qCritical() << "Failed to load QML:" << url;
                 QCoreApplication::exit(-1);
@@ -245,8 +224,7 @@ int main(int argc, char* argv[])
     SystemTrayIcon tray(&vpnBridge);
     notificationManager.setTrayIcon(tray.trayIcon());
 
-    QObject::connect(&tray, &SystemTrayIcon::showWindowRequested,
-                     &engine, [&engine]() {
+    QObject::connect(&tray, &SystemTrayIcon::showWindowRequested, &engine, [&engine]() {
         // Raise the first root window.
         const auto roots = engine.rootObjects();
         for (auto* obj : roots) {

@@ -12,15 +12,15 @@
 #include <wlr/types/wlr_output.h>
 #include <wlr/types/wlr_output_layout.h>
 #include <wlr/types/wlr_scene.h>
-#include <wlr/types/wlr_subcompositor.h>
 #include <wlr/types/wlr_seat.h>
 #include <wlr/types/wlr_security_context_v1.h>
+#include <wlr/types/wlr_subcompositor.h>
 #include <wlr/types/wlr_xdg_shell.h>
 
 struct coder_dlp_toplevel {
-    struct wlr_xdg_toplevel *xdg_toplevel;
-    struct coder_dlp_compositor *compositor;
-    struct wlr_scene_tree *scene_tree;
+    struct wlr_xdg_toplevel* xdg_toplevel;
+    struct coder_dlp_compositor* compositor;
+    struct wlr_scene_tree* scene_tree;
 
     struct wl_listener map;
     struct wl_listener unmap;
@@ -37,26 +37,26 @@ struct coder_dlp_compositor {
 
     /* Surface callback */
     coder_dlp_surface_cb surface_cb;
-    void *surface_cb_data;
+    void* surface_cb_data;
 
     /* Wayland core */
-    struct wl_display *wl_display;
-    struct wl_event_loop *wl_event_loop;
+    struct wl_display* wl_display;
+    struct wl_event_loop* wl_event_loop;
 
     /* wlroots objects */
-    struct wlr_backend *backend;
-    struct wlr_renderer *renderer;
-    struct wlr_allocator *allocator;
-    struct wlr_compositor *wlr_compositor;
-    struct wlr_subcompositor *subcompositor;
-    struct wlr_output_layout *output_layout;
-    struct wlr_scene *scene;
-    struct wlr_scene_output_layout *scene_layout;
-    struct wlr_xdg_shell *xdg_shell;
-    struct wlr_data_device_manager *data_device_mgr;
+    struct wlr_backend* backend;
+    struct wlr_renderer* renderer;
+    struct wlr_allocator* allocator;
+    struct wlr_compositor* wlr_compositor;
+    struct wlr_subcompositor* subcompositor;
+    struct wlr_output_layout* output_layout;
+    struct wlr_scene* scene;
+    struct wlr_scene_output_layout* scene_layout;
+    struct wlr_xdg_shell* xdg_shell;
+    struct wlr_data_device_manager* data_device_mgr;
 
     /* Output */
-    struct wlr_output *output;
+    struct wlr_output* output;
     struct wl_listener output_frame;
     struct wl_listener output_request_state;
     struct wl_listener output_destroy;
@@ -71,37 +71,36 @@ struct coder_dlp_compositor {
     struct wl_listener backend_destroy;
 
     /* Seat (keyboard/pointer/clipboard) */
-    struct wlr_seat *seat;
+    struct wlr_seat* seat;
 
     /* Clipboard mediation */
     struct wl_listener request_set_selection;
     struct wl_listener request_set_primary_selection;
 
     /* Security context */
-    struct wlr_security_context_manager_v1 *security_context_mgr;
+    struct wlr_security_context_manager_v1* security_context_mgr;
     struct wl_listener security_context_commit;
 
     /* Socket name for client connections */
-    const char *socket;
+    const char* socket;
 };
 
 /* Clipboard mediation (clipboard.c) */
-void dlp_clipboard_init(struct coder_dlp_compositor *comp);
+void dlp_clipboard_init(struct coder_dlp_compositor* comp);
 
 /* Security context protocol (security_context.c) */
-void dlp_security_context_init(struct coder_dlp_compositor *comp);
+void dlp_security_context_init(struct coder_dlp_compositor* comp);
 
 /* Sandbox launcher helpers (sandbox_launcher.c) — exposed for testing */
-char **dlp_build_bwrap_args(const struct coder_dlp_compositor *comp,
-                            const char *command,
-                            const struct coder_dlp_sandbox_config *sandbox);
-void dlp_free_bwrap_args(char **argv);
+char** dlp_build_bwrap_args(const struct coder_dlp_compositor* comp, const char* command,
+                            const struct coder_dlp_sandbox_config* sandbox);
+void dlp_free_bwrap_args(char** argv);
 
 /* Output event handlers (output.c) */
-void compositor_handle_new_output(struct wl_listener *listener, void *data);
+void compositor_handle_new_output(struct wl_listener* listener, void* data);
 
 /* Shell event handlers (shell.c) */
-void compositor_handle_new_xdg_toplevel(struct wl_listener *listener, void *data);
-void compositor_handle_new_xdg_popup(struct wl_listener *listener, void *data);
+void compositor_handle_new_xdg_toplevel(struct wl_listener* listener, void* data);
+void compositor_handle_new_xdg_popup(struct wl_listener* listener, void* data);
 
 #endif /* CODER_DLP_COMPOSITOR_INTERNAL_H */

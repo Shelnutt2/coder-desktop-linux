@@ -17,22 +17,22 @@ class TerminalBridge : public QObject {
     Q_PROPERTY(bool webSocketsAvailable READ webSocketsAvailable CONSTANT)
 
 public:
-    explicit TerminalBridge(QObject *parent = nullptr);
+    explicit TerminalBridge(QObject* parent = nullptr);
 
     /// Whether WebSocket support was compiled in (HAS_WEBSOCKETS).
     [[nodiscard]] static bool webSocketsAvailable();
 
     /// Set deployment credentials (called from QML before the WebEngine connects).
-    Q_INVOKABLE void setCredentials(const QString &baseUrl, const QString &token);
+    Q_INVOKABLE void setCredentials(const QString& baseUrl, const QString& token);
 
     /// Set the target workspace agent ID (called from QML).
-    Q_INVOKABLE void setAgentId(const QString &agentId);
+    Q_INVOKABLE void setAgentId(const QString& agentId);
 
     /// Called from JS via QWebChannel when the xterm.js terminal is ready.
     Q_INVOKABLE void notifyReady(int cols, int rows);
 
     /// Called from JS: user keyboard input.
-    Q_INVOKABLE void sendInput(const QString &data);
+    Q_INVOKABLE void sendInput(const QString& data);
 
     /// Called from JS: terminal was resized.
     Q_INVOKABLE void resize(int cols, int rows);
@@ -44,7 +44,7 @@ public:
 
 signals:
     /// Emitted with base64-encoded terminal output (consumed by JS).
-    void outputReceived(const QString &base64Data);
+    void outputReceived(const QString& base64Data);
     void connectionChanged();
 
 private:
@@ -58,4 +58,4 @@ private:
     int m_pendingRows = 24;
 };
 
-#endif // TERMINALBRIDGE_H
+#endif  // TERMINALBRIDGE_H

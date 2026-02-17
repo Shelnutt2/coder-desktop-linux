@@ -38,7 +38,8 @@ public:
     Q_PROPERTY(bool allowedDeploymentsLocked READ allowedDeploymentsLocked NOTIFY settingsChanged)
 
     Q_PROPERTY(bool disableMultiDeployment READ disableMultiDeployment NOTIFY settingsChanged)
-    Q_PROPERTY(bool disableMultiDeploymentLocked READ disableMultiDeploymentLocked NOTIFY settingsChanged)
+    Q_PROPERTY(
+        bool disableMultiDeploymentLocked READ disableMultiDeploymentLocked NOTIFY settingsChanged)
 
     // VPN
     Q_PROPERTY(bool requireVpn READ requireVpn NOTIFY settingsChanged)
@@ -64,10 +65,12 @@ public:
     Q_PROPERTY(bool dlpNetworkSandboxLocked READ dlpNetworkSandboxLocked NOTIFY settingsChanged)
 
     Q_PROPERTY(bool dlpForceInAppBrowser READ dlpForceInAppBrowser NOTIFY settingsChanged)
-    Q_PROPERTY(bool dlpForceInAppBrowserLocked READ dlpForceInAppBrowserLocked NOTIFY settingsChanged)
+    Q_PROPERTY(
+        bool dlpForceInAppBrowserLocked READ dlpForceInAppBrowserLocked NOTIFY settingsChanged)
 
     Q_PROPERTY(bool dlpDisableExternalBrowser READ dlpDisableExternalBrowser NOTIFY settingsChanged)
-    Q_PROPERTY(bool dlpDisableExternalBrowserLocked READ dlpDisableExternalBrowserLocked NOTIFY settingsChanged)
+    Q_PROPERTY(bool dlpDisableExternalBrowserLocked READ dlpDisableExternalBrowserLocked NOTIFY
+                   settingsChanged)
 
     // Convenience: true when external browser is allowed by DLP policy
     Q_PROPERTY(bool externalBrowserAllowed READ externalBrowserAllowed NOTIFY settingsChanged)
@@ -84,7 +87,8 @@ public:
     Q_PROPERTY(bool themeLocked READ themeLocked NOTIFY settingsChanged)
 
     Q_PROPERTY(bool notificationsEnabled READ notificationsEnabled NOTIFY settingsChanged)
-    Q_PROPERTY(bool notificationsEnabledLocked READ notificationsEnabledLocked NOTIFY settingsChanged)
+    Q_PROPERTY(
+        bool notificationsEnabledLocked READ notificationsEnabledLocked NOTIFY settingsChanged)
 
     // Polling / caching
     Q_PROPERTY(int refreshIntervalSec READ refreshIntervalSec NOTIFY settingsChanged)
@@ -106,61 +110,60 @@ public:
     /// @param userSettingsPath  Override for the QSettings file path (useful for tests).
     /// @param parent  QObject parent.
     explicit SettingsManager(const QString& mdmPolicyPath = {},
-                             const QString& userSettingsPath = {},
-                             QObject* parent = nullptr);
+                             const QString& userSettingsPath = {}, QObject* parent = nullptr);
 
     // -- Getters (resolved value) -----------------------------------------
 
-    [[nodiscard]] QString     deploymentUrl()         const;
-    [[nodiscard]] QStringList allowedDeployments()    const;
-    [[nodiscard]] bool        disableMultiDeployment() const;
+    [[nodiscard]] QString deploymentUrl() const;
+    [[nodiscard]] QStringList allowedDeployments() const;
+    [[nodiscard]] bool disableMultiDeployment() const;
 
-    [[nodiscard]] bool requireVpn()       const;
-    [[nodiscard]] bool autoConnectVpn()   const;
+    [[nodiscard]] bool requireVpn() const;
+    [[nodiscard]] bool autoConnectVpn() const;
 
-    [[nodiscard]] bool dlpEnabled()        const;
+    [[nodiscard]] bool dlpEnabled() const;
     [[nodiscard]] bool dlpClipboardBlock() const;
     [[nodiscard]] bool dlpScreenshotBlock() const;
-    [[nodiscard]] bool dlpFileSandbox()    const;
+    [[nodiscard]] bool dlpFileSandbox() const;
     [[nodiscard]] bool dlpNetworkSandbox() const;
-    [[nodiscard]] bool dlpForceInAppBrowser()     const;
+    [[nodiscard]] bool dlpForceInAppBrowser() const;
     [[nodiscard]] bool dlpDisableExternalBrowser() const;
-    [[nodiscard]] bool externalBrowserAllowed()    const;
+    [[nodiscard]] bool externalBrowserAllowed() const;
 
-    [[nodiscard]] bool disableFileUpload()   const;
+    [[nodiscard]] bool disableFileUpload() const;
     [[nodiscard]] bool disableFileDownload() const;
 
-    [[nodiscard]] QString theme()                const;
-    [[nodiscard]] bool    notificationsEnabled() const;
-    [[nodiscard]] bool    checkForUpdates()      const;
+    [[nodiscard]] QString theme() const;
+    [[nodiscard]] bool notificationsEnabled() const;
+    [[nodiscard]] bool checkForUpdates() const;
 
-    [[nodiscard]] int  refreshIntervalSec() const;
-    [[nodiscard]] bool disableDataCache()   const;
-    [[nodiscard]] QString logLevel()             const;
+    [[nodiscard]] int refreshIntervalSec() const;
+    [[nodiscard]] bool disableDataCache() const;
+    [[nodiscard]] QString logLevel() const;
 
     [[nodiscard]] bool mdmEnabled() const;
 
     // -- Locked getters ---------------------------------------------------
 
-    [[nodiscard]] bool deploymentUrlLocked()         const;
-    [[nodiscard]] bool allowedDeploymentsLocked()    const;
+    [[nodiscard]] bool deploymentUrlLocked() const;
+    [[nodiscard]] bool allowedDeploymentsLocked() const;
     [[nodiscard]] bool disableMultiDeploymentLocked() const;
-    [[nodiscard]] bool requireVpnLocked()            const;
-    [[nodiscard]] bool autoConnectVpnLocked()        const;
-    [[nodiscard]] bool dlpEnabledLocked()            const;
-    [[nodiscard]] bool dlpClipboardBlockLocked()     const;
-    [[nodiscard]] bool dlpScreenshotBlockLocked()    const;
-    [[nodiscard]] bool dlpFileSandboxLocked()        const;
-    [[nodiscard]] bool dlpNetworkSandboxLocked()     const;
-    [[nodiscard]] bool dlpForceInAppBrowserLocked()     const;
+    [[nodiscard]] bool requireVpnLocked() const;
+    [[nodiscard]] bool autoConnectVpnLocked() const;
+    [[nodiscard]] bool dlpEnabledLocked() const;
+    [[nodiscard]] bool dlpClipboardBlockLocked() const;
+    [[nodiscard]] bool dlpScreenshotBlockLocked() const;
+    [[nodiscard]] bool dlpFileSandboxLocked() const;
+    [[nodiscard]] bool dlpNetworkSandboxLocked() const;
+    [[nodiscard]] bool dlpForceInAppBrowserLocked() const;
     [[nodiscard]] bool dlpDisableExternalBrowserLocked() const;
-    [[nodiscard]] bool disableFileUploadLocked()     const;
-    [[nodiscard]] bool disableFileDownloadLocked()   const;
-    [[nodiscard]] bool themeLocked()                 const;
-    [[nodiscard]] bool notificationsEnabledLocked()  const;
-    [[nodiscard]] bool checkForUpdatesLocked()       const;
+    [[nodiscard]] bool disableFileUploadLocked() const;
+    [[nodiscard]] bool disableFileDownloadLocked() const;
+    [[nodiscard]] bool themeLocked() const;
+    [[nodiscard]] bool notificationsEnabledLocked() const;
+    [[nodiscard]] bool checkForUpdatesLocked() const;
     [[nodiscard]] bool refreshIntervalSecLocked() const;
-    [[nodiscard]] bool disableDataCacheLocked()   const;
+    [[nodiscard]] bool disableDataCacheLocked() const;
 
     // -- Invokables -------------------------------------------------------
 
@@ -187,4 +190,4 @@ private:
     std::unique_ptr<QSettings> m_userSettings;
 };
 
-#endif // SETTINGSMANAGER_H
+#endif  // SETTINGSMANAGER_H

@@ -6,20 +6,15 @@
 // Construction
 // ---------------------------------------------------------------------------
 
-NotificationManager::NotificationManager(QObject* parent)
-    : QObject(parent)
-{
-}
+NotificationManager::NotificationManager(QObject* parent) : QObject(parent) {}
 
 // ---------------------------------------------------------------------------
 // Public API
 // ---------------------------------------------------------------------------
 
 void NotificationManager::notify(const QString& title, const QString& message,
-                                 const QString& category)
-{
-    if (!m_enabled)
-        return;
+                                 const QString& category) {
+    if (!m_enabled) return;
 
     // Duplicate suppression: build a key from title + message.
     const QString key = title + QLatin1Char('\n') + message;
@@ -29,8 +24,7 @@ void NotificationManager::notify(const QString& title, const QString& message,
 
     if (m_recentNotifications.contains(key)) {
         const QDateTime& last = m_recentNotifications[key];
-        if (last.msecsTo(now) < m_suppressMs)
-            return;  // duplicate within the suppression window
+        if (last.msecsTo(now) < m_suppressMs) return;  // duplicate within the suppression window
     }
     m_recentNotifications[key] = now;
 
@@ -38,34 +32,29 @@ void NotificationManager::notify(const QString& title, const QString& message,
     sendViaTray(title, message);
 }
 
-bool NotificationManager::isEnabled() const { return m_enabled; }
+bool NotificationManager::isEnabled() const {
+    return m_enabled;
+}
 
-void NotificationManager::setEnabled(bool enabled)
-{
-    if (m_enabled == enabled)
-        return;
+void NotificationManager::setEnabled(bool enabled) {
+    if (m_enabled == enabled) return;
     m_enabled = enabled;
     emit enabledChanged();
 }
 
-void NotificationManager::setTrayIcon(QSystemTrayIcon* tray)
-{
+void NotificationManager::setTrayIcon(QSystemTrayIcon* tray) {
     // Disconnect from previous tray icon, if any.
-    if (m_trayIcon)
-        disconnect(m_trayIcon, nullptr, this, nullptr);
+    if (m_trayIcon) disconnect(m_trayIcon, nullptr, this, nullptr);
 
     m_trayIcon = tray;
 
     if (m_trayIcon) {
-        connect(m_trayIcon, &QSystemTrayIcon::messageClicked,
-                this, [this]() {
-                    emit notificationClicked(m_lastCategory);
-                });
+        connect(m_trayIcon, &QSystemTrayIcon::messageClicked, this,
+                [this]() { emit notificationClicked(m_lastCategory); });
     }
 }
 
-void NotificationManager::setSuppressDuplicateMs(int ms)
-{
+void NotificationManager::setSuppressDuplicateMs(int ms) {
     m_suppressMs = ms;
 }
 
@@ -73,19 +62,15 @@ void NotificationManager::setSuppressDuplicateMs(int ms)
 // Private helpers
 // ---------------------------------------------------------------------------
 
-void NotificationManager::sendViaTray(const QString& title,
-                                      const QString& message)
-{
+void NotificationManager::sendViaTray(const QString& title, const QString& message) {
     if (!m_trayIcon) {
-        qDebug() << "NotificationManager: no tray icon set, dropping notification:"
-                 << title;
+        qDebug() << "NotificationManager: no tray icon set, dropping notification:" << title;
         return;
     }
     m_trayIcon->showMessage(title, message, QSystemTrayIcon::Information, 5000);
 }
 
-void NotificationManager::cleanupRecent()
-{
+void NotificationManager::cleanupRecent() {
     const QDateTime now = QDateTime::currentDateTimeUtc();
     auto it = m_recentNotifications.begin();
     while (it != m_recentNotifications.end()) {

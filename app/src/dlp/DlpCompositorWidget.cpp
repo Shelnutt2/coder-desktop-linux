@@ -2,33 +2,25 @@
 
 #include <QByteArray>
 
-DlpCompositorWidget::DlpCompositorWidget(QObject *parent)
-    : QObject(parent)
-{
-}
+DlpCompositorWidget::DlpCompositorWidget(QObject* parent) : QObject(parent) {}
 
-DlpCompositorWidget::~DlpCompositorWidget()
-{
+DlpCompositorWidget::~DlpCompositorWidget() {
     stop();
 }
 
-bool DlpCompositorWidget::isAvailable() const
-{
+bool DlpCompositorWidget::isAvailable() const {
     return coder_dlp_is_available();
 }
 
-bool DlpCompositorWidget::isRunning() const
-{
+bool DlpCompositorWidget::isRunning() const {
     return m_compositor != nullptr;
 }
 
-int DlpCompositorWidget::launchedAppCount() const
-{
+int DlpCompositorWidget::launchedAppCount() const {
     return m_appCount;
 }
 
-bool DlpCompositorWidget::start()
-{
+bool DlpCompositorWidget::start() {
     if (m_compositor) {
         return true;  // already running
     }
@@ -62,8 +54,7 @@ bool DlpCompositorWidget::start()
     return true;
 }
 
-void DlpCompositorWidget::stop()
-{
+void DlpCompositorWidget::stop() {
     if (!m_compositor) {
         return;
     }
@@ -81,12 +72,8 @@ void DlpCompositorWidget::stop()
     }
 }
 
-int DlpCompositorWidget::launchApp(const QString &command,
-                                    const QString &workspacePath,
-                                    bool isolatePid,
-                                    bool isolateIpc,
-                                    bool isolateNetwork)
-{
+int DlpCompositorWidget::launchApp(const QString& command, const QString& workspacePath,
+                                   bool isolatePid, bool isolateIpc, bool isolateNetwork) {
     if (!m_compositor) {
         emit errorOccurred(QStringLiteral("DLP compositor is not running"));
         return -1;
@@ -112,12 +99,9 @@ int DlpCompositorWidget::launchApp(const QString &command,
     return pid;
 }
 
-void DlpCompositorWidget::updatePolicy(bool clipboardBlockOutgoing,
-                                        bool clipboardBlockIncoming,
-                                        bool screenshotBlock,
-                                        bool fileSandbox,
-                                        bool networkSandbox)
-{
+void DlpCompositorWidget::updatePolicy(bool clipboardBlockOutgoing, bool clipboardBlockIncoming,
+                                       bool screenshotBlock, bool fileSandbox,
+                                       bool networkSandbox) {
     if (!m_compositor) {
         return;
     }
@@ -133,11 +117,9 @@ void DlpCompositorWidget::updatePolicy(bool clipboardBlockOutgoing,
 }
 
 // static
-void DlpCompositorWidget::onNewSurface(coder_dlp_compositor * /*comp*/,
-                                        void * /*surface*/,
-                                        void *data)
-{
-    auto *self = static_cast<DlpCompositorWidget *>(data);
+void DlpCompositorWidget::onNewSurface(coder_dlp_compositor* /*comp*/, void* /*surface*/,
+                                       void* data) {
+    auto* self = static_cast<DlpCompositorWidget*>(data);
     // The callback may fire from within coder_dlp_dispatch() which runs on the
     // Qt main thread (via QSocketNotifier), so a direct emit is safe here.
     emit self->newSurface();

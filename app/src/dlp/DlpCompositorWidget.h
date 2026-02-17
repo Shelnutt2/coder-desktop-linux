@@ -22,7 +22,7 @@ class DlpCompositorWidget : public QObject {
     Q_PROPERTY(int launchedAppCount READ launchedAppCount NOTIFY appCountChanged)
 
 public:
-    explicit DlpCompositorWidget(QObject *parent = nullptr);
+    explicit DlpCompositorWidget(QObject* parent = nullptr);
     ~DlpCompositorWidget() override;
 
     /// Returns true when the DLP compositor can run (Wayland session detected).
@@ -43,33 +43,28 @@ public:
 
     /// Launch an app inside the DLP sandbox.
     /// @return PID of the launched process, or -1 on error.
-    Q_INVOKABLE int launchApp(const QString &command,
-                               const QString &workspacePath = QString(),
-                               bool isolatePid = true,
-                               bool isolateIpc = true,
-                               bool isolateNetwork = false);
+    Q_INVOKABLE int launchApp(const QString& command, const QString& workspacePath = QString(),
+                              bool isolatePid = true, bool isolateIpc = true,
+                              bool isolateNetwork = false);
 
     /// Update the DLP policy from current settings.
-    Q_INVOKABLE void updatePolicy(bool clipboardBlockOutgoing,
-                                   bool clipboardBlockIncoming,
-                                   bool screenshotBlock,
-                                   bool fileSandbox,
-                                   bool networkSandbox);
+    Q_INVOKABLE void updatePolicy(bool clipboardBlockOutgoing, bool clipboardBlockIncoming,
+                                  bool screenshotBlock, bool fileSandbox, bool networkSandbox);
 
 signals:
     void runningChanged();
     void appCountChanged();
     void newSurface();
-    void errorOccurred(const QString &message);
+    void errorOccurred(const QString& message);
 
 private:
     // Owned when started; null when stopped.
-    coder_dlp_compositor *m_compositor = nullptr;
+    coder_dlp_compositor* m_compositor = nullptr;
     std::unique_ptr<QSocketNotifier> m_notifier;
     int m_appCount = 0;
 
     /// Static callback registered with coder_dlp_on_new_surface().
-    static void onNewSurface(coder_dlp_compositor *comp, void *surface, void *data);
+    static void onNewSurface(coder_dlp_compositor* comp, void* surface, void* data);
 };
 
-#endif // DLPCOMPOSITORWIDGET_H
+#endif  // DLPCOMPOSITORWIDGET_H

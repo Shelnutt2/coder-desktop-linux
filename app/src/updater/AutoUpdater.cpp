@@ -22,16 +22,13 @@ static constexpr auto kDefaultInterval = std::chrono::hours{24};
 // Construction
 // ---------------------------------------------------------------------------
 
-AutoUpdater::AutoUpdater(const QString& currentVersion,
-                         SettingsManager* settingsManager,
+AutoUpdater::AutoUpdater(const QString& currentVersion, SettingsManager* settingsManager,
                          QObject* parent)
-    : QObject(parent)
-    , m_currentVersion(currentVersion)
-    , m_settings(settingsManager)
-    , m_nam(std::make_unique<QNetworkAccessManager>())
-{
-    connect(m_nam.get(), &QNetworkAccessManager::finished,
-            this, &AutoUpdater::onReplyFinished);
+    : QObject(parent),
+      m_currentVersion(currentVersion),
+      m_settings(settingsManager),
+      m_nam(std::make_unique<QNetworkAccessManager>()) {
+    connect(m_nam.get(), &QNetworkAccessManager::finished, this, &AutoUpdater::onReplyFinished);
 
     // Periodic timer (default: 24 h).
     m_timer.setInterval(kDefaultInterval);
@@ -45,16 +42,21 @@ AutoUpdater::AutoUpdater(const QString& currentVersion,
 // Property getters
 // ---------------------------------------------------------------------------
 
-QString AutoUpdater::latestVersion() const { return m_latestVersion; }
-QString AutoUpdater::downloadUrl()   const { return m_downloadUrl; }
-bool    AutoUpdater::updateReady()   const { return m_updateReady; }
+QString AutoUpdater::latestVersion() const {
+    return m_latestVersion;
+}
+QString AutoUpdater::downloadUrl() const {
+    return m_downloadUrl;
+}
+bool AutoUpdater::updateReady() const {
+    return m_updateReady;
+}
 
 // ---------------------------------------------------------------------------
 // Public API
 // ---------------------------------------------------------------------------
 
-void AutoUpdater::checkNow()
-{
+void AutoUpdater::checkNow() {
     // Respect the user / MDM setting.
     if (m_settings && !m_settings->checkForUpdates()) {
         qDebug() << "AutoUpdater: checkForUpdates is disabled — skipping.";
@@ -71,14 +73,12 @@ void AutoUpdater::checkNow()
     m_nam->get(request);
 }
 
-void AutoUpdater::setCheckInterval(std::chrono::milliseconds interval)
-{
+void AutoUpdater::setCheckInterval(std::chrono::milliseconds interval) {
     if (interval.count() <= 0) {
         m_timer.stop();
     } else {
         m_timer.setInterval(interval);
-        if (!m_timer.isActive())
-            m_timer.start();
+        if (!m_timer.isActive()) m_timer.start();
     }
 }
 
@@ -86,8 +86,7 @@ void AutoUpdater::setCheckInterval(std::chrono::milliseconds interval)
 // Network reply handler
 // ---------------------------------------------------------------------------
 
-void AutoUpdater::onReplyFinished(QNetworkReply* reply)
-{
+void AutoUpdater::onReplyFinished(QNetworkReply* reply) {
     // QNetworkReply is owned by QNetworkAccessManager; ensure cleanup.
     reply->deleteLater();
 
@@ -123,8 +122,7 @@ void AutoUpdater::onReplyFinished(QNetworkReply* reply)
     }
 
     // Fall back to the release HTML page if no asset is available.
-    if (assetUrl.isEmpty())
-        assetUrl = root.value(QLatin1String("html_url")).toString();
+    if (assetUrl.isEmpty()) assetUrl = root.value(QLatin1String("html_url")).toString();
 
     if (isNewerVersion(m_currentVersion, tagName)) {
         m_latestVersion = tagName;
@@ -134,8 +132,8 @@ void AutoUpdater::onReplyFinished(QNetworkReply* reply)
                 << "(current:" << m_currentVersion << ")";
         emit updateAvailable(m_latestVersion, m_downloadUrl);
     } else {
-        qDebug() << "AutoUpdater: up to date (remote:" << tagName
-                 << ", local:" << m_currentVersion << ").";
+        qDebug() << "AutoUpdater: up to date (remote:" << tagName << ", local:" << m_currentVersion
+                 << ").";
         emit checkFinished();
     }
 }
@@ -144,13 +142,11 @@ void AutoUpdater::onReplyFinished(QNetworkReply* reply)
 // Semver comparison
 // ---------------------------------------------------------------------------
 
-bool AutoUpdater::parseSemver(const QString& tag, int& major, int& minor, int& patch)
-{
+bool AutoUpdater::parseSemver(const QString& tag, int& major, int& minor, int& patch) {
     // Accept "v1.2.3" or "1.2.3".
     static const QRegularExpression re(QStringLiteral(R"(^v?(\d+)\.(\d+)\.(\d+))"));
     const auto match = re.match(tag);
-    if (!match.hasMatch())
-        return false;
+    if (!match.hasMatch()) return false;
 
     major = match.captured(1).toInt();
     minor = match.captured(2).toInt();
@@ -158,13 +154,11 @@ bool AutoUpdater::parseSemver(const QString& tag, int& major, int& minor, int& p
     return true;
 }
 
-bool AutoUpdater::isNewerVersion(const QString& local, const QString& remote)
-{
+bool AutoUpdater::isNewerVersion(const QString& local, const QString& remote) {
     int lMaj = 0, lMin = 0, lPat = 0;
     int rMaj = 0, rMin = 0, rPat = 0;
 
-    if (!parseSemver(local, lMaj, lMin, lPat) ||
-        !parseSemver(remote, rMaj, rMin, rPat)) {
+    if (!parseSemver(local, lMaj, lMin, lPat) || !parseSemver(remote, rMaj, rMin, rPat)) {
         // If we can't parse either version, fall back to string comparison.
         return remote > local;
     }

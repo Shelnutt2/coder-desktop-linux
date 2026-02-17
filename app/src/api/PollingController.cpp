@@ -20,28 +20,22 @@
 // Construction
 // ---------------------------------------------------------------------------
 
-PollingController::PollingController(CoderApiClient &api,
-                                     WorkspaceModel &workspaces,
-                                     TaskModel &tasks,
-                                     NotificationManager &notifications,
-                                     SettingsManager &settings,
-                                     QObject *parent)
-    : QObject(parent)
-    , m_api(api)
-    , m_workspaceModel(workspaces)
-    , m_taskModel(tasks)
-    , m_notifications(notifications)
-    , m_settings(settings)
-{
+PollingController::PollingController(CoderApiClient& api, WorkspaceModel& workspaces,
+                                     TaskModel& tasks, NotificationManager& notifications,
+                                     SettingsManager& settings, QObject* parent)
+    : QObject(parent),
+      m_api(api),
+      m_workspaceModel(workspaces),
+      m_taskModel(tasks),
+      m_notifications(notifications),
+      m_settings(settings) {
     // Wire timer to periodic refresh.
-    connect(&m_pollTimer, &QTimer::timeout, this,
-            &PollingController::refreshNow);
+    connect(&m_pollTimer, &QTimer::timeout, this, &PollingController::refreshNow);
 
     // Wire API result signals to our handlers.
     connect(&m_api, &CoderApiClient::workspacesReceived, this,
             &PollingController::handleWorkspacesReceived);
-    connect(&m_api, &CoderApiClient::tasksReceived, this,
-            &PollingController::handleTasksReceived);
+    connect(&m_api, &CoderApiClient::tasksReceived, this, &PollingController::handleTasksReceived);
 
     // React to settings changes (interval, cache toggle).
     connect(&m_settings, &SettingsManager::settingsChanged, this, [this]() {
@@ -58,13 +52,11 @@ PollingController::PollingController(CoderApiClient &api,
 // Properties
 // ---------------------------------------------------------------------------
 
-int PollingController::refreshIntervalSec() const
-{
+int PollingController::refreshIntervalSec() const {
     return m_refreshIntervalSec;
 }
 
-void PollingController::setRefreshIntervalSec(int sec)
-{
+void PollingController::setRefreshIntervalSec(int sec) {
     // Clamp to a sane range.
     constexpr int kMinInterval = 5;
     constexpr int kMaxInterval = 300;
@@ -78,8 +70,7 @@ void PollingController::setRefreshIntervalSec(int sec)
     emit refreshIntervalChanged();
 }
 
-bool PollingController::isPolling() const
-{
+bool PollingController::isPolling() const {
     return m_pollTimer.isActive();
 }
 
@@ -87,8 +78,7 @@ bool PollingController::isPolling() const
 // start / stop / refreshNow
 // ---------------------------------------------------------------------------
 
-void PollingController::start()
-{
+void PollingController::start() {
     qDebug() << "[PollingController] start() — loading cache, then fetching";
     m_firstFetch = true;
     loadCache();
@@ -97,15 +87,13 @@ void PollingController::start()
     emit pollingChanged();
 }
 
-void PollingController::stop()
-{
+void PollingController::stop() {
     qDebug() << "[PollingController] stop() — timer stopped";
     m_pollTimer.stop();
     emit pollingChanged();
 }
 
-void PollingController::refreshNow()
-{
+void PollingController::refreshNow() {
     qDebug() << "[PollingController] refreshNow() — fetching workspaces + tasks";
     m_api.fetchWorkspaces();
     m_api.fetchTasks();
@@ -115,15 +103,14 @@ void PollingController::refreshNow()
 // API result handlers
 // ---------------------------------------------------------------------------
 
-void PollingController::handleWorkspacesReceived(const QJsonArray &arr)
-{
+void PollingController::handleWorkspacesReceived(const QJsonArray& arr) {
     qDebug() << "[PollingController] workspacesReceived:" << arr.size()
              << "items, firstFetch=" << m_firstFetch
              << "currentModelCount=" << m_workspaceModel.rowCount();
 
     QList<WorkspaceModel::WorkspaceInfo> list;
     list.reserve(arr.size());
-    for (const auto &v : arr) {
+    for (const auto& v : arr) {
         list.append(WorkspaceModel::WorkspaceInfo::fromJson(v.toObject()));
     }
 
@@ -141,15 +128,14 @@ void PollingController::handleWorkspacesReceived(const QJsonArray &arr)
              << m_workspaceModel.rowCount();
 }
 
-void PollingController::handleTasksReceived(const QJsonArray &arr)
-{
+void PollingController::handleTasksReceived(const QJsonArray& arr) {
     qDebug() << "[PollingController] tasksReceived:" << arr.size()
              << "items, firstFetch=" << m_firstFetch
              << "currentModelCount=" << m_taskModel.rowCount();
 
     QList<TaskModel::TaskInfo> list;
     list.reserve(arr.size());
-    for (const auto &v : arr) {
+    for (const auto& v : arr) {
         list.append(TaskModel::TaskInfo::fromJson(v.toObject()));
     }
 
@@ -163,8 +149,7 @@ void PollingController::handleTasksReceived(const QJsonArray &arr)
     // Note: m_firstFetch is cleared by handleWorkspacesReceived; tasks arriving
     // after the first workspace response will already have notifications enabled.
 
-    qDebug() << "[PollingController] task model updated, new count="
-             << m_taskModel.rowCount();
+    qDebug() << "[PollingController] task model updated, new count=" << m_taskModel.rowCount();
 }
 
 // ---------------------------------------------------------------------------
@@ -172,8 +157,7 @@ void PollingController::handleTasksReceived(const QJsonArray &arr)
 // ---------------------------------------------------------------------------
 
 void PollingController::detectWorkspaceChanges(
-    const QList<WorkspaceModel::WorkspaceInfo> &newList)
-{
+    const QList<WorkspaceModel::WorkspaceInfo>& newList) {
     if (m_firstFetch || !m_settings.notificationsEnabled()) {
         return;
     }
@@ -186,22 +170,19 @@ void PollingController::detectWorkspaceChanges(
             idx.data(WorkspaceModel::StatusRole).toInt();
     }
 
-    for (const auto &ws : newList) {
+    for (const auto& ws : newList) {
         if (!oldStatus.contains(ws.id)) {
-            continue; // brand-new workspace — no prior state to compare
+            continue;  // brand-new workspace — no prior state to compare
         }
         if (oldStatus.value(ws.id) != ws.status) {
-            m_notifications.notify(
-                QStringLiteral("Workspace: %1").arg(ws.name),
-                QStringLiteral("Status changed"),
-                QStringLiteral("WorkspaceState"));
+            m_notifications.notify(QStringLiteral("Workspace: %1").arg(ws.name),
+                                   QStringLiteral("Status changed"),
+                                   QStringLiteral("WorkspaceState"));
         }
     }
 }
 
-void PollingController::detectTaskChanges(
-    const QList<TaskModel::TaskInfo> &newList)
-{
+void PollingController::detectTaskChanges(const QList<TaskModel::TaskInfo>& newList) {
     if (m_firstFetch || !m_settings.notificationsEnabled()) {
         return;
     }
@@ -215,17 +196,15 @@ void PollingController::detectTaskChanges(
         oldState[id] = idx.data(TaskModel::CurrentStateRole).toInt();
     }
 
-    for (const auto &task : newList) {
+    for (const auto& task : newList) {
         if (!oldStatus.contains(task.id)) {
-            continue; // new task
+            continue;  // new task
         }
         if (oldStatus.value(task.id) != task.status ||
             oldState.value(task.id) != task.currentState) {
-            const auto &label =
-                task.displayName.isEmpty() ? task.name : task.displayName;
+            const auto& label = task.displayName.isEmpty() ? task.name : task.displayName;
             m_notifications.notify(QStringLiteral("Task: %1").arg(label),
-                                   QStringLiteral("Status changed"),
-                                   QStringLiteral("TaskUpdate"));
+                                   QStringLiteral("Status changed"), QStringLiteral("TaskUpdate"));
         }
     }
 }
@@ -234,21 +213,16 @@ void PollingController::detectTaskChanges(
 // Persistent cache helpers
 // ---------------------------------------------------------------------------
 
-QString PollingController::cacheDirForDeployment() const
-{
-    const auto cacheRoot =
-        QStandardPaths::writableLocation(QStandardPaths::CacheLocation);
+QString PollingController::cacheDirForDeployment() const {
+    const auto cacheRoot = QStandardPaths::writableLocation(QStandardPaths::CacheLocation);
     const auto urlHash = QString::fromLatin1(
-        QCryptographicHash::hash(m_api.baseUrl().toUtf8(),
-                                 QCryptographicHash::Sha1)
-            .toHex());
+        QCryptographicHash::hash(m_api.baseUrl().toUtf8(), QCryptographicHash::Sha1).toHex());
     const auto dir = cacheRoot + QLatin1Char('/') + urlHash;
     QDir().mkpath(dir);
     return dir;
 }
 
-void PollingController::loadCache()
-{
+void PollingController::loadCache() {
     if (m_settings.disableDataCache()) {
         qDebug() << "[PollingController] loadCache() skipped — caching disabled";
         return;
@@ -266,13 +240,11 @@ void PollingController::loadCache()
                 QList<WorkspaceModel::WorkspaceInfo> list;
                 const auto arr = doc.array();
                 list.reserve(arr.size());
-                for (const auto &v : arr) {
-                    list.append(
-                        WorkspaceModel::WorkspaceInfo::fromJson(v.toObject()));
+                for (const auto& v : arr) {
+                    list.append(WorkspaceModel::WorkspaceInfo::fromJson(v.toObject()));
                 }
                 m_workspaceModel.setWorkspaces(list);
-                qDebug() << "[PollingController] loaded" << list.size()
-                         << "workspaces from cache";
+                qDebug() << "[PollingController] loaded" << list.size() << "workspaces from cache";
             }
         }
     }
@@ -286,76 +258,63 @@ void PollingController::loadCache()
                 QList<TaskModel::TaskInfo> list;
                 const auto arr = doc.array();
                 list.reserve(arr.size());
-                for (const auto &v : arr) {
-                    list.append(
-                        TaskModel::TaskInfo::fromJson(v.toObject()));
+                for (const auto& v : arr) {
+                    list.append(TaskModel::TaskInfo::fromJson(v.toObject()));
                 }
                 m_taskModel.setTasks(list);
-                qDebug() << "[PollingController] loaded" << list.size()
-                         << "tasks from cache";
+                qDebug() << "[PollingController] loaded" << list.size() << "tasks from cache";
             }
         }
     }
 }
 
-void PollingController::saveWorkspaceCache(const QJsonArray &arr)
-{
+void PollingController::saveWorkspaceCache(const QJsonArray& arr) {
     if (m_settings.disableDataCache()) {
         qDebug() << "[PollingController] saveWorkspaceCache skipped — caching disabled";
         return;
     }
 
     qDebug() << "[PollingController] saving" << arr.size() << "workspaces to cache";
-    const auto path =
-        cacheDirForDeployment() + QStringLiteral("/workspaces.json");
+    const auto path = cacheDirForDeployment() + QStringLiteral("/workspaces.json");
     QSaveFile f(path);
     if (f.open(QIODevice::WriteOnly)) {
         f.write(QJsonDocument(arr).toJson(QJsonDocument::Compact));
         if (!f.commit()) {
-            qWarning() << "[PollingController] failed to commit workspace cache"
-                       << path;
+            qWarning() << "[PollingController] failed to commit workspace cache" << path;
         }
     } else {
-        qWarning() << "[PollingController] failed to open workspace cache for writing"
-                   << path;
+        qWarning() << "[PollingController] failed to open workspace cache for writing" << path;
     }
 }
 
-void PollingController::saveTaskCache(const QJsonArray &arr)
-{
+void PollingController::saveTaskCache(const QJsonArray& arr) {
     if (m_settings.disableDataCache()) {
         qDebug() << "[PollingController] saveTaskCache skipped — caching disabled";
         return;
     }
 
     qDebug() << "[PollingController] saving" << arr.size() << "tasks to cache";
-    const auto path =
-        cacheDirForDeployment() + QStringLiteral("/tasks.json");
+    const auto path = cacheDirForDeployment() + QStringLiteral("/tasks.json");
     QSaveFile f(path);
     if (f.open(QIODevice::WriteOnly)) {
         f.write(QJsonDocument(arr).toJson(QJsonDocument::Compact));
         if (!f.commit()) {
-            qWarning() << "[PollingController] failed to commit task cache"
-                       << path;
+            qWarning() << "[PollingController] failed to commit task cache" << path;
         }
     } else {
-        qWarning() << "[PollingController] failed to open task cache for writing"
-                   << path;
+        qWarning() << "[PollingController] failed to open task cache for writing" << path;
     }
 }
 
-void PollingController::purgeCache()
-{
+void PollingController::purgeCache() {
     const auto dir = cacheDirForDeployment();
-    for (const auto &name :
-         {QStringLiteral("workspaces.json"), QStringLiteral("tasks.json")}) {
+    for (const auto& name : {QStringLiteral("workspaces.json"), QStringLiteral("tasks.json")}) {
         const auto path = dir + QLatin1Char('/') + name;
         if (QFile::exists(path)) {
             if (QFile::remove(path)) {
                 qDebug() << "[PollingController] purged cache file" << path;
             } else {
-                qWarning() << "[PollingController] failed to remove cache file"
-                           << path;
+                qWarning() << "[PollingController] failed to remove cache file" << path;
             }
         }
     }

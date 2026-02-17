@@ -20,11 +20,11 @@ class AppBrowserWidget : public QObject {
     Q_PROPERTY(bool loading READ isLoading NOTIFY loadingChanged)
 
 public:
-    explicit AppBrowserWidget(QObject *parent = nullptr);
+    explicit AppBrowserWidget(QObject* parent = nullptr);
     ~AppBrowserWidget() override = default;
 
-    AppBrowserWidget(const AppBrowserWidget &) = delete;
-    AppBrowserWidget &operator=(const AppBrowserWidget &) = delete;
+    AppBrowserWidget(const AppBrowserWidget&) = delete;
+    AppBrowserWidget& operator=(const AppBrowserWidget&) = delete;
 
     /// Build URL for a workspace app.
     ///
@@ -32,39 +32,37 @@ public:
     ///   1. External apps: return appUrl directly
     ///   2. VPN mode + appUrl present: rewrite appUrl hostname to {agent}.{workspace}.me.coder
     ///   3. Non-VPN: {deploymentUrl}/@{ownerName}/{workspaceName}/apps/{appSlug}
-    [[nodiscard]] Q_INVOKABLE QString buildAppUrl(const QString &deploymentUrl,
-                                                   const QString &appUrl,
-                                                   const QString &appSlug,
-                                                   const QString &workspaceName,
-                                                   const QString &ownerName,
-                                                   const QString &agentName,
-                                                   bool vpnActive,
-                                                   bool isExternal) const;
+    [[nodiscard]] Q_INVOKABLE QString buildAppUrl(const QString& deploymentUrl,
+                                                  const QString& appUrl, const QString& appSlug,
+                                                  const QString& workspaceName,
+                                                  const QString& ownerName,
+                                                  const QString& agentName, bool vpnActive,
+                                                  bool isExternal) const;
 
     /// Build a session cookie value for authenticating WebEngine requests.
     ///
     /// @param token  API session token
     /// @return Cookie value string suitable for the "coder_session_token" cookie
-    [[nodiscard]] Q_INVOKABLE QString buildSessionCookie(const QString &token) const;
+    [[nodiscard]] Q_INVOKABLE QString buildSessionCookie(const QString& token) const;
 
     /// Inject the Coder session token as a cookie into the default WebEngine profile.
     /// Must be called before or right after the WebEngineView loads.
     /// @param deploymentUrl  The Coder deployment base URL (used as cookie domain)
     /// @param token  The session token value
-    Q_INVOKABLE void injectSessionCookie(const QString &deploymentUrl, const QString &token);
+    Q_INVOKABLE void injectSessionCookie(const QString& deploymentUrl, const QString& token);
 
     [[nodiscard]] QString currentUrl() const;
     [[nodiscard]] bool isLoading() const;
 
 public slots:
-    void setCurrentUrl(const QString &url);
+    void setCurrentUrl(const QString& url);
     void setLoading(bool loading);
 
 signals:
     void urlChanged();
     void loadingChanged();
-    void titleChanged(const QString &title);
-    void navigationRequested(const QUrl &url);
+    void titleChanged(const QString& title);
+    void navigationRequested(const QUrl& url);
     void cookieReady();  // Emitted after session cookie is confirmed set
 
 private:
@@ -72,4 +70,4 @@ private:
     bool m_loading = false;
 };
 
-#endif // APPBROWSERWIDGET_H
+#endif  // APPBROWSERWIDGET_H

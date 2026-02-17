@@ -31,18 +31,15 @@ class SettingsManager;
 /// SettingsManager::notificationsEnabled()).
 class PollingController : public QObject {
     Q_OBJECT
-    Q_PROPERTY(int refreshIntervalSec READ refreshIntervalSec
-                   WRITE setRefreshIntervalSec NOTIFY refreshIntervalChanged)
+    Q_PROPERTY(int refreshIntervalSec READ refreshIntervalSec WRITE setRefreshIntervalSec NOTIFY
+                   refreshIntervalChanged)
     Q_PROPERTY(bool polling READ isPolling NOTIFY pollingChanged)
 
 public:
     /// All references must outlive this controller.
-    explicit PollingController(CoderApiClient &api,
-                               WorkspaceModel &workspaces,
-                               TaskModel &tasks,
-                               NotificationManager &notifications,
-                               SettingsManager &settings,
-                               QObject *parent = nullptr);
+    explicit PollingController(CoderApiClient& api, WorkspaceModel& workspaces, TaskModel& tasks,
+                               NotificationManager& notifications, SettingsManager& settings,
+                               QObject* parent = nullptr);
 
     [[nodiscard]] int refreshIntervalSec() const;
     void setRefreshIntervalSec(int sec);
@@ -60,10 +57,10 @@ public slots:
     Q_INVOKABLE void refreshNow();
 
     /// Slot connected to CoderApiClient::workspacesReceived().
-    void handleWorkspacesReceived(const QJsonArray &arr);
+    void handleWorkspacesReceived(const QJsonArray& arr);
 
     /// Slot connected to CoderApiClient::tasksReceived().
-    void handleTasksReceived(const QJsonArray &arr);
+    void handleTasksReceived(const QJsonArray& arr);
 
 signals:
     void refreshIntervalChanged();
@@ -71,23 +68,22 @@ signals:
 
 private:
     // -- Change detection (for notifications) --------------------------------
-    void detectWorkspaceChanges(
-        const QList<WorkspaceModel::WorkspaceInfo> &newList);
-    void detectTaskChanges(const QList<TaskModel::TaskInfo> &newList);
+    void detectWorkspaceChanges(const QList<WorkspaceModel::WorkspaceInfo>& newList);
+    void detectTaskChanges(const QList<TaskModel::TaskInfo>& newList);
 
     // -- Persistent cache I/O ------------------------------------------------
     void loadCache();
-    void saveWorkspaceCache(const QJsonArray &arr);
-    void saveTaskCache(const QJsonArray &arr);
+    void saveWorkspaceCache(const QJsonArray& arr);
+    void saveTaskCache(const QJsonArray& arr);
     void purgeCache();
     [[nodiscard]] QString cacheDirForDeployment() const;
 
     // -- Dependencies (non-owning references) --------------------------------
-    CoderApiClient &m_api;
-    WorkspaceModel &m_workspaceModel;
-    TaskModel &m_taskModel;
-    NotificationManager &m_notifications;
-    SettingsManager &m_settings;
+    CoderApiClient& m_api;
+    WorkspaceModel& m_workspaceModel;
+    TaskModel& m_taskModel;
+    NotificationManager& m_notifications;
+    SettingsManager& m_settings;
 
     QTimer m_pollTimer;
     int m_refreshIntervalSec = 10;
@@ -97,4 +93,4 @@ private:
     bool m_firstFetch = true;
 };
 
-#endif // POLLINGCONTROLLER_H
+#endif  // POLLINGCONTROLLER_H

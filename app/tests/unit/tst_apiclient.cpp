@@ -22,23 +22,21 @@ private slots:
     // DTO: User
     // -----------------------------------------------------------------------
 
-    void testUserFromJson()
-    {
+    void testUserFromJson() {
         const QJsonObject obj{
-            {QLatin1String("id"),         QStringLiteral("abc-123")},
-            {QLatin1String("username"),   QStringLiteral("testuser")},
-            {QLatin1String("email"),      QStringLiteral("test@coder.com")},
+            {QLatin1String("id"), QStringLiteral("abc-123")},
+            {QLatin1String("username"), QStringLiteral("testuser")},
+            {QLatin1String("email"), QStringLiteral("test@coder.com")},
             {QLatin1String("avatar_url"), QStringLiteral("https://example.com/avatar.png")},
         };
         const User u = User::fromJson(obj);
-        QCOMPARE(u.id,        QStringLiteral("abc-123"));
-        QCOMPARE(u.username,  QStringLiteral("testuser"));
-        QCOMPARE(u.email,     QStringLiteral("test@coder.com"));
+        QCOMPARE(u.id, QStringLiteral("abc-123"));
+        QCOMPARE(u.username, QStringLiteral("testuser"));
+        QCOMPARE(u.email, QStringLiteral("test@coder.com"));
         QCOMPARE(u.avatarUrl, QStringLiteral("https://example.com/avatar.png"));
     }
 
-    void testUserFromJsonMissingFields()
-    {
+    void testUserFromJsonMissingFields() {
         const User u = User::fromJson(QJsonObject{});
         QVERIFY(u.id.isEmpty());
         QVERIFY(u.username.isEmpty());
@@ -48,26 +46,24 @@ private slots:
     // DTO: Template
     // -----------------------------------------------------------------------
 
-    void testTemplateFromJson()
-    {
+    void testTemplateFromJson() {
         const QJsonObject obj{
-            {QLatin1String("id"),                QStringLiteral("tmpl-1")},
-            {QLatin1String("name"),              QStringLiteral("docker")},
-            {QLatin1String("display_name"),      QStringLiteral("Docker")},
-            {QLatin1String("description"),       QStringLiteral("A docker template")},
-            {QLatin1String("icon"),              QStringLiteral("/icon/docker.svg")},
+            {QLatin1String("id"), QStringLiteral("tmpl-1")},
+            {QLatin1String("name"), QStringLiteral("docker")},
+            {QLatin1String("display_name"), QStringLiteral("Docker")},
+            {QLatin1String("description"), QStringLiteral("A docker template")},
+            {QLatin1String("icon"), QStringLiteral("/icon/docker.svg")},
             {QLatin1String("active_version_id"), QStringLiteral("v-99")},
-            {QLatin1String("organization_id"),   QStringLiteral("org-1")},
+            {QLatin1String("organization_id"), QStringLiteral("org-1")},
         };
         const Template t = Template::fromJson(obj);
-        QCOMPARE(t.id,              QStringLiteral("tmpl-1"));
-        QCOMPARE(t.name,            QStringLiteral("docker"));
-        QCOMPARE(t.displayName,     QStringLiteral("Docker"));
+        QCOMPARE(t.id, QStringLiteral("tmpl-1"));
+        QCOMPARE(t.name, QStringLiteral("docker"));
+        QCOMPARE(t.displayName, QStringLiteral("Docker"));
         QCOMPARE(t.activeVersionId, QStringLiteral("v-99"));
     }
 
-    void testTemplateListFromJson()
-    {
+    void testTemplateListFromJson() {
         QJsonArray arr;
         arr.append(QJsonObject{{QLatin1String("id"), QStringLiteral("t1")}});
         arr.append(QJsonObject{{QLatin1String("id"), QStringLiteral("t2")}});
@@ -81,15 +77,14 @@ private slots:
     // DTO: BuildInfo
     // -----------------------------------------------------------------------
 
-    void testBuildInfoFromJson()
-    {
+    void testBuildInfoFromJson() {
         const QJsonObject obj{
-            {QLatin1String("version"),               QStringLiteral("v2.5.0")},
-            {QLatin1String("dashboard_url"),          QStringLiteral("https://coder.example.com")},
-            {QLatin1String("external_auth_enabled"),  true},
+            {QLatin1String("version"), QStringLiteral("v2.5.0")},
+            {QLatin1String("dashboard_url"), QStringLiteral("https://coder.example.com")},
+            {QLatin1String("external_auth_enabled"), true},
         };
         const BuildInfo b = BuildInfo::fromJson(obj);
-        QCOMPARE(b.version,      QStringLiteral("v2.5.0"));
+        QCOMPARE(b.version, QStringLiteral("v2.5.0"));
         QCOMPARE(b.dashboardUrl, QStringLiteral("https://coder.example.com"));
         QCOMPARE(b.externalAuthEnabled, true);
     }
@@ -98,62 +93,61 @@ private slots:
     // DTO: Workspace (with agents, apps, enums)
     // -----------------------------------------------------------------------
 
-    void testWorkspaceFromJson()
-    {
+    void testWorkspaceFromJson() {
         // Build a realistic Workspace JSON with nested agents.
         QJsonObject appObj{
             {QLatin1String("display_name"), QStringLiteral("VS Code")},
-            {QLatin1String("slug"),         QStringLiteral("vscode")},
-            {QLatin1String("icon"),         QStringLiteral("/icon/code.svg")},
-            {QLatin1String("url"),          QStringLiteral("https://code.example.com")},
-            {QLatin1String("subdomain"),    true},
-            {QLatin1String("external"),     false},
+            {QLatin1String("slug"), QStringLiteral("vscode")},
+            {QLatin1String("icon"), QStringLiteral("/icon/code.svg")},
+            {QLatin1String("url"), QStringLiteral("https://code.example.com")},
+            {QLatin1String("subdomain"), true},
+            {QLatin1String("external"), false},
         };
         QJsonObject agentObj{
-            {QLatin1String("id"),     QStringLiteral("agent-1")},
-            {QLatin1String("name"),   QStringLiteral("main")},
+            {QLatin1String("id"), QStringLiteral("agent-1")},
+            {QLatin1String("name"), QStringLiteral("main")},
             {QLatin1String("status"), QStringLiteral("connected")},
-            {QLatin1String("apps"),   QJsonArray{appObj}},
+            {QLatin1String("apps"), QJsonArray{appObj}},
         };
         QJsonObject resource{
             {QLatin1String("agents"), QJsonArray{agentObj}},
         };
         QJsonObject latestBuild{
-            {QLatin1String("id"),        QStringLiteral("build-42")},
-            {QLatin1String("status"),    QStringLiteral("running")},
+            {QLatin1String("id"), QStringLiteral("build-42")},
+            {QLatin1String("status"), QStringLiteral("running")},
             {QLatin1String("resources"), QJsonArray{resource}},
         };
         QJsonObject health{
             {QLatin1String("healthy"), true},
         };
         QJsonObject wsObj{
-            {QLatin1String("id"),                         QStringLiteral("ws-1")},
-            {QLatin1String("name"),                       QStringLiteral("my-workspace")},
-            {QLatin1String("owner_name"),                 QStringLiteral("admin")},
-            {QLatin1String("template_name"),              QStringLiteral("docker")},
-            {QLatin1String("template_icon"),              QStringLiteral("/icon/docker.svg")},
-            {QLatin1String("health"),                     health},
-            {QLatin1String("favorite"),                   true},
-            {QLatin1String("outdated"),                   false},
-            {QLatin1String("latest_build"),               latestBuild},
+            {QLatin1String("id"), QStringLiteral("ws-1")},
+            {QLatin1String("name"), QStringLiteral("my-workspace")},
+            {QLatin1String("owner_name"), QStringLiteral("admin")},
+            {QLatin1String("template_name"), QStringLiteral("docker")},
+            {QLatin1String("template_icon"), QStringLiteral("/icon/docker.svg")},
+            {QLatin1String("health"), health},
+            {QLatin1String("favorite"), true},
+            {QLatin1String("outdated"), false},
+            {QLatin1String("latest_build"), latestBuild},
             {QLatin1String("template_active_version_id"), QStringLiteral("v-99")},
         };
 
         const Workspace w = Workspace::fromJson(wsObj);
-        QCOMPARE(w.id,           QStringLiteral("ws-1"));
-        QCOMPARE(w.name,         QStringLiteral("my-workspace"));
-        QCOMPARE(w.ownerName,    QStringLiteral("admin"));
+        QCOMPARE(w.id, QStringLiteral("ws-1"));
+        QCOMPARE(w.name, QStringLiteral("my-workspace"));
+        QCOMPARE(w.ownerName, QStringLiteral("admin"));
         QCOMPARE(w.templateName, QStringLiteral("docker"));
-        QCOMPARE(w.status,       WorkspaceStatus::Running);
-        QCOMPARE(w.health,       QStringLiteral("healthy"));
-        QCOMPARE(w.favorite,     true);
-        QCOMPARE(w.outdated,     false);
+        QCOMPARE(w.status, WorkspaceStatus::Running);
+        QCOMPARE(w.health, QStringLiteral("healthy"));
+        QCOMPARE(w.favorite, true);
+        QCOMPARE(w.outdated, false);
         QCOMPARE(w.latestBuildId, QStringLiteral("build-42"));
         QCOMPARE(w.templateActiveVersionId, QStringLiteral("v-99"));
 
         // Agents
         QCOMPARE(w.agents.size(), 1);
-        QCOMPARE(w.agents[0].id,   QStringLiteral("agent-1"));
+        QCOMPARE(w.agents[0].id, QStringLiteral("agent-1"));
         QCOMPARE(w.agents[0].name, QStringLiteral("main"));
         QCOMPARE(w.agents[0].status, AgentStatus::Connected);
 
@@ -163,47 +157,36 @@ private slots:
         QCOMPARE(w.agents[0].apps[0].subdomain, true);
     }
 
-    void testWorkspaceStatusEnum()
-    {
-        QCOMPARE(workspaceStatusFromString(QStringLiteral("running")),
-                 WorkspaceStatus::Running);
-        QCOMPARE(workspaceStatusFromString(QStringLiteral("stopped")),
-                 WorkspaceStatus::Stopped);
-        QCOMPARE(workspaceStatusFromString(QStringLiteral("bogus")),
-                 WorkspaceStatus::Unknown);
+    void testWorkspaceStatusEnum() {
+        QCOMPARE(workspaceStatusFromString(QStringLiteral("running")), WorkspaceStatus::Running);
+        QCOMPARE(workspaceStatusFromString(QStringLiteral("stopped")), WorkspaceStatus::Stopped);
+        QCOMPARE(workspaceStatusFromString(QStringLiteral("bogus")), WorkspaceStatus::Unknown);
     }
 
-    void testAgentStatusEnum()
-    {
-        QCOMPARE(agentStatusFromString(QStringLiteral("connected")),
-                 AgentStatus::Connected);
-        QCOMPARE(agentStatusFromString(QStringLiteral("timeout")),
-                 AgentStatus::Timeout);
-        QCOMPARE(agentStatusFromString(QStringLiteral("xyz")),
-                 AgentStatus::Unknown);
+    void testAgentStatusEnum() {
+        QCOMPARE(agentStatusFromString(QStringLiteral("connected")), AgentStatus::Connected);
+        QCOMPARE(agentStatusFromString(QStringLiteral("timeout")), AgentStatus::Timeout);
+        QCOMPARE(agentStatusFromString(QStringLiteral("xyz")), AgentStatus::Unknown);
     }
 
     // -----------------------------------------------------------------------
     // CoderApiClient: buildRequest header verification
     // -----------------------------------------------------------------------
 
-    void testBuildRequestHeaders()
-    {
+    void testBuildRequestHeaders() {
         CoderApiClient client;
         client.setBaseUrl(QStringLiteral("https://coder.example.com/"));
         client.setSessionToken(QStringLiteral("tok-secret-123"));
 
         // Use getAuthenticatedUser to obtain a reply, inspect the request.
-        QNetworkReply *reply = client.getAuthenticatedUser();
+        QNetworkReply* reply = client.getAuthenticatedUser();
         QVERIFY(reply);
 
         const QNetworkRequest req = reply->request();
         // URL should have trailing slash stripped + path appended.
-        QCOMPARE(req.url().toString(),
-                 QStringLiteral("https://coder.example.com/api/v2/users/me"));
+        QCOMPARE(req.url().toString(), QStringLiteral("https://coder.example.com/api/v2/users/me"));
         // Auth header must be Coder-Session-Token, not Bearer.
-        QCOMPARE(req.rawHeader("Coder-Session-Token"),
-                 QByteArray("tok-secret-123"));
+        QCOMPARE(req.rawHeader("Coder-Session-Token"), QByteArray("tok-secret-123"));
         QVERIFY(!req.hasRawHeader("Authorization"));
         // Content-Type
         QCOMPARE(req.header(QNetworkRequest::ContentTypeHeader).toString(),
@@ -213,15 +196,13 @@ private slots:
         reply->deleteLater();
     }
 
-    void testBaseUrlNormalisation()
-    {
+    void testBaseUrlNormalisation() {
         CoderApiClient client;
         client.setBaseUrl(QStringLiteral("https://coder.example.com///"));
         QCOMPARE(client.baseUrl(), QStringLiteral("https://coder.example.com"));
     }
 
-    void testAuthStateSignal()
-    {
+    void testAuthStateSignal() {
         CoderApiClient client;
         QVERIFY(!client.isAuthenticated());
 
@@ -244,8 +225,7 @@ private slots:
     // SecureStorage: file-based fallback round-trip
     // -----------------------------------------------------------------------
 
-    void testSecureStorageFileFallback()
-    {
+    void testSecureStorageFileFallback() {
         // We instantiate SecureStorage but override its fallback path
         // by using a temp dir via environment variable or direct member.
         // Since m_fallbackPath is private, we test end-to-end: the test
@@ -276,7 +256,7 @@ private slots:
         // Remove
         QVERIFY(storage.removeToken(url1));
         QVERIFY(storage.retrieveToken(url1).isEmpty());
-        QVERIFY(!storage.removeToken(url1)); // already gone
+        QVERIFY(!storage.removeToken(url1));  // already gone
 
         // Clean up url2
         [[maybe_unused]] bool removed = storage.removeToken(url2);

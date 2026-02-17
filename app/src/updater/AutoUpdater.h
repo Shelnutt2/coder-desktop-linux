@@ -82,4 +82,4 @@ private:
     QTimer m_timer;
 };
 
-#endif // AUTOUPDATER_H
+#endif  // AUTOUPDATER_H

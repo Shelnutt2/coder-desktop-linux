@@ -16,4 +16,4 @@ struct Deployment {
     QDateTime addedAt;
 };
 
-#endif // DEPLOYMENT_H
+#endif  // DEPLOYMENT_H

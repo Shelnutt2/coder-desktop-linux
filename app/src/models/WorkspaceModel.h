@@ -42,7 +42,7 @@ public:
         QString ownerName;
         QString templateName;
         QString templateIcon;
-        int status = 0;       // maps to a WorkspaceStatus enum value
+        int status = 0;  // maps to a WorkspaceStatus enum value
         bool health = true;
         bool favorite = false;
         bool outdated = false;
@@ -85,4 +85,4 @@ private:
     QString m_errorMessage;
 };
 
-#endif // WORKSPACEMODEL_H
+#endif  // WORKSPACEMODEL_H

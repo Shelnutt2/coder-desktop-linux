@@ -10,9 +10,7 @@
 // Construction
 // ---------------------------------------------------------------------------
 
-MdmConfigManager::MdmConfigManager(const QString& policyPath)
-    : m_policyPath(policyPath)
-{
+MdmConfigManager::MdmConfigManager(const QString& policyPath) : m_policyPath(policyPath) {
     parse();
 }
 
@@ -20,32 +18,25 @@ MdmConfigManager::MdmConfigManager(const QString& policyPath)
 // Public API
 // ---------------------------------------------------------------------------
 
-QVariant MdmConfigManager::value(const QString& key) const
-{
-    if (!m_enabled)
-        return {};
+QVariant MdmConfigManager::value(const QString& key) const {
+    if (!m_enabled) return {};
 
     const QJsonValue entry = m_settings.value(key);
-    if (!entry.isObject())
-        return {};
+    if (!entry.isObject()) return {};
 
     return entry.toObject().value(QStringLiteral("value")).toVariant();
 }
 
-bool MdmConfigManager::isLocked(const QString& key) const
-{
-    if (!m_enabled)
-        return false;
+bool MdmConfigManager::isLocked(const QString& key) const {
+    if (!m_enabled) return false;
 
     const QJsonValue entry = m_settings.value(key);
-    if (!entry.isObject())
-        return false;
+    if (!entry.isObject()) return false;
 
     return entry.toObject().value(QStringLiteral("locked")).toBool(false);
 }
 
-void MdmConfigManager::reload()
-{
+void MdmConfigManager::reload() {
     m_enabled = false;
     m_settings = {};
     parse();
@@ -55,8 +46,7 @@ void MdmConfigManager::reload()
 // Internal
 // ---------------------------------------------------------------------------
 
-void MdmConfigManager::parse()
-{
+void MdmConfigManager::parse() {
     QFile file(m_policyPath);
     if (!file.exists()) {
         qDebug() << "MdmConfigManager: policy file does not exist:" << m_policyPath;
@@ -95,6 +85,5 @@ void MdmConfigManager::parse()
 
     m_settings = settingsVal.toObject();
     m_enabled = true;
-    qDebug() << "MdmConfigManager: loaded policy with"
-             << m_settings.count() << "setting(s)";
+    qDebug() << "MdmConfigManager: loaded policy with" << m_settings.count() << "setting(s)";
 }

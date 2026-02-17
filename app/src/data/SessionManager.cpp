@@ -14,13 +14,11 @@
 // Token validation interval: 30 minutes.
 static constexpr int kTokenValidateIntervalMs = 30 * 60 * 1000;
 
-SessionManager::SessionManager(CoderApiClient &apiClient, SecureStorage &storage,
-                               QObject *parent)
-    : QObject(parent)
-    , m_apiClient(apiClient)
-    , m_storage(storage)
-    , m_tokenValidator(new QTimer(this))
-{
+SessionManager::SessionManager(CoderApiClient& apiClient, SecureStorage& storage, QObject* parent)
+    : QObject(parent),
+      m_apiClient(apiClient),
+      m_storage(storage),
+      m_tokenValidator(new QTimer(this)) {
     loadDeployments();
 
     // Restore active deployment credentials into the API client.
@@ -38,25 +36,20 @@ SessionManager::SessionManager(CoderApiClient &apiClient, SecureStorage &storage
 // Properties
 // ---------------------------------------------------------------------------
 
-bool SessionManager::isAuthenticated() const
-{
+bool SessionManager::isAuthenticated() const {
     return m_apiClient.isAuthenticated();
 }
 
-QString SessionManager::currentUrl() const
-{
+QString SessionManager::currentUrl() const {
     return m_activeDeployment.url;
 }
 
-QString SessionManager::currentUsername() const
-{
+QString SessionManager::currentUsername() const {
     return m_activeDeployment.username;
 }
 
-QString SessionManager::sessionToken()
-{
-    if (m_activeDeployment.url.isEmpty())
-        return {};
+QString SessionManager::sessionToken() {
+    if (m_activeDeployment.url.isEmpty()) return {};
     return m_storage.retrieveToken(m_activeDeployment.url);
 }
 
@@ -64,13 +57,12 @@ QString SessionManager::sessionToken()
 // Login / Logout
 // ---------------------------------------------------------------------------
 
-void SessionManager::login(const QString &url, const QString &token)
-{
+void SessionManager::login(const QString& url, const QString& token) {
     // Configure the API client immediately so the request uses these creds.
     m_apiClient.setBaseUrl(url);
     m_apiClient.setSessionToken(token);
 
-    QNetworkReply *reply = m_apiClient.getAuthenticatedUser();
+    QNetworkReply* reply = m_apiClient.getAuthenticatedUser();
     connect(reply, &QNetworkReply::finished, this, [this, reply, url, token]() {
         reply->deleteLater();
 
@@ -98,8 +90,7 @@ void SessionManager::login(const QString &url, const QString &token)
         dep.addedAt = QDateTime::currentDateTimeUtc();
 
         // Deactivate any previously active deployment.
-        for (auto &d : m_deployments)
-            d.isActive = false;
+        for (auto& d : m_deployments) d.isActive = false;
 
         // Replace existing entry for the same URL, or append.
         bool found = false;
@@ -110,8 +101,7 @@ void SessionManager::login(const QString &url, const QString &token)
                 break;
             }
         }
-        if (!found)
-            m_deployments.append(dep);
+        if (!found) m_deployments.append(dep);
 
         m_activeDeployment = dep;
         saveDeployments();
@@ -122,18 +112,15 @@ void SessionManager::login(const QString &url, const QString &token)
     });
 }
 
-void SessionManager::logout()
-{
-    if (!m_activeDeployment.url.isEmpty())
-        (void)m_storage.removeToken(m_activeDeployment.url);
+void SessionManager::logout() {
+    if (!m_activeDeployment.url.isEmpty()) (void)m_storage.removeToken(m_activeDeployment.url);
 
     m_apiClient.setSessionToken(QString());
     m_apiClient.setBaseUrl(QString());
 
     // Mark the deployment inactive but keep it in the list.
-    for (auto &d : m_deployments) {
-        if (d.url == m_activeDeployment.url)
-            d.isActive = false;
+    for (auto& d : m_deployments) {
+        if (d.url == m_activeDeployment.url) d.isActive = false;
     }
     m_activeDeployment = Deployment{};
     saveDeployments();
@@ -146,17 +133,14 @@ void SessionManager::logout()
 // Token validation
 // ---------------------------------------------------------------------------
 
-void SessionManager::validateToken()
-{
-    if (!isAuthenticated())
-        return;
+void SessionManager::validateToken() {
+    if (!isAuthenticated()) return;
 
-    QNetworkReply *reply = m_apiClient.getAuthenticatedUser();
+    QNetworkReply* reply = m_apiClient.getAuthenticatedUser();
     connect(reply, &QNetworkReply::finished, this, [this, reply]() {
         reply->deleteLater();
 
-        const int status =
-            reply->attribute(QNetworkRequest::HttpStatusCodeAttribute).toInt();
+        const int status = reply->attribute(QNetworkRequest::HttpStatusCodeAttribute).toInt();
         if (status == 401) {
             m_tokenValidator->stop();
             emit tokenExpired();
@@ -164,11 +148,10 @@ void SessionManager::validateToken()
     });
 }
 
-void SessionManager::startTokenValidation()
-{
+void SessionManager::startTokenValidation() {
     m_tokenValidator->stop();
-    connect(m_tokenValidator, &QTimer::timeout,
-            this, &SessionManager::validateToken, Qt::UniqueConnection);
+    connect(m_tokenValidator, &QTimer::timeout, this, &SessionManager::validateToken,
+            Qt::UniqueConnection);
     m_tokenValidator->start(kTokenValidateIntervalMs);
 }
 
@@ -176,10 +159,9 @@ void SessionManager::startTokenValidation()
 // Multi-deployment
 // ---------------------------------------------------------------------------
 
-QVariantList SessionManager::deployments() const
-{
+QVariantList SessionManager::deployments() const {
     QVariantList list;
-    for (const auto &d : m_deployments) {
+    for (const auto& d : m_deployments) {
         QVariantMap m;
         m[QStringLiteral("id")] = d.id;
         m[QStringLiteral("name")] = d.name;
@@ -193,18 +175,16 @@ QVariantList SessionManager::deployments() const
     return list;
 }
 
-void SessionManager::switchDeployment(const QString &url)
-{
+void SessionManager::switchDeployment(const QString& url) {
     // Find the deployment.
-    Deployment *target = nullptr;
-    for (auto &d : m_deployments) {
+    Deployment* target = nullptr;
+    for (auto& d : m_deployments) {
         if (d.url == url) {
             target = &d;
             break;
         }
     }
-    if (!target)
-        return;
+    if (!target) return;
 
     const QString token = m_storage.retrieveToken(url);
     if (token.isEmpty()) {
@@ -213,8 +193,7 @@ void SessionManager::switchDeployment(const QString &url)
     }
 
     // Deactivate all, activate the target.
-    for (auto &d : m_deployments)
-        d.isActive = false;
+    for (auto& d : m_deployments) d.isActive = false;
     target->isActive = true;
     m_activeDeployment = *target;
 
@@ -226,14 +205,12 @@ void SessionManager::switchDeployment(const QString &url)
     emit authStateChanged();
 }
 
-void SessionManager::removeDeployment(const QString &url)
-{
+void SessionManager::removeDeployment(const QString& url) {
     (void)m_storage.removeToken(url);
 
-    m_deployments.erase(
-        std::remove_if(m_deployments.begin(), m_deployments.end(),
-                       [&url](const Deployment &d) { return d.url == url; }),
-        m_deployments.end());
+    m_deployments.erase(std::remove_if(m_deployments.begin(), m_deployments.end(),
+                                       [&url](const Deployment& d) { return d.url == url; }),
+                        m_deployments.end());
 
     // If we just removed the active deployment, log out.
     if (m_activeDeployment.url == url) {
@@ -251,19 +228,16 @@ void SessionManager::removeDeployment(const QString &url)
 // Persistence — deployments stored as JSON array in QSettings
 // ---------------------------------------------------------------------------
 
-void SessionManager::loadDeployments()
-{
+void SessionManager::loadDeployments() {
     QSettings settings;
     const QString raw = settings.value(QStringLiteral("deployments")).toString();
-    if (raw.isEmpty())
-        return;
+    if (raw.isEmpty()) return;
 
     const QJsonDocument doc = QJsonDocument::fromJson(raw.toUtf8());
-    if (!doc.isArray())
-        return;
+    if (!doc.isArray()) return;
 
     const QJsonArray arr = doc.array();
-    for (const auto &val : arr) {
+    for (const auto& val : arr) {
         const QJsonObject obj = val.toObject();
         Deployment d;
         d.id = obj.value(QLatin1String("id")).toString();
@@ -272,19 +246,17 @@ void SessionManager::loadDeployments()
         d.username = obj.value(QLatin1String("username")).toString();
         d.avatarUrl = obj.value(QLatin1String("avatarUrl")).toString();
         d.isActive = obj.value(QLatin1String("isActive")).toBool();
-        d.addedAt = QDateTime::fromString(
-            obj.value(QLatin1String("addedAt")).toString(), Qt::ISODate);
+        d.addedAt =
+            QDateTime::fromString(obj.value(QLatin1String("addedAt")).toString(), Qt::ISODate);
         m_deployments.append(d);
 
-        if (d.isActive)
-            m_activeDeployment = d;
+        if (d.isActive) m_activeDeployment = d;
     }
 }
 
-void SessionManager::saveDeployments()
-{
+void SessionManager::saveDeployments() {
     QJsonArray arr;
-    for (const auto &d : m_deployments) {
+    for (const auto& d : m_deployments) {
         QJsonObject obj;
         obj[QLatin1String("id")] = d.id;
         obj[QLatin1String("name")] = d.name;
@@ -298,5 +270,5 @@ void SessionManager::saveDeployments()
 
     QSettings settings;
     settings.setValue(QStringLiteral("deployments"),
-                     QString::fromUtf8(QJsonDocument(arr).toJson(QJsonDocument::Compact)));
+                      QString::fromUtf8(QJsonDocument(arr).toJson(QJsonDocument::Compact)));
 }

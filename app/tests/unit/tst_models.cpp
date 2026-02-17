@@ -16,8 +16,7 @@ private slots:
     // WorkspaceModel
     // -----------------------------------------------------------------------
 
-    void testWorkspaceRoleNames()
-    {
+    void testWorkspaceRoleNames() {
         WorkspaceModel model;
         auto roles = model.roleNames();
         QVERIFY(roles.contains(WorkspaceModel::IdRole));
@@ -27,13 +26,12 @@ private slots:
         QCOMPARE(roles.value(WorkspaceModel::NameRole), QByteArray("name"));
     }
 
-    void testWorkspaceSetWorkspaces()
-    {
+    void testWorkspaceSetWorkspaces() {
         WorkspaceModel model;
         QSignalSpy countSpy(&model, &WorkspaceModel::countChanged);
 
         WorkspaceModel::WorkspaceInfo ws;
-        ws.id   = QStringLiteral("ws-1");
+        ws.id = QStringLiteral("ws-1");
         ws.name = QStringLiteral("dev");
         ws.ownerName = QStringLiteral("alice");
         ws.status = 0;  // Running
@@ -45,21 +43,18 @@ private slots:
 
         // Verify data() for several roles.
         QModelIndex idx = model.index(0);
-        QCOMPARE(model.data(idx, WorkspaceModel::IdRole).toString(),
-                 QStringLiteral("ws-1"));
-        QCOMPARE(model.data(idx, WorkspaceModel::NameRole).toString(),
-                 QStringLiteral("dev"));
+        QCOMPARE(model.data(idx, WorkspaceModel::IdRole).toString(), QStringLiteral("ws-1"));
+        QCOMPARE(model.data(idx, WorkspaceModel::NameRole).toString(), QStringLiteral("dev"));
         QCOMPARE(model.data(idx, WorkspaceModel::StatusRole).toInt(), 0);
         QCOMPARE(model.data(idx, WorkspaceModel::StatusStringRole).toString(),
                  QStringLiteral("Running"));
     }
 
-    void testWorkspaceUpdateExisting()
-    {
+    void testWorkspaceUpdateExisting() {
         WorkspaceModel model;
 
         WorkspaceModel::WorkspaceInfo ws;
-        ws.id   = QStringLiteral("ws-1");
+        ws.id = QStringLiteral("ws-1");
         ws.name = QStringLiteral("dev");
         ws.status = 0;  // Running
         model.setWorkspaces({ws});
@@ -75,8 +70,7 @@ private slots:
         QCOMPARE(model.data(model.index(0), WorkspaceModel::StatusRole).toInt(), 4);
     }
 
-    void testWorkspaceUpdateAddsNew()
-    {
+    void testWorkspaceUpdateAddsNew() {
         WorkspaceModel model;
         model.setWorkspaces({});
         QCOMPARE(model.rowCount(), 0);
@@ -84,7 +78,7 @@ private slots:
         QSignalSpy countSpy(&model, &WorkspaceModel::countChanged);
 
         WorkspaceModel::WorkspaceInfo ws;
-        ws.id   = QStringLiteral("ws-new");
+        ws.id = QStringLiteral("ws-new");
         ws.name = QStringLiteral("new-ws");
         model.updateWorkspace(ws);
 
@@ -92,8 +86,7 @@ private slots:
         QCOMPARE(countSpy.count(), 1);
     }
 
-    void testWorkspaceClear()
-    {
+    void testWorkspaceClear() {
         WorkspaceModel model;
         WorkspaceModel::WorkspaceInfo ws;
         ws.id = QStringLiteral("ws-1");
@@ -106,16 +99,14 @@ private slots:
         QCOMPARE(countSpy.count(), 1);
     }
 
-    void testWorkspaceClearEmpty()
-    {
+    void testWorkspaceClearEmpty() {
         WorkspaceModel model;
         QSignalSpy countSpy(&model, &WorkspaceModel::countChanged);
         model.clear();  // no-op, should not emit
         QCOMPARE(countSpy.count(), 0);
     }
 
-    void testWorkspaceLoadingState()
-    {
+    void testWorkspaceLoadingState() {
         WorkspaceModel model;
         QVERIFY(!model.isLoading());
 
@@ -129,8 +120,7 @@ private slots:
         QCOMPARE(spy.count(), 1);
     }
 
-    void testWorkspaceErrorState()
-    {
+    void testWorkspaceErrorState() {
         WorkspaceModel model;
         QVERIFY(model.errorMessage().isEmpty());
 
@@ -143,19 +133,18 @@ private slots:
         QCOMPARE(spy.count(), 1);
     }
 
-    void testWorkspaceFromJson()
-    {
+    void testWorkspaceFromJson() {
         QJsonObject latestBuild;
         latestBuild[QLatin1String("status")] = QStringLiteral("running");
 
         QJsonObject obj;
-        obj[QLatin1String("id")]            = QStringLiteral("abc-123");
-        obj[QLatin1String("name")]          = QStringLiteral("myws");
-        obj[QLatin1String("owner_name")]    = QStringLiteral("bob");
+        obj[QLatin1String("id")] = QStringLiteral("abc-123");
+        obj[QLatin1String("name")] = QStringLiteral("myws");
+        obj[QLatin1String("owner_name")] = QStringLiteral("bob");
         obj[QLatin1String("template_name")] = QStringLiteral("docker");
-        obj[QLatin1String("favorite")]      = true;
-        obj[QLatin1String("last_used_at")]  = QStringLiteral("2025-01-15T10:30:00Z");
-        obj[QLatin1String("latest_build")]  = latestBuild;
+        obj[QLatin1String("favorite")] = true;
+        obj[QLatin1String("last_used_at")] = QStringLiteral("2025-01-15T10:30:00Z");
+        obj[QLatin1String("latest_build")] = latestBuild;
 
         auto info = WorkspaceModel::WorkspaceInfo::fromJson(obj);
         QCOMPARE(info.id, QStringLiteral("abc-123"));
@@ -166,8 +155,7 @@ private slots:
         QVERIFY(info.lastUsedAt.isValid());
     }
 
-    void testWorkspaceInvalidIndex()
-    {
+    void testWorkspaceInvalidIndex() {
         WorkspaceModel model;
         // data() on invalid index should return empty QVariant.
         QVERIFY(!model.data(model.index(-1), WorkspaceModel::IdRole).isValid());
@@ -178,8 +166,7 @@ private slots:
     // PeerModel
     // -----------------------------------------------------------------------
 
-    void testPeerRoleNames()
-    {
+    void testPeerRoleNames() {
         PeerModel model;
         auto roles = model.roleNames();
         QVERIFY(roles.contains(PeerModel::HostnameRole));
@@ -187,18 +174,17 @@ private slots:
         QCOMPARE(roles.value(PeerModel::HostnameRole), QByteArray("hostname"));
     }
 
-    void testPeerSetPeers()
-    {
+    void testPeerSetPeers() {
         PeerModel model;
         QSignalSpy countSpy(&model, &PeerModel::countChanged);
 
         PeerModel::PeerInfo p;
         p.workspaceName = QStringLiteral("dev");
-        p.agentName     = QStringLiteral("main");
-        p.hostname      = QStringLiteral("dev.coder");
-        p.status        = 2;
-        p.lastPingMs    = 42;
-        p.isP2P         = true;
+        p.agentName = QStringLiteral("main");
+        p.hostname = QStringLiteral("dev.coder");
+        p.status = 2;
+        p.lastPingMs = 42;
+        p.isP2P = true;
 
         model.setPeers({p});
 
@@ -206,22 +192,19 @@ private slots:
         QCOMPARE(countSpy.count(), 1);
 
         QModelIndex idx = model.index(0);
-        QCOMPARE(model.data(idx, PeerModel::HostnameRole).toString(),
-                 QStringLiteral("dev.coder"));
+        QCOMPARE(model.data(idx, PeerModel::HostnameRole).toString(), QStringLiteral("dev.coder"));
         QCOMPARE(model.data(idx, PeerModel::StatusStringRole).toString(),
                  QStringLiteral("Connected"));
         QCOMPARE(model.data(idx, PeerModel::LastPingMsRole).toLongLong(), 42LL);
-        QCOMPARE(model.data(idx, PeerModel::ConnectionTypeRole).toString(),
-                 QStringLiteral("P2P"));
+        QCOMPARE(model.data(idx, PeerModel::ConnectionTypeRole).toString(), QStringLiteral("P2P"));
     }
 
-    void testPeerUpdateByHostname()
-    {
+    void testPeerUpdateByHostname() {
         PeerModel model;
 
         PeerModel::PeerInfo p;
         p.hostname = QStringLiteral("dev.coder");
-        p.status   = 1;
+        p.status = 1;
         model.setPeers({p});
 
         QSignalSpy dataSpy(&model, &PeerModel::dataChanged);
@@ -235,8 +218,7 @@ private slots:
         QCOMPARE(model.data(model.index(0), PeerModel::StatusRole).toInt(), 2);
     }
 
-    void testPeerUpdateAddsNew()
-    {
+    void testPeerUpdateAddsNew() {
         PeerModel model;
         model.setPeers({});
 
@@ -250,8 +232,7 @@ private slots:
         QCOMPARE(countSpy.count(), 1);
     }
 
-    void testPeerClear()
-    {
+    void testPeerClear() {
         PeerModel model;
         PeerModel::PeerInfo p;
         p.hostname = QStringLiteral("a.coder");
@@ -263,12 +244,11 @@ private slots:
         QCOMPARE(countSpy.count(), 1);
     }
 
-    void testPeerRelayed()
-    {
+    void testPeerRelayed() {
         PeerModel model;
         PeerModel::PeerInfo p;
         p.hostname = QStringLiteral("relay.coder");
-        p.isP2P    = false;
+        p.isP2P = false;
         model.setPeers({p});
 
         QCOMPARE(model.data(model.index(0), PeerModel::ConnectionTypeRole).toString(),
@@ -279,8 +259,7 @@ private slots:
     // NotificationManager
     // -----------------------------------------------------------------------
 
-    void testNotificationEnabled()
-    {
+    void testNotificationEnabled() {
         NotificationManager mgr;
         QVERIFY(mgr.isEnabled());
 
@@ -294,8 +273,7 @@ private slots:
         QCOMPARE(spy.count(), 1);
     }
 
-    void testNotificationDisabledDrops()
-    {
+    void testNotificationDisabledDrops() {
         // When disabled, notify() should be a no-op (not crash).
         NotificationManager mgr;
         mgr.setEnabled(false);
@@ -303,8 +281,7 @@ private slots:
         // Nothing to assert beyond "no crash".
     }
 
-    void testNotificationDuplicateSuppression()
-    {
+    void testNotificationDuplicateSuppression() {
         NotificationManager mgr;
         // Use a very short suppression window for testing.
         mgr.setSuppressDuplicateMs(100000);  // 100 seconds — will suppress
@@ -320,8 +297,7 @@ private slots:
         // No crash, dedup path exercised.
     }
 
-    void testNotificationSetTrayIcon()
-    {
+    void testNotificationSetTrayIcon() {
         NotificationManager mgr;
         // setTrayIcon(nullptr) must not crash.
         mgr.setTrayIcon(nullptr);

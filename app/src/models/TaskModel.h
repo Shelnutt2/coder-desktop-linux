@@ -57,29 +57,29 @@ public:
         QDateTime updatedAt;
 
         /// Parse a Coder task JSON object into TaskInfo.
-        static TaskInfo fromJson(const QJsonObject &obj);
+        static TaskInfo fromJson(const QJsonObject& obj);
 
         /// Convert from a full Task DTO.
-        static TaskInfo fromTask(const Task &task);
+        static TaskInfo fromTask(const Task& task);
     };
 
-    explicit TaskModel(QObject *parent = nullptr);
+    explicit TaskModel(QObject* parent = nullptr);
 
     // -- QAbstractListModel interface --
-    [[nodiscard]] int rowCount(const QModelIndex &parent = QModelIndex()) const override;
-    [[nodiscard]] QVariant data(const QModelIndex &index, int role) const override;
+    [[nodiscard]] int rowCount(const QModelIndex& parent = QModelIndex()) const override;
+    [[nodiscard]] QVariant data(const QModelIndex& index, int role) const override;
     [[nodiscard]] QHash<int, QByteArray> roleNames() const override;
 
     // -- Bulk / incremental updates (called from C++) --
-    void setTasks(const QList<TaskInfo> &tasks);
-    void updateTask(const TaskInfo &task);
+    void setTasks(const QList<TaskInfo>& tasks);
+    void updateTask(const TaskInfo& task);
     void clear();
 
     // -- Observable state --
     [[nodiscard]] bool isLoading() const;
     void setLoading(bool loading);
     [[nodiscard]] QString errorMessage() const;
-    void setErrorMessage(const QString &msg);
+    void setErrorMessage(const QString& msg);
 
 signals:
     void countChanged();
@@ -92,4 +92,4 @@ private:
     QString m_errorMessage;
 };
 
-#endif // TASKMODEL_H
+#endif  // TASKMODEL_H
