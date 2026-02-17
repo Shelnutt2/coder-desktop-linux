@@ -78,14 +78,17 @@ bool SecureStorage::isSecureBackendAvailable() const {
 bool SecureStorage::storeToken(const QString& deploymentUrl, const QString& token) {
 #ifdef HAS_LIBSECRET
     if (m_backend == Backend::LibSecret) {
-        if (!libsecretStore(deploymentUrl, token)) return false;
-        // Mirror the URL (not the token) to the fallback file so that
-        // storedDeploymentUrls() works — libsecret has no schema-scoped
-        // enumeration in its simple API.
-        QJsonObject root = loadFallbackFile();
-        root.insert(deploymentUrl, QStringLiteral("libsecret"));
-        saveFallbackFile(root);
-        return true;
+        if (libsecretStore(deploymentUrl, token)) {
+            // Mirror the URL (not the token) to the fallback file so that
+            // storedDeploymentUrls() works — libsecret has no schema-scoped
+            // enumeration in its simple API.
+            QJsonObject root = loadFallbackFile();
+            root.insert(deploymentUrl, QStringLiteral("libsecret"));
+            saveFallbackFile(root);
+            return true;
+        }
+        // libsecret write failed (e.g. locked collection on sway) — fall through to file backend.
+        qWarning() << "SecureStorage: falling back to file storage for" << deploymentUrl;
     }
 #endif
     return fileStore(deploymentUrl, token);
@@ -93,7 +96,11 @@ bool SecureStorage::storeToken(const QString& deploymentUrl, const QString& toke
 
 QString SecureStorage::retrieveToken(const QString& deploymentUrl) {
 #ifdef HAS_LIBSECRET
-    if (m_backend == Backend::LibSecret) return libsecretRetrieve(deploymentUrl);
+    if (m_backend == Backend::LibSecret) {
+        QString token = libsecretRetrieve(deploymentUrl);
+        if (!token.isEmpty()) return token;
+        // Token might have been stored via file fallback (e.g. locked keyring) — try that too.
+    }
 #endif
     return fileRetrieve(deploymentUrl);
 }
