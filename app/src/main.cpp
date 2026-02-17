@@ -59,25 +59,33 @@ int main(int argc, char* argv[])
     parser.addHelpOption();
     parser.addVersionOption();
 
-    QCommandLineOption verboseOption(
-        QStringList() << QStringLiteral("v") << QStringLiteral("verbose"),
-        QStringLiteral("Enable verbose/debug logging"));
-    parser.addOption(verboseOption);
+    QCommandLineOption logLevelOption(
+        QStringList() << QStringLiteral("l") << QStringLiteral("log-level"),
+        QStringLiteral("Set log level (trace, debug, info, warn, error). Default: info"),
+        QStringLiteral("level"),
+        QStringLiteral("info"));
+    parser.addOption(logLevelOption);
     parser.process(app);
 
     // ---- Phase 2 managers ----
     SettingsManager settingsManager;
 
     // ---- Logging configuration ----
-    const bool verbose = parser.isSet(verboseOption)
-        || settingsManager.verbose();
+    QString logLevel = parser.isSet(logLevelOption)
+        ? parser.value(logLevelOption)
+        : settingsManager.logLevel();
 
-    if (verbose) {
+    if (logLevel == QStringLiteral("trace") || logLevel == QStringLiteral("debug")) {
         QLoggingCategory::setFilterRules(QStringLiteral("*.debug=true"));
         qSetMessagePattern(QStringLiteral(
             "[%{time yyyy-MM-dd hh:mm:ss.zzz}] [%{type}] %{category}: %{message}"));
-        qDebug() << "Verbose logging enabled";
+        qDebug() << "Debug logging enabled (level:" << logLevel << ")";
+    } else if (logLevel == QStringLiteral("warn") || logLevel == QStringLiteral("error")) {
+        QLoggingCategory::setFilterRules(QStringLiteral("*.debug=false\n*.info=false"));
+        qSetMessagePattern(QStringLiteral(
+            "[%{time hh:mm:ss}] [%{type}] %{message}"));
     } else {
+        // "info" or unrecognized → default
         qSetMessagePattern(QStringLiteral(
             "[%{time hh:mm:ss}] [%{type}] %{message}"));
     }
