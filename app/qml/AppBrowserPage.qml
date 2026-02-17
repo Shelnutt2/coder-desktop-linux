@@ -36,6 +36,39 @@ Page {
     /// Emitted when the user wants to close the browser and return to the detail page.
     signal closeRequested()
 
+    /// Whether the WebEngineView has been successfully created.
+    property bool webEngineReady: false
+
+    /// Whether cookies have been injected for this session.
+    property bool cookieInjected: false
+
+    /// Attempt to inject cookie and load the URL. Only proceeds when
+    /// the WebEngine is created AND we have a token AND a resolvedUrl.
+    function tryLoadUrl() {
+        console.log("[AppBrowser] tryLoadUrl: webEngineReady=", webEngineReady,
+                    "resolvedUrl=", resolvedUrl, "sessionToken length=", sessionToken.length,
+                    "cookieInjected=", cookieInjected);
+
+        if (!webEngineReady || !webLoader.item || !webLoader.item._webView) {
+            console.log("[AppBrowser] tryLoadUrl: WebEngine not ready yet");
+            return;
+        }
+        if (!resolvedUrl || resolvedUrl.length === 0) {
+            console.log("[AppBrowser] tryLoadUrl: No URL to load yet");
+            return;
+        }
+
+        // Inject cookie if we have a token and haven't injected yet
+        if (sessionToken && sessionToken.length > 0 && deploymentUrl && !cookieInjected) {
+            console.log("[AppBrowser] tryLoadUrl: Injecting session cookie for", deploymentUrl);
+            appBrowser.injectSessionCookie(deploymentUrl, sessionToken);
+            cookieInjected = true;
+        }
+
+        console.log("[AppBrowser] tryLoadUrl: Loading URL:", resolvedUrl);
+        webLoader.item._webView.url = resolvedUrl;
+    }
+
     /// The resolved URL to load (computed from properties).
     readonly property string resolvedUrl: {
         if (isExternal && appUrl) {
@@ -53,14 +86,15 @@ Page {
 
     onResolvedUrlChanged: {
         console.log("[AppBrowser] resolvedUrl changed to:", resolvedUrl);
-        if (webLoader.item && webLoader.item._webView && resolvedUrl && resolvedUrl.length > 0) {
-            console.log("[AppBrowser] Updating WebEngineView URL to:", resolvedUrl);
-            // Re-inject cookie in case URL changed to different domain
-            if (root.sessionToken && root.deploymentUrl) {
-                appBrowser.injectSessionCookie(root.deploymentUrl, root.sessionToken);
-            }
-            webLoader.item._webView.url = resolvedUrl;
-        }
+        // Reset cookie state if URL changed (e.g. different deployment)
+        cookieInjected = false;
+        tryLoadUrl();
+    }
+
+    onSessionTokenChanged: {
+        console.log("[AppBrowser] sessionToken changed, length:", sessionToken.length);
+        cookieInjected = false;
+        tryLoadUrl();
     }
 
     // -- Navigation bar --
@@ -174,16 +208,9 @@ Page {
             property var _webView: null
 
             Component.onCompleted: {
-                console.log("[AppBrowser] Component.onCompleted, appUrl:", root.resolvedUrl);
-                console.log("[AppBrowser] Properties: deploymentUrl=", root.deploymentUrl,
-                            "appUrl=", root.appUrl, "appSlug=", root.appSlug,
-                            "workspaceName=", root.workspaceName, "ownerName=", root.ownerName,
-                            "agentName=", root.agentName, "vpnActive=", root.vpnActive,
-                            "isExternal=", root.isExternal);
+                console.log("[AppBrowser] WebEngine Component.onCompleted");
 
-                // Try to instantiate a real WebEngineView.
                 try {
-                    // Create WITHOUT url — we'll set it after cookie injection.
                     var src =
                         'import QtQuick; ' +
                         'import QtWebEngine; ' +
@@ -212,7 +239,6 @@ Page {
                     if (obj) {
                         console.log("[AppBrowser] WebEngineView created successfully");
 
-                        // Re-export properties so nav-bar bindings work.
                         webEnginePlaceholder.canGoBack =
                             Qt.binding(function() { return obj.canGoBack; });
                         webEnginePlaceholder.canGoForward =
@@ -228,25 +254,12 @@ Page {
                         webEnginePlaceholder.reload = function() { obj.reload(); };
 
                         fallbackMessage.visible = false;
-
-                        // Store reference for URL loading
                         webEnginePlaceholder._webView = obj;
 
-                        // Inject session cookie then load URL
-                        if (root.sessionToken && root.deploymentUrl) {
-                            console.log("[AppBrowser] Injecting session cookie...");
-                            appBrowser.injectSessionCookie(root.deploymentUrl, root.sessionToken);
-                        } else {
-                            console.warn("[AppBrowser] No session token or deployment URL for cookie injection");
-                        }
-
-                        // Now load the URL
-                        if (root.resolvedUrl && root.resolvedUrl.length > 0) {
-                            console.log("[AppBrowser] Loading URL:", root.resolvedUrl);
-                            obj.url = root.resolvedUrl;
-                        } else {
-                            console.warn("[AppBrowser] appUrl is empty, waiting for it to resolve...");
-                        }
+                        // Mark WebEngine as ready — tryLoadUrl will handle the rest
+                        root.webEngineReady = true;
+                        console.log("[AppBrowser] WebEngine ready, calling tryLoadUrl");
+                        root.tryLoadUrl();
                     } else {
                         console.warn("[AppBrowser] Qt.createQmlObject returned null");
                         fallbackMessage.visible = true;
@@ -315,5 +328,10 @@ Page {
                     "workspaceName:", workspaceName, "ownerName:", ownerName,
                     "agentName:", agentName, "vpnActive:", vpnActive,
                     "isExternal:", isExternal, "sessionToken length:", sessionToken.length);
+
+        // When cookie is confirmed ready, log it (belt-and-suspenders)
+        appBrowser.cookieReady.connect(function() {
+            console.log("[AppBrowser] cookieReady signal received");
+        });
     }
 }
