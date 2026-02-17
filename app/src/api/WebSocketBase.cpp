@@ -23,11 +23,15 @@ WebSocketBase::WebSocketBase(QObject* parent) : QObject(parent) {
     QObject::connect(&m_socket, &QWebSocket::binaryMessageReceived, this,
                      &WebSocketBase::onBinaryMessage);
 
-    // QWebSocket::errorOccurred provides QAbstractSocket::SocketError which
-    // is an int-compatible enum.  We wrap it via a lambda so the slot
-    // signature stays simple.
+    // QWebSocket::errorOccurred was added in Qt 6.5; older versions use
+    // the QAbstractSocket::error signal inherited by QWebSocket.
+#if QT_VERSION >= QT_VERSION_CHECK(6, 5, 0)
     QObject::connect(&m_socket, &QWebSocket::errorOccurred, this,
                      [this](QAbstractSocket::SocketError err) { onError(static_cast<int>(err)); });
+#else
+    QObject::connect(&m_socket, qOverload<QAbstractSocket::SocketError>(&QWebSocket::error), this,
+                     [this](QAbstractSocket::SocketError err) { onError(static_cast<int>(err)); });
+#endif
 #endif
 
     QObject::connect(&m_reconnectTimer, &QTimer::timeout, this, &WebSocketBase::attemptReconnect);
