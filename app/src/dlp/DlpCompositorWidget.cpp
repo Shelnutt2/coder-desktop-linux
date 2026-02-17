@@ -58,6 +58,10 @@ bool DlpCompositorWidget::start() {
         }
     });
 
+    // Forward compositor (wlroots) logs through the Qt message handler so they
+    // appear in the log file alongside Qt messages.
+    coder_dlp_set_log_callback(m_compositor, &DlpCompositorWidget::onCompositorLog, this);
+
     // Register the surface callback so QML gets notified of new windows.
     coder_dlp_on_new_surface(m_compositor, &DlpCompositorWidget::onNewSurface, this);
 
@@ -134,4 +138,11 @@ void DlpCompositorWidget::onNewSurface(coder_dlp_compositor* /*comp*/, void* /*s
     // The callback may fire from within coder_dlp_dispatch() which runs on the
     // Qt main thread (via QSocketNotifier), so a direct emit is safe here.
     emit self->newSurface();
+}
+
+// static
+void DlpCompositorWidget::onCompositorLog(const char* message, void* /*data*/) {
+    // Forward through the Qt message handler so compositor logs appear in the
+    // log file alongside Qt messages.
+    qDebug().noquote() << message;
 }

@@ -5,9 +5,34 @@
 #include <stdlib.h>
 #include <string.h>
 
+#include <stdarg.h>
 #include <wlr/util/log.h>
 
 #define LOG_ERR(fmt, ...) fprintf(stderr, "coder-dlp: " fmt "\n", ##__VA_ARGS__)
+
+/* Global pointer used by the wlr_log callback — wlr_log is process-global so
+ * we cannot pass per-compositor context through it directly. */
+static coder_dlp_compositor* s_log_comp = NULL;
+
+static void custom_wlr_log(enum wlr_log_importance importance, const char* fmt, va_list args) {
+    char buf[1024];
+    vsnprintf(buf, sizeof(buf), fmt, args);
+
+    const char* level = "DEBUG";
+    if (importance == WLR_ERROR) {
+        level = "ERROR";
+    } else if (importance == WLR_INFO) {
+        level = "INFO";
+    }
+
+    fprintf(stderr, "[wlr %s] %s\n", level, buf);
+
+    if (s_log_comp && s_log_comp->log_cb) {
+        char full[1100];
+        snprintf(full, sizeof(full), "[wlr %s] %s", level, buf);
+        s_log_comp->log_cb(full, s_log_comp->log_cb_data);
+    }
+}
 
 coder_dlp_compositor* coder_dlp_create(void* parent_wl_surface, coder_dlp_log_level log_level) {
     /* parent_wl_surface is reserved for future use with
@@ -27,12 +52,13 @@ coder_dlp_compositor* coder_dlp_create(void* parent_wl_surface, coder_dlp_log_le
             wlr_level = WLR_ERROR;
             break;
     }
-    wlr_log_init(wlr_level, NULL);
+    wlr_log_init(wlr_level, custom_wlr_log);
 
     coder_dlp_compositor* comp = calloc(1, sizeof(*comp));
     if (!comp) {
         return NULL;
     }
+    s_log_comp = comp;
 
     wl_list_init(&comp->toplevels);
 
@@ -126,6 +152,11 @@ void coder_dlp_destroy(coder_dlp_compositor* comp) {
         return;
     }
 
+    /* Clear global log pointer so the callback is not invoked after free. */
+    if (s_log_comp == comp) {
+        s_log_comp = NULL;
+    }
+
     /* Remove all signal listeners BEFORE tearing down wlroots objects.
      * wlroots asserts that listener lists are empty during destroy. */
     wl_list_remove(&comp->new_output.link);
@@ -199,4 +230,12 @@ void coder_dlp_on_new_surface(coder_dlp_compositor* comp, coder_dlp_surface_cb c
     }
     comp->surface_cb = cb;
     comp->surface_cb_data = data;
+}
+
+void coder_dlp_set_log_callback(coder_dlp_compositor* comp, coder_dlp_log_cb cb, void* user_data) {
+    if (!comp) {
+        return;
+    }
+    comp->log_cb = cb;
+    comp->log_cb_data = user_data;
 }

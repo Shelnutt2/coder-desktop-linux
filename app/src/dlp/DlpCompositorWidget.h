@@ -69,6 +69,10 @@ private:
 
     /// Static callback registered with coder_dlp_on_new_surface().
     static void onNewSurface(coder_dlp_compositor* comp, void* surface, void* data);
+
+    /// Static callback registered with coder_dlp_set_log_callback().
+    /// Forwards compositor log messages through the Qt message handler.
+    static void onCompositorLog(const char* message, void* data);
 };
 
 #endif  // DLPCOMPOSITORWIDGET_H

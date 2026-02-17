@@ -39,6 +39,10 @@ struct coder_dlp_compositor {
     coder_dlp_surface_cb surface_cb;
     void* surface_cb_data;
 
+    /* Log callback */
+    coder_dlp_log_cb log_cb;
+    void* log_cb_data;
+
     /* Wayland core */
     struct wl_display* wl_display;
     struct wl_event_loop* wl_event_loop;
