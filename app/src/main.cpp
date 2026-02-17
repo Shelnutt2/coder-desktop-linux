@@ -8,6 +8,8 @@
 #include <QQuickStyle>
 #include <QQuickWindow>
 
+#include <cstdio>
+
 #include "tray/SystemTrayIcon.h"
 #include "vpn/VpnBridge.h"
 
@@ -73,6 +75,13 @@ int main(int argc, char* argv[]) {
         QStringLiteral("Set log level (trace, debug, info, warn, error). Default: info"),
         QStringLiteral("level"), QStringLiteral("info"));
     parser.addOption(logLevelOption);
+
+    QCommandLineOption logFileOption(
+        QStringLiteral("log-file"),
+        QStringLiteral("Write logs to file (default: /tmp/coder-desktop.log)"),
+        QStringLiteral("path"), QStringLiteral("/tmp/coder-desktop.log"));
+    parser.addOption(logFileOption);
+
     parser.process(app);
 
     // ---- Phase 2 managers ----
@@ -105,6 +114,32 @@ int main(int argc, char* argv[]) {
         QLoggingCategory::setFilterRules(QStringLiteral("*.debug=false"));
         qSetMessagePattern(QStringLiteral("[%{time hh:mm:ss}] [%{type}] %{message}"));
     }
+
+    // ---- Log file support ----
+    // File-scope static so the message handler lambda can access it.
+    static FILE* s_logFile = nullptr;
+    const QString logFilePath = parser.value(logFileOption);
+    if (!logFilePath.isEmpty()) {
+        s_logFile = std::fopen(logFilePath.toUtf8().constData(), "w");
+        if (!s_logFile) {
+            std::fprintf(stderr, "Warning: could not open log file: %s\n",
+                         logFilePath.toUtf8().constData());
+        }
+    }
+
+    // Install a custom message handler that writes to both stderr and the log file.
+    qInstallMessageHandler(
+        [](QtMsgType type, const QMessageLogContext& context, const QString& msg) {
+            const QString formatted = qFormatLogMessage(type, context, msg);
+            const QByteArray utf8 = formatted.toUtf8();
+
+            std::fprintf(stderr, "%s\n", utf8.constData());
+
+            if (s_logFile) {
+                std::fprintf(s_logFile, "%s\n", utf8.constData());
+                std::fflush(s_logFile);
+            }
+        });
 
     SecureStorage secureStorage;
     CoderApiClient apiClient;

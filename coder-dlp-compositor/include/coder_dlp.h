@@ -49,6 +49,11 @@ void coder_dlp_set_policy(coder_dlp_compositor* comp, const coder_dlp_policy* po
 int coder_dlp_launch_app(coder_dlp_compositor* comp, const char* command,
                          const coder_dlp_sandbox_config* sandbox);
 
+/* Optional log callback — if set, compositor logs are forwarded here
+ * in addition to stderr.  The callback receives the formatted message. */
+typedef void (*coder_dlp_log_cb)(const char* message, void* user_data);
+void coder_dlp_set_log_callback(coder_dlp_compositor* comp, coder_dlp_log_cb cb, void* user_data);
+
 /* Surface callback */
 typedef void (*coder_dlp_surface_cb)(coder_dlp_compositor* comp, void* wlr_surface, void* data);
 void coder_dlp_on_new_surface(coder_dlp_compositor* comp, coder_dlp_surface_cb cb, void* data);

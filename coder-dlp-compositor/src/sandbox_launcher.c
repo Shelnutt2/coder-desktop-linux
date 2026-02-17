@@ -166,7 +166,9 @@ int coder_dlp_launch_app(coder_dlp_compositor* comp, const char* command,
     if (pid == 0) {
         /* Child: exec bwrap */
         execvp("bwrap", argv);
-        /* execvp failed — _exit to avoid running parent atexit handlers */
+        /* execvp failed — log to stderr before exiting so launch failures
+         * are visible in the log file instead of silently disappearing. */
+        fprintf(stderr, "coder-dlp: execvp(bwrap) failed: %s\n", strerror(errno));
         _exit(127);
     }
 
