@@ -193,6 +193,15 @@ int main(int argc, char* argv[]) {
 
     QQmlApplicationEngine engine;
 
+    // Tell the QML engine to look for modules inside the Qt resource system.
+    // qt_add_qml_module() with RESOURCE_PREFIX / embeds the CoderDesktop
+    // module's qmldir at qrc:/CoderDesktop/qmldir.  Without this import path
+    // the engine only searches on-disk paths — which works from the build tree
+    // (where it finds build/app/CoderDesktop/qmldir) but fails when installed
+    // because only the binary is deployed.  Adding "qrc:/" lets "import
+    // CoderDesktop" resolve the embedded qmldir and its singleton declarations.
+    engine.addImportPath(QStringLiteral("qrc:/"));
+
     engine.rootContext()->setContextProperty(QStringLiteral("vpnBridge"), &vpnBridge);
     engine.rootContext()->setContextProperty(QStringLiteral("autoUpdater"), &autoUpdater);
     engine.rootContext()->setContextProperty(QStringLiteral("settingsManager"), &settingsManager);
