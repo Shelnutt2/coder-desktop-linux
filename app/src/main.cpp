@@ -210,22 +210,20 @@ int main(int argc, char* argv[]) {
     engine.rootContext()->setContextProperty(QStringLiteral("pollingController"),
                                              &pollingController);
 
-    // Load Main.qml directly from compiled-in Qt resources.  Using a
-    // resource URL instead of engine.loadFromModule() avoids the need for
-    // a qmldir file on disk, so the installed binary works from any prefix.
-    const QUrl mainQml(QStringLiteral("qrc:/CoderDesktop/qml/Main.qml"));
-
+    // Load Main.qml via the QML module system so that the module's qmldir
+    // is processed, singletons (CoderTheme) are registered, and all types
+    // within the CoderDesktop module resolve correctly.
     QObject::connect(
         &engine, &QQmlApplicationEngine::objectCreated, &app,
-        [&mainQml](QObject* obj, const QUrl& url) {
-            if (!obj && url == mainQml) {
+        [](QObject* obj, const QUrl& url) {
+            if (!obj) {
                 qCritical() << "Failed to load QML:" << url;
                 QCoreApplication::exit(-1);
             }
         },
         Qt::QueuedConnection);
 
-    engine.load(mainQml);
+    engine.loadFromModule("CoderDesktop", "Main");
 
     // ---- System tray ----
     SystemTrayIcon tray(&vpnBridge);

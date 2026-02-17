@@ -2,6 +2,7 @@ import QtQuick
 import QtQuick.Controls
 import QtQuick.Controls.Material
 import QtQuick.Layouts
+import CoderDesktop
 
 // Task list page — shows all AI tasks from taskModel with status badges,
 // state indicators, and initial prompt previews.

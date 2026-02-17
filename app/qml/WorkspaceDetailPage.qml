@@ -2,6 +2,7 @@ import QtQuick
 import QtQuick.Controls
 import QtQuick.Controls.Material
 import QtQuick.Layouts
+import CoderDesktop
 
 // Workspace detail page — shows workspace header, status, agents, apps,
 // and action buttons. Shown via a Loader from WorkspacesPage when a

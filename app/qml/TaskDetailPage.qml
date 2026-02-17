@@ -2,6 +2,7 @@ import QtQuick
 import QtQuick.Controls
 import QtQuick.Controls.Material
 import QtQuick.Layouts
+import CoderDesktop
 
 // Task detail page — shows task header, status, logs, and message input.
 // Shown via a Loader from TasksPage when a task is selected.

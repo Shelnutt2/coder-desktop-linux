@@ -2,6 +2,7 @@ import QtQuick
 import QtQuick.Controls
 import QtQuick.Controls.Material
 import QtQuick.Layouts
+import CoderDesktop
 
 // Settings page with three-layer settings (MDM → User → Default).
 // Android-style sectioned list with uppercase headers and CoderTheme.
