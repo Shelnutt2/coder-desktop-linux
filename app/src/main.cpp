@@ -173,6 +173,7 @@ int main(int argc, char* argv[]) {
 
     // ---- DLP compositor ----
     DlpCompositorWidget dlpCompositor;
+    dlpCompositor.setLogLevel(logLevel);
 
     // Wire DLP settings changes to the compositor policy.
     QObject::connect(&settingsManager, &SettingsManager::settingsChanged, [&]() {
