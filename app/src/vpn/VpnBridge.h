@@ -47,6 +47,7 @@ private slots:
     void onLogMessage(int level, const QString& message);
     void onStartFinished(QDBusPendingCallWatcher* watcher);
     void onStopFinished(QDBusPendingCallWatcher* watcher);
+    void onGetStatusFinished(QDBusPendingCallWatcher* watcher);
 
 private:
     ComCoderDesktopHelper1Interface m_helper;  // auto-generated D-Bus proxy
