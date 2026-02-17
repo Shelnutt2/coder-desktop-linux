@@ -1,5 +1,6 @@
 #include <QApplication>
 #include <QCommandLineParser>
+#include <QFont>
 #include <QIcon>
 #include <QLoggingCategory>
 #include <QQmlApplicationEngine>
@@ -44,13 +45,19 @@ int main(int argc, char* argv[]) {
     app.setApplicationName(QStringLiteral("Coder Desktop"));
     app.setOrganizationName(QStringLiteral("Coder"));
     app.setOrganizationDomain(QStringLiteral("coder.com"));
-    app.setWindowIcon(QIcon::fromTheme(QStringLiteral("network-vpn")));
+
+    // Use Inter font if available, fallback to system sans-serif.
+    QFont appFont(QStringLiteral("Inter"));
+    appFont.setStyleHint(QFont::SansSerif);
+    app.setFont(appFont);
+
+    app.setWindowIcon(QIcon(QStringLiteral(":/CoderDesktop/assets/coder-icon.svg")));
 
     // Keep the app running when the last window is closed (tray keeps it alive).
     app.setQuitOnLastWindowClosed(false);
 
-    // Default to the Fusion style for a consistent cross-desktop look.
-    QQuickStyle::setStyle(QStringLiteral("Fusion"));
+    // Use the Material style for Coder brand theming.
+    QQuickStyle::setStyle(QStringLiteral("Material"));
 
     // ---- VPN bridge (D-Bus client) ----
     VpnBridge vpnBridge;
