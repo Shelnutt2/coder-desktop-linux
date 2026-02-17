@@ -8,6 +8,7 @@
 #include "compositor_internal.h"
 
 #include <errno.h>
+#include <fcntl.h>
 #include <linux/limits.h>
 #include <stdio.h>
 #include <stdlib.h>
@@ -58,6 +59,17 @@ char** dlp_build_bwrap_args(const coder_dlp_compositor* comp, const char* comman
     PUSH("/");
     PUSH("--dev");
     PUSH("/dev");
+
+    /* GPU access for hardware-accelerated rendering (Electron, etc.) */
+    PUSH("--dev-bind");
+    PUSH("/dev/dri");
+    PUSH("/dev/dri");
+
+    /* Shared memory (needed by Electron/Chromium) */
+    PUSH("--bind");
+    PUSH("/dev/shm");
+    PUSH("/dev/shm");
+
     PUSH("--proc");
     PUSH("/proc");
     PUSH("--tmpfs");
@@ -109,6 +121,21 @@ char** dlp_build_bwrap_args(const coder_dlp_compositor* comp, const char* comman
         PUSH("--setenv");
         PUSH("XDG_RUNTIME_DIR");
         PUSH(xdg_runtime);
+
+        /* D-Bus session bus (many GUI apps need it) */
+        char dbus_path[PATH_MAX];
+        snprintf(dbus_path, sizeof(dbus_path), "%s/bus", xdg_runtime);
+        /* Only bind if the bus socket exists */
+        if (access(dbus_path, F_OK) == 0) {
+            PUSH("--bind");
+            PUSH(dbus_path);
+            PUSH(dbus_path);
+            PUSH("--setenv");
+            PUSH("DBUS_SESSION_BUS_ADDRESS");
+            char dbus_addr[PATH_MAX + 32];
+            snprintf(dbus_addr, sizeof(dbus_addr), "unix:path=%s", dbus_path);
+            PUSH(dbus_addr);
+        }
     }
 
     PUSH("--unsetenv");
@@ -164,16 +191,23 @@ int coder_dlp_launch_app(coder_dlp_compositor* comp, const char* command,
     }
 
     if (pid == 0) {
-        /* Child: exec bwrap */
+        /* Child: redirect stdout+stderr to a log file for debugging.
+         * The parent compositor logs go through wlr_log / Qt, but
+         * the sandboxed child's output would otherwise be lost. */
+        int log_fd = open("/tmp/coder-dlp-child.log", O_WRONLY | O_CREAT | O_TRUNC, 0644);
+        if (log_fd >= 0) {
+            dup2(log_fd, STDOUT_FILENO);
+            dup2(log_fd, STDERR_FILENO);
+            close(log_fd);
+        }
         execvp("bwrap", argv);
-        /* execvp failed — log to stderr before exiting so launch failures
-         * are visible in the log file instead of silently disappearing. */
-        fprintf(stderr, "coder-dlp: execvp(bwrap) failed: %s\n", strerror(errno));
+        /* If we get here, exec failed */
+        dprintf(STDERR_FILENO, "coder-dlp: execvp(bwrap) failed: %s\n", strerror(errno));
         _exit(127);
     }
 
     /* Parent */
-    wlr_log(WLR_INFO, "app launched with pid %d", pid);
+    wlr_log(WLR_INFO, "app launched with pid %d (child logs: /tmp/coder-dlp-child.log)", pid);
     dlp_free_bwrap_args(argv);
     return (int)pid;
 }
