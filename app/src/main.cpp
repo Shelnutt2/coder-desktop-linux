@@ -67,13 +67,25 @@ int main(int argc, char* argv[])
         ? parser.value(logLevelOption)
         : settingsManager.logLevel();
 
+    // Qt log types: debug, info, warning, critical, fatal
+    // Map our levels to Qt filter rules:
+    //   trace/debug → show all (debug + info + warning + critical)
+    //   info        → hide debug; show info + warning + critical
+    //   warn        → hide debug + info; show warning + critical
+    //   error       → hide debug + info + warning; show critical only
     if (logLevel == QStringLiteral("trace") || logLevel == QStringLiteral("debug")) {
         QLoggingCategory::setFilterRules(QStringLiteral("*.debug=true"));
         qSetMessagePattern(QStringLiteral(
             "[%{time yyyy-MM-dd hh:mm:ss.zzz}] [%{type}] %{category}: %{message}"));
         qDebug() << "Debug logging enabled (level:" << logLevel << ")";
-    } else if (logLevel == QStringLiteral("warn") || logLevel == QStringLiteral("error")) {
-        QLoggingCategory::setFilterRules(QStringLiteral("*.debug=false\n*.info=false"));
+    } else if (logLevel == QStringLiteral("error")) {
+        QLoggingCategory::setFilterRules(QStringLiteral(
+            "*.debug=false\n*.info=false\n*.warning=false"));
+        qSetMessagePattern(QStringLiteral(
+            "[%{time hh:mm:ss}] [%{type}] %{message}"));
+    } else if (logLevel == QStringLiteral("warn")) {
+        QLoggingCategory::setFilterRules(QStringLiteral(
+            "*.debug=false\n*.info=false"));
         qSetMessagePattern(QStringLiteral(
             "[%{time hh:mm:ss}] [%{type}] %{message}"));
     } else {
