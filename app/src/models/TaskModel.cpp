@@ -1,5 +1,6 @@
 #include "models/TaskModel.h"
 
+#include <QDebug>
 #include <QJsonArray>
 #include <QJsonValue>
 
@@ -78,6 +79,8 @@ QHash<int, QByteArray> TaskModel::roleNames() const
 
 void TaskModel::setTasks(const QList<TaskInfo> &tasks)
 {
+    int removed = 0, updated = 0, added = 0;
+
     // --- Handle removed items ---
     QSet<QString> newIds;
     newIds.reserve(tasks.size());
@@ -89,6 +92,7 @@ void TaskModel::setTasks(const QList<TaskInfo> &tasks)
             beginRemoveRows(QModelIndex(), i, i);
             m_tasks.removeAt(i);
             endRemoveRows();
+            ++removed;
         }
     }
 
@@ -104,13 +108,19 @@ void TaskModel::setTasks(const QList<TaskInfo> &tasks)
             const int row = currentPositions[task.id];
             m_tasks[row] = task;
             emit dataChanged(index(row), index(row));
+            ++updated;
         } else {
             const int row = m_tasks.size();
             beginInsertRows(QModelIndex(), row, row);
             m_tasks.append(task);
             endInsertRows();
+            ++added;
         }
     }
+
+    qDebug() << "[TaskModel] setTasks: input=" << tasks.size()
+             << "removed=" << removed << "updated=" << updated
+             << "added=" << added << "total=" << m_tasks.size();
 
     emit countChanged();
 }

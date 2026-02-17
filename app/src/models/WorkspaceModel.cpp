@@ -1,6 +1,7 @@
 #include "models/WorkspaceModel.h"
 #include "api/dto/Workspace.h"
 
+#include <QDebug>
 #include <QJsonArray>
 #include <QJsonValue>
 
@@ -75,6 +76,8 @@ QHash<int, QByteArray> WorkspaceModel::roleNames() const
 
 void WorkspaceModel::setWorkspaces(const QList<WorkspaceInfo>& workspaces)
 {
+    int removed = 0, updated = 0, added = 0;
+
     // --- Handle removed items ---
     // Remove items that are no longer in the new list.
     QSet<QString> newIds;
@@ -87,6 +90,7 @@ void WorkspaceModel::setWorkspaces(const QList<WorkspaceInfo>& workspaces)
             beginRemoveRows(QModelIndex(), i, i);
             m_workspaces.removeAt(i);
             endRemoveRows();
+            ++removed;
         }
     }
 
@@ -104,14 +108,20 @@ void WorkspaceModel::setWorkspaces(const QList<WorkspaceInfo>& workspaces)
             const int row = currentPositions[ws.id];
             m_workspaces[row] = ws;
             emit dataChanged(index(row), index(row));
+            ++updated;
         } else {
             // New item — append.
             const int row = m_workspaces.size();
             beginInsertRows(QModelIndex(), row, row);
             m_workspaces.append(ws);
             endInsertRows();
+            ++added;
         }
     }
+
+    qDebug() << "[WorkspaceModel] setWorkspaces: input=" << workspaces.size()
+             << "removed=" << removed << "updated=" << updated
+             << "added=" << added << "total=" << m_workspaces.size();
 
     emit countChanged();
 }
