@@ -31,6 +31,7 @@ Item {
     property string selectedAppName: ""
     property string selectedAgentId: ""
     property string selectedAgentName: ""
+    property bool selectedAppExternal: false
 
     function loadDetail() {
         detailLoading = true
@@ -74,7 +75,9 @@ Item {
                             appCommand: app["command"] || "",
                             appSlug:    app["slug"] || "",
                             agentId:    agent["id"] || "",
-                            agentName:  agent["name"] || ""
+                            agentName:  agent["name"] || "",
+                            appSubdomain: app["subdomain"] || false,
+                            appExternal:  app["external"] || false
                         })
                     }
                 }
@@ -409,6 +412,7 @@ Item {
                                     workspaceDetailPage.selectedAppName = model.appName
                                     workspaceDetailPage.selectedAgentId = model.agentId
                                     workspaceDetailPage.selectedAgentName = model.agentName
+                                    workspaceDetailPage.selectedAppExternal = model.appExternal
                                 }
                             }
 
@@ -550,13 +554,15 @@ Item {
         source: "AppBrowserPage.qml"
         onLoaded: {
             item.deploymentUrl = Qt.binding(function() { return sessionManager.currentUrl; });
-            item.agentId = Qt.binding(function() { return workspaceDetailPage.selectedAgentId; });
             item.appSlug = Qt.binding(function() { return workspaceDetailPage.selectedAppSlug; });
+            item.appUrl = Qt.binding(function() { return workspaceDetailPage.selectedAppUrl; });
             item.workspaceName = Qt.binding(function() { return workspaceDetailPage.workspaceName; });
+            item.ownerName = Qt.binding(function() { return workspaceDetailPage.workspaceOwner; });
             item.agentName = Qt.binding(function() { return workspaceDetailPage.selectedAgentName; });
             item.vpnActive = Qt.binding(function() {
                 return typeof vpnManager !== "undefined" && vpnManager ? vpnManager.connected : false;
             });
+            item.isExternal = Qt.binding(function() { return workspaceDetailPage.selectedAppExternal; });
             item.sessionToken = Qt.binding(function() { return sessionManager.sessionToken(); });
             item.closeRequested.connect(function() { workspaceDetailPage.selectedAppSlug = ""; });
         }

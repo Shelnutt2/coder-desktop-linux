@@ -9,14 +9,17 @@ Page {
     /// Deployment base URL (e.g. "https://coder.example.com").
     property string deploymentUrl: ""
 
-    /// UUID of the workspace agent hosting the app.
-    property string agentId: ""
+    /// The app's URL from the API (used for VPN rewrite or external apps).
+    property string appUrl: ""
 
     /// Application slug identifier.
     property string appSlug: ""
 
-    /// Workspace name (used in VPN-mode hostname).
+    /// Workspace name (used in VPN-mode hostname and path-based proxy).
     property string workspaceName: ""
+
+    /// Owner name of the workspace (used in path-based proxy URL).
+    property string ownerName: ""
 
     /// Agent name within the workspace (used in VPN-mode hostname).
     property string agentName: ""
@@ -24,32 +27,39 @@ Page {
     /// Whether the VPN tunnel is currently active.
     property bool vpnActive: false
 
+    /// Whether this is an external app (opens its URL directly).
+    property bool isExternal: false
+
     /// Session token for cookie-based authentication.
     property string sessionToken: ""
 
     /// Emitted when the user wants to close the browser and return to the detail page.
     signal closeRequested()
 
-    /// The resolved app URL (computed when properties change).
-    readonly property string appUrl: {
-        if (!appSlug || (!vpnActive && !agentId)) {
+    /// The resolved URL to load (computed from properties).
+    readonly property string resolvedUrl: {
+        if (isExternal && appUrl) {
+            return appUrl;
+        }
+        if (!appSlug) {
             return "";
         }
-        return appBrowser.buildAppUrl(deploymentUrl, agentId, appSlug,
-                                       workspaceName, agentName, vpnActive);
+        return appBrowser.buildAppUrl(deploymentUrl, appUrl, appSlug,
+                                       workspaceName, ownerName, agentName,
+                                       vpnActive, isExternal);
     }
 
     title: qsTr("App Browser")
 
-    onAppUrlChanged: {
-        console.log("[AppBrowser] appUrl changed to:", appUrl);
-        if (webLoader.item && webLoader.item._webView && appUrl && appUrl.length > 0) {
-            console.log("[AppBrowser] Updating WebEngineView URL to:", appUrl);
+    onResolvedUrlChanged: {
+        console.log("[AppBrowser] resolvedUrl changed to:", resolvedUrl);
+        if (webLoader.item && webLoader.item._webView && resolvedUrl && resolvedUrl.length > 0) {
+            console.log("[AppBrowser] Updating WebEngineView URL to:", resolvedUrl);
             // Re-inject cookie in case URL changed to different domain
             if (root.sessionToken && root.deploymentUrl) {
                 appBrowser.injectSessionCookie(root.deploymentUrl, root.sessionToken);
             }
-            webLoader.item._webView.url = appUrl;
+            webLoader.item._webView.url = resolvedUrl;
         }
     }
 
@@ -120,7 +130,7 @@ Page {
                 id: urlField
                 Layout.fillWidth: true
                 readOnly: true
-                text: webLoader.item ? webLoader.item.url : root.appUrl
+                text: webLoader.item ? webLoader.item.url : root.resolvedUrl
                 font.pointSize: 9
                 verticalAlignment: TextInput.AlignVCenter
             }
@@ -155,7 +165,7 @@ Page {
             property bool canGoBack: false
             property bool canGoForward: false
             property bool loading: false
-            property url url: root.appUrl
+            property url url: root.resolvedUrl
 
             property var goBack: function() {}
             property var goForward: function() {}
@@ -164,11 +174,12 @@ Page {
             property var _webView: null
 
             Component.onCompleted: {
-                console.log("[AppBrowser] Component.onCompleted, appUrl:", root.appUrl);
+                console.log("[AppBrowser] Component.onCompleted, appUrl:", root.resolvedUrl);
                 console.log("[AppBrowser] Properties: deploymentUrl=", root.deploymentUrl,
-                            "agentId=", root.agentId, "appSlug=", root.appSlug,
-                            "workspaceName=", root.workspaceName, "agentName=", root.agentName,
-                            "vpnActive=", root.vpnActive);
+                            "appUrl=", root.appUrl, "appSlug=", root.appSlug,
+                            "workspaceName=", root.workspaceName, "ownerName=", root.ownerName,
+                            "agentName=", root.agentName, "vpnActive=", root.vpnActive,
+                            "isExternal=", root.isExternal);
 
                 // Try to instantiate a real WebEngineView.
                 try {
@@ -230,9 +241,9 @@ Page {
                         }
 
                         // Now load the URL
-                        if (root.appUrl && root.appUrl.length > 0) {
-                            console.log("[AppBrowser] Loading URL:", root.appUrl);
-                            obj.url = root.appUrl;
+                        if (root.resolvedUrl && root.resolvedUrl.length > 0) {
+                            console.log("[AppBrowser] Loading URL:", root.resolvedUrl);
+                            obj.url = root.resolvedUrl;
                         } else {
                             console.warn("[AppBrowser] appUrl is empty, waiting for it to resolve...");
                         }
@@ -277,8 +288,8 @@ Page {
             Layout.alignment: Qt.AlignHCenter
             text: qsTr("Open in External Browser")
             visible: typeof settingsManager !== "undefined" && settingsManager.externalBrowserAllowed
-            enabled: root.appUrl !== ""
-            onClicked: Qt.openUrlExternally(root.appUrl)
+            enabled: root.resolvedUrl !== ""
+            onClicked: Qt.openUrlExternally(root.resolvedUrl)
         }
     }
 
@@ -300,8 +311,9 @@ Page {
 
     Component.onCompleted: {
         console.log("[AppBrowser] Page created. deploymentUrl:", deploymentUrl,
-                    "agentId:", agentId, "appSlug:", appSlug,
-                    "workspaceName:", workspaceName, "agentName:", agentName,
-                    "vpnActive:", vpnActive, "sessionToken length:", sessionToken.length);
+                    "appUrl:", appUrl, "appSlug:", appSlug,
+                    "workspaceName:", workspaceName, "ownerName:", ownerName,
+                    "agentName:", agentName, "vpnActive:", vpnActive,
+                    "isExternal:", isExternal, "sessionToken length:", sessionToken.length);
     }
 }
