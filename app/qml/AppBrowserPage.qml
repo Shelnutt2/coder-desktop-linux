@@ -41,6 +41,18 @@ Page {
 
     title: qsTr("App Browser")
 
+    onAppUrlChanged: {
+        console.log("[AppBrowser] appUrl changed to:", appUrl);
+        if (webLoader.item && webLoader.item._webView && appUrl && appUrl.length > 0) {
+            console.log("[AppBrowser] Updating WebEngineView URL to:", appUrl);
+            // Re-inject cookie in case URL changed to different domain
+            if (root.sessionToken && root.deploymentUrl) {
+                appBrowser.injectSessionCookie(root.deploymentUrl, root.sessionToken);
+            }
+            webLoader.item._webView.url = appUrl;
+        }
+    }
+
     // -- Navigation bar --
     header: ToolBar {
         RowLayout {
@@ -60,41 +72,36 @@ Page {
 
             ToolButton {
                 id: backButton
-                icon.name: "go-previous"
-                text: qsTr("Back")
-                display: AbstractButton.IconOnly
+                text: "◀"
+                font.pixelSize: 14
                 enabled: webLoader.item ? webLoader.item.canGoBack : false
                 onClicked: {
                     if (webLoader.item) {
                         webLoader.item.goBack();
                     }
                 }
-                ToolTip.text: text
+                ToolTip.text: qsTr("Back")
                 ToolTip.visible: hovered
             }
 
             ToolButton {
                 id: forwardButton
-                icon.name: "go-next"
-                text: qsTr("Forward")
-                display: AbstractButton.IconOnly
+                text: "▶"
+                font.pixelSize: 14
                 enabled: webLoader.item ? webLoader.item.canGoForward : false
                 onClicked: {
                     if (webLoader.item) {
                         webLoader.item.goForward();
                     }
                 }
-                ToolTip.text: text
+                ToolTip.text: qsTr("Forward")
                 ToolTip.visible: hovered
             }
 
             ToolButton {
                 id: reloadButton
-                icon.name: webLoader.item && webLoader.item.loading
-                           ? "process-stop" : "view-refresh"
-                text: webLoader.item && webLoader.item.loading
-                      ? qsTr("Stop") : qsTr("Reload")
-                display: AbstractButton.IconOnly
+                text: webLoader.item && webLoader.item.loading ? "✕" : "↻"
+                font.pixelSize: 16
                 onClicked: {
                     if (webLoader.item) {
                         if (webLoader.item.loading) {
@@ -104,7 +111,8 @@ Page {
                         }
                     }
                 }
-                ToolTip.text: text
+                ToolTip.text: webLoader.item && webLoader.item.loading
+                              ? qsTr("Stop") : qsTr("Reload")
                 ToolTip.visible: hovered
             }
 
@@ -153,25 +161,46 @@ Page {
             property var goForward: function() {}
             property var stop: function() {}
             property var reload: function() {}
+            property var _webView: null
 
             Component.onCompleted: {
+                console.log("[AppBrowser] Component.onCompleted, appUrl:", root.appUrl);
+                console.log("[AppBrowser] Properties: deploymentUrl=", root.deploymentUrl,
+                            "agentId=", root.agentId, "appSlug=", root.appSlug,
+                            "workspaceName=", root.workspaceName, "agentName=", root.agentName,
+                            "vpnActive=", root.vpnActive);
+
                 // Try to instantiate a real WebEngineView.
                 try {
+                    // Create WITHOUT url — we'll set it after cookie injection.
                     var src =
                         'import QtQuick; ' +
                         'import QtWebEngine; ' +
                         'WebEngineView { ' +
                         '    anchors.fill: parent; ' +
-                        '    url: "' + root.appUrl + '"; ' +
                         '    onLoadingChanged: function(loadReq) { ' +
+                        '        console.log("[AppBrowser] loadingChanged:", loading, ' +
+                        '                    "url:", url, "status:", loadReq.status, ' +
+                        '                    "errorString:", loadReq.errorString); ' +
                         '        root.title = title || qsTr("App Browser"); ' +
                         '        appBrowser.setLoading(loading); ' +
                         '        appBrowser.setCurrentUrl(url.toString()); ' +
                         '    } ' +
+                        '    onCertificateError: function(error) { ' +
+                        '        console.warn("[AppBrowser] Certificate error:", error.description); ' +
+                        '        error.acceptCertificate(); ' +
+                        '    } ' +
+                        '    onNavigationRequested: function(request) { ' +
+                        '        console.log("[AppBrowser] Navigation:", request.url, ' +
+                        '                    "type:", request.navigationType); ' +
+                        '    } ' +
                         '}';
+                    console.log("[AppBrowser] Creating WebEngineView...");
                     var obj = Qt.createQmlObject(src, webEnginePlaceholder,
                                                   "DynamicWebEngine");
                     if (obj) {
+                        console.log("[AppBrowser] WebEngineView created successfully");
+
                         // Re-export properties so nav-bar bindings work.
                         webEnginePlaceholder.canGoBack =
                             Qt.binding(function() { return obj.canGoBack; });
@@ -188,9 +217,31 @@ Page {
                         webEnginePlaceholder.reload = function() { obj.reload(); };
 
                         fallbackMessage.visible = false;
+
+                        // Store reference for URL loading
+                        webEnginePlaceholder._webView = obj;
+
+                        // Inject session cookie then load URL
+                        if (root.sessionToken && root.deploymentUrl) {
+                            console.log("[AppBrowser] Injecting session cookie...");
+                            appBrowser.injectSessionCookie(root.deploymentUrl, root.sessionToken);
+                        } else {
+                            console.warn("[AppBrowser] No session token or deployment URL for cookie injection");
+                        }
+
+                        // Now load the URL
+                        if (root.appUrl && root.appUrl.length > 0) {
+                            console.log("[AppBrowser] Loading URL:", root.appUrl);
+                            obj.url = root.appUrl;
+                        } else {
+                            console.warn("[AppBrowser] appUrl is empty, waiting for it to resolve...");
+                        }
+                    } else {
+                        console.warn("[AppBrowser] Qt.createQmlObject returned null");
+                        fallbackMessage.visible = true;
                     }
                 } catch (e) {
-                    console.warn("AppBrowserPage: QtWebEngine not available:", e);
+                    console.warn("[AppBrowser] QtWebEngine not available:", e);
                     fallbackMessage.visible = true;
                 }
             }
@@ -202,7 +253,7 @@ Page {
         id: fallbackMessage
         anchors.centerIn: parent
         spacing: 16
-        visible: webLoader.status !== Loader.Ready || true  // shown by default, hidden on success
+        visible: true  // shown by default; hidden imperatively when WebEngine loads successfully
 
         Label {
             Layout.alignment: Qt.AlignHCenter
@@ -246,4 +297,11 @@ Page {
     // -- C++ backend instance --
     // AppBrowserWidget is exposed as the "appBrowser" context property
     // from main.cpp — no QML instantiation needed.
+
+    Component.onCompleted: {
+        console.log("[AppBrowser] Page created. deploymentUrl:", deploymentUrl,
+                    "agentId:", agentId, "appSlug:", appSlug,
+                    "workspaceName:", workspaceName, "agentName:", agentName,
+                    "vpnActive:", vpnActive, "sessionToken length:", sessionToken.length);
+    }
 }

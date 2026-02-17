@@ -46,6 +46,12 @@ public:
     /// @return Cookie value string suitable for the "coder_session_token" cookie
     [[nodiscard]] Q_INVOKABLE QString buildSessionCookie(const QString &token) const;
 
+    /// Inject the Coder session token as a cookie into the default WebEngine profile.
+    /// Must be called before or right after the WebEngineView loads.
+    /// @param deploymentUrl  The Coder deployment base URL (used as cookie domain)
+    /// @param token  The session token value
+    Q_INVOKABLE void injectSessionCookie(const QString &deploymentUrl, const QString &token);
+
     [[nodiscard]] QString currentUrl() const;
     [[nodiscard]] bool isLoading() const;
 
