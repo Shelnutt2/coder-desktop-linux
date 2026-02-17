@@ -30,44 +30,87 @@ Item {
         ColumnLayout {
             Layout.fillWidth: true
             Layout.alignment: Qt.AlignHCenter
-            spacing: 8
+            spacing: 12
 
-            // Large status icon
-            Label {
-                text: vpnBridge.isRunning ? "🟢" : "🔴"
-                font.pixelSize: 48
+            // Animated status circle
+            Rectangle {
+                id: statusCircle
+                width: 120; height: 120; radius: 60
                 Layout.alignment: Qt.AlignHCenter
+                color: {
+                    var s = vpnBridge.state
+                    if (s === "connected") return CoderTheme.success
+                    if (s === "connecting" || s === "disconnecting") return CoderTheme.warning
+                    if (s === "error") return CoderTheme.error
+                    return CoderTheme.surfaceSecondary  // Disconnected
+                }
+
+                // Pulsing animation for transitioning states
+                SequentialAnimation on opacity {
+                    running: vpnBridge.state === "connecting" || vpnBridge.state === "disconnecting"
+                    loops: Animation.Infinite
+                    NumberAnimation { to: 0.4; duration: 800; easing.type: Easing.InOutSine }
+                    NumberAnimation { to: 1.0; duration: 800; easing.type: Easing.InOutSine }
+                    onRunningChanged: if (!running) statusCircle.opacity = 1.0
+                }
+
+                Text {
+                    anchors.centerIn: parent
+                    text: "VPN"
+                    font.pixelSize: 28
+                    font.bold: true
+                    color: {
+                        var s = vpnBridge.state
+                        if (s === "connected" || s === "connecting" || s === "disconnecting" || s === "error")
+                            return CoderTheme.textInvert
+                        return CoderTheme.textSecondary
+                    }
+                }
             }
 
+            // State text
             Label {
-                text: vpnBridge.state
+                text: {
+                    var s = vpnBridge.state
+                    if (s === "connected") return "Connected"
+                    if (s === "connecting") return "Connecting..."
+                    if (s === "disconnecting") return "Disconnecting..."
+                    if (s === "error") return "Error"
+                    return "Disconnected"
+                }
                 font.pixelSize: 22
                 font.bold: true
                 Layout.alignment: Qt.AlignHCenter
-                color: vpnBridge.isRunning
-                    ? Material.color(Material.Green)
-                    : Material.foreground
+                color: CoderTheme.textPrimary
+            }
+
+            // Description text
+            Label {
+                text: "Coder Connect creates a secure tunnel to your workspaces"
+                font.pixelSize: 13
+                color: CoderTheme.textSecondary
+                Layout.alignment: Qt.AlignHCenter
+                horizontalAlignment: Text.AlignHCenter
+                wrapMode: Text.WordWrap
+                Layout.fillWidth: true
             }
 
             // Connect / Disconnect button
-            Button {
+            CoderButton {
                 Layout.alignment: Qt.AlignHCenter
                 Layout.preferredWidth: 200
                 Layout.preferredHeight: 44
-                highlighted: true
+                variant: vpnBridge.isRunning ? "destructive" : "default"
                 text: {
                     switch (vpnBridge.state) {
-                    case "disconnected":  return "Connect VPN"
+                    case "disconnected":  return "Connect"
                     case "connecting":    return "Connecting…"
-                    case "connected":     return "Disconnect VPN"
+                    case "connected":     return "Disconnect"
                     case "disconnecting": return "Disconnecting…"
                     }
-                    return "Connect VPN"
+                    return "Connect"
                 }
                 enabled: vpnBridge.state === "disconnected" || vpnBridge.state === "connected"
-                Material.background: vpnBridge.isRunning
-                    ? Material.color(Material.Red)
-                    : Material.accent
                 onClicked: {
                     if (vpnBridge.isRunning) {
                         vpnBridge.stop()
@@ -84,8 +127,8 @@ Item {
         Rectangle {
             Layout.fillWidth: true
             height: vpnErrorLabel.implicitHeight + 16
-            radius: 4
-            color: Material.color(Material.Red, Material.Shade50)
+            radius: CoderTheme.radiusSm
+            color: CoderTheme.errorSurface
             visible: vpnPage.vpnError.length > 0
 
             Label {
@@ -93,7 +136,7 @@ Item {
                 anchors.fill: parent
                 anchors.margins: 8
                 text: vpnPage.vpnError
-                color: Material.color(Material.Red)
+                color: CoderTheme.error
                 wrapMode: Text.WordWrap
                 font.pixelSize: 13
             }
@@ -103,22 +146,24 @@ Item {
         Rectangle {
             Layout.fillWidth: true
             height: 1
-            color: Material.dividerColor
+            color: CoderTheme.divider
         }
 
         // ---- Peer list header ----
         RowLayout {
             Layout.fillWidth: true
             Label {
-                text: "Workspace Peers"
-                font.pixelSize: 16
-                font.bold: true
+                text: "CONNECTED WORKSPACES"
+                font.pixelSize: 11
+                font.weight: Font.DemiBold
+                font.letterSpacing: 1.0
+                color: CoderTheme.textSecondary
                 Layout.fillWidth: true
             }
             Label {
                 text: peerModel.count + " peer" + (peerModel.count !== 1 ? "s" : "")
-                font.pixelSize: 13
-                opacity: 0.6
+                font.pixelSize: 12
+                color: CoderTheme.textSecondary
             }
         }
 
@@ -134,9 +179,9 @@ Item {
             delegate: Rectangle {
                 width: peerList.width
                 height: peerDelegateLayout.implicitHeight + 20
-                radius: 6
-                color: Material.background
-                border.color: Material.dividerColor
+                radius: CoderTheme.radius
+                color: CoderTheme.surface
+                border.color: CoderTheme.border
                 border.width: 1
 
                 RowLayout {
@@ -149,9 +194,9 @@ Item {
                     Rectangle {
                         width: 10; height: 10; radius: 5
                         color: {
-                            if (model.status === 2) return Material.color(Material.Green)
-                            if (model.status === 1) return Material.color(Material.Orange)
-                            return Material.color(Material.Grey)
+                            if (model.status === 2) return CoderTheme.success
+                            if (model.status === 1) return CoderTheme.warning
+                            return CoderTheme.textDisabled
                         }
                         Layout.alignment: Qt.AlignVCenter
                     }
@@ -165,6 +210,7 @@ Item {
                             text: model.hostname
                             font.pixelSize: 14
                             font.bold: true
+                            color: CoderTheme.textPrimary
                             elide: Text.ElideRight
                             Layout.fillWidth: true
                         }
@@ -172,7 +218,7 @@ Item {
                         Label {
                             text: model.workspaceName + " / " + model.agentName
                             font.pixelSize: 12
-                            opacity: 0.6
+                            color: CoderTheme.textSecondary
                         }
                     }
 
@@ -180,7 +226,7 @@ Item {
                     Label {
                         text: model.lastPingMs >= 0 ? model.lastPingMs + " ms" : "—"
                         font.pixelSize: 12
-                        opacity: 0.7
+                        color: CoderTheme.textSecondary
                         Layout.alignment: Qt.AlignVCenter
                     }
 
@@ -188,10 +234,10 @@ Item {
                     Rectangle {
                         width: connTypeLabel.implicitWidth + 12
                         height: connTypeLabel.implicitHeight + 6
-                        radius: 3
+                        radius: CoderTheme.radiusSm
                         color: model.isP2P
-                            ? Material.color(Material.Green, Material.Shade100)
-                            : Material.color(Material.Blue, Material.Shade100)
+                            ? CoderTheme.successSurface
+                            : CoderTheme.activeSurface
                         Layout.alignment: Qt.AlignVCenter
 
                         Label {
@@ -201,8 +247,8 @@ Item {
                             font.pixelSize: 10
                             font.bold: true
                             color: model.isP2P
-                                ? Material.color(Material.Green, Material.Shade900)
-                                : Material.color(Material.Blue, Material.Shade900)
+                                ? CoderTheme.success
+                                : CoderTheme.info
                         }
                     }
                 }
@@ -219,7 +265,7 @@ Item {
                         ? "No peers connected"
                         : "Connect VPN to see workspace peers"
                     font.pixelSize: 15
-                    opacity: 0.5
+                    color: CoderTheme.textSecondary
                     Layout.alignment: Qt.AlignHCenter
                 }
             }

@@ -19,6 +19,24 @@ Item {
     property string selectedTaskOwner: ""
     property string selectedTaskTemplate: ""
 
+    // Map task statuses to StatusChip-compatible workspace statuses
+    function taskStatusToChipStatus(s) {
+        if (s === "Active")       return "Running"
+        if (s === "Initializing") return "Starting"
+        if (s === "Error")        return "Failed"
+        if (s === "Paused")       return "Stopping"
+        return "Stopped"  // Pending, Complete, etc.
+    }
+
+    // Map task status to CoderTheme color
+    function taskStatusColor(s) {
+        if (s === "Active")       return CoderTheme.success
+        if (s === "Paused")       return CoderTheme.warning
+        if (s === "Error")        return CoderTheme.error
+        if (s === "Initializing") return CoderTheme.info
+        return CoderTheme.textDisabled
+    }
+
     ColumnLayout {
         anchors.fill: parent
         anchors.margins: 16
@@ -35,11 +53,18 @@ Item {
                 Layout.fillWidth: true
                 selectByMouse: true
                 onTextChanged: tasksPage.filterText = text.toLowerCase()
+                background: Rectangle {
+                    implicitHeight: 36
+                    radius: CoderTheme.radius
+                    color: CoderTheme.surface
+                    border.color: searchField.activeFocus ? CoderTheme.primary : CoderTheme.border
+                    border.width: 1
+                }
             }
 
-            Button {
+            CoderButton {
                 text: "Refresh"
-                icon.name: "view-refresh"
+                variant: "outline"
                 enabled: !taskModel.loading
                 onClicked: pollingController.refreshNow()
             }
@@ -47,7 +72,7 @@ Item {
             Label {
                 text: "Auto-refreshing every " + pollingController.refreshIntervalSec + "s"
                 font.pixelSize: 10
-                opacity: 0.4
+                color: CoderTheme.textDisabled
                 visible: pollingController.polling
                 Layout.alignment: Qt.AlignVCenter
             }
@@ -57,8 +82,8 @@ Item {
         Rectangle {
             Layout.fillWidth: true
             height: taskErrorLabel.implicitHeight + 16
-            radius: 4
-            color: Material.color(Material.Red, Material.Shade50)
+            radius: CoderTheme.radiusSm
+            color: CoderTheme.errorSurface
             visible: taskModel.errorMessage.length > 0
 
             Label {
@@ -66,7 +91,7 @@ Item {
                 anchors.fill: parent
                 anchors.margins: 8
                 text: taskModel.errorMessage
-                color: Material.color(Material.Red)
+                color: CoderTheme.error
                 wrapMode: Text.WordWrap
                 font.pixelSize: 13
             }
@@ -96,15 +121,16 @@ Item {
 
             delegate: Rectangle {
                 width: taskList.width
-                radius: 8
-                color: Material.background
-                border.color: Material.dividerColor
+                radius: CoderTheme.radius
+                color: CoderTheme.surface
+                border.color: CoderTheme.border
                 border.width: 1
 
                 // Tap area to open detail — outside the layout to avoid
                 // "anchors on an item managed by a layout" warnings.
                 MouseArea {
                     anchors.fill: parent
+                    hoverEnabled: true
                     onClicked: {
                         tasksPage.selectedTaskId = model.id
                         tasksPage.selectedTaskName = model.displayName || model.name
@@ -113,6 +139,9 @@ Item {
                         tasksPage.selectedTaskPrompt = model.initialPrompt
                         tasksPage.selectedTaskOwner = model.ownerName
                         tasksPage.selectedTaskTemplate = model.templateName
+                    }
+                    onContainsMouseChanged: {
+                        parent.color = containsMouse ? CoderTheme.hoverBg : CoderTheme.surface
                     }
                 }
 
@@ -128,21 +157,6 @@ Item {
                              || model.displayName.toLowerCase().indexOf(tasksPage.filterText) >= 0
                              || model.initialPrompt.toLowerCase().indexOf(tasksPage.filterText) >= 0
 
-                    // Status indicator dot
-                    Rectangle {
-                        width: 12; height: 12; radius: 6
-                        color: {
-                            var s = model.statusString
-                            if (s === "Active")       return Material.color(Material.Green)
-                            if (s === "Paused")       return Material.color(Material.Orange)
-                            if (s === "Error")        return Material.color(Material.Red)
-                            if (s === "Initializing") return Material.color(Material.Blue)
-                            if (s === "Pending")      return Material.color(Material.Grey)
-                            return Material.color(Material.Grey)
-                        }
-                        Layout.alignment: Qt.AlignVCenter
-                    }
-
                     // Task info
                     ColumnLayout {
                         Layout.fillWidth: true
@@ -152,6 +166,7 @@ Item {
                             text: model.displayName || model.name
                             font.pixelSize: 15
                             font.bold: true
+                            color: CoderTheme.textPrimary
                             elide: Text.ElideRight
                             Layout.fillWidth: true
                         }
@@ -161,17 +176,17 @@ Item {
                             Label {
                                 text: model.templateName
                                 font.pixelSize: 12
-                                opacity: 0.6
+                                color: CoderTheme.textSecondary
                             }
                             Label {
                                 text: "·"
                                 font.pixelSize: 12
-                                opacity: 0.4
+                                color: CoderTheme.textDisabled
                             }
                             Label {
                                 text: model.workspaceName
                                 font.pixelSize: 12
-                                opacity: 0.6
+                                color: CoderTheme.textSecondary
                             }
                         }
 
@@ -179,7 +194,7 @@ Item {
                         Label {
                             text: model.initialPrompt
                             font.pixelSize: 12
-                            opacity: 0.5
+                            color: CoderTheme.textSecondary
                             elide: Text.ElideRight
                             maximumLineCount: 1
                             Layout.fillWidth: true
@@ -190,21 +205,13 @@ Item {
                         RowLayout {
                             spacing: 6
 
-                            Label {
-                                text: model.statusString
-                                font.pixelSize: 11
-                                color: {
-                                    var s = model.statusString
-                                    if (s === "Active") return Material.color(Material.Green)
-                                    if (s === "Error")  return Material.color(Material.Red)
-                                    return Material.foreground
-                                }
+                            StatusChip {
+                                status: tasksPage.taskStatusToChipStatus(model.statusString)
                             }
 
                             // State indicator
                             Label {
                                 font.pixelSize: 11
-                                opacity: 0.7
                                 text: {
                                     // currentState is an int matching TaskState enum:
                                     // 0=Working, 1=Idle, 2=Complete, 3=Failed
@@ -216,10 +223,10 @@ Item {
                                 }
                                 color: {
                                     var st = model.currentState
-                                    if (st === 0) return Material.color(Material.Blue)
-                                    if (st === 2) return Material.color(Material.Green)
-                                    if (st === 3) return Material.color(Material.Red)
-                                    return Material.foreground
+                                    if (st === 0) return CoderTheme.info
+                                    if (st === 2) return CoderTheme.success
+                                    if (st === 3) return CoderTheme.error
+                                    return CoderTheme.textSecondary
                                 }
                             }
 
@@ -227,7 +234,7 @@ Item {
                             Label {
                                 text: model.currentStateMessage
                                 font.pixelSize: 10
-                                opacity: 0.5
+                                color: CoderTheme.textSecondary
                                 elide: Text.ElideRight
                                 Layout.fillWidth: true
                                 visible: model.currentStateMessage.length > 0
@@ -238,7 +245,7 @@ Item {
                         Label {
                             text: model.createdAt ? Qt.formatDateTime(model.createdAt, "yyyy-MM-dd hh:mm") : ""
                             font.pixelSize: 10
-                            opacity: 0.4
+                            color: CoderTheme.textDisabled
                             visible: text.length > 0
                         }
                     }
@@ -257,7 +264,7 @@ Item {
                 visible: taskModel.count === 0 && !taskModel.loading
                 text: "No AI tasks found"
                 font.pixelSize: 16
-                opacity: 0.5
+                color: CoderTheme.textSecondary
             }
         }
     }
