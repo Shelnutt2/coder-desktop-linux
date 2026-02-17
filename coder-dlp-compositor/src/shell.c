@@ -68,6 +68,10 @@ void compositor_handle_new_xdg_toplevel(struct wl_listener* listener, void* data
     toplevel->scene_tree = wlr_scene_xdg_surface_create(&comp->scene->tree, xdg_toplevel->base);
     toplevel->scene_tree->node.data = toplevel;
 
+    /* Link the xdg_surface to its scene tree so that popups parented to this
+     * surface can look up the tree via parent->data (see new_xdg_popup). */
+    xdg_toplevel->base->data = toplevel->scene_tree;
+
     /* Wire up surface lifecycle listeners */
     toplevel->map.notify = handle_toplevel_map;
     wl_signal_add(&xdg_toplevel->base->surface->events.map, &toplevel->map);
