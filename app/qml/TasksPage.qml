@@ -86,7 +86,13 @@ Item {
             Layout.fillHeight: true
             clip: true
             spacing: 8
-            model: taskModel
+            // Conditional model binding: when the page is hidden (e.g. tab
+            // switch), set model to null so delegates are destroyed.  When
+            // visible again, re-bind to taskModel — ListView queries
+            // rowCount() and creates fresh delegates.  This works around a
+            // Qt issue where delegates destroyed by visibility changes are
+            // not reliably recreated from dataChanged signals alone.
+            model: tasksPage.visible ? taskModel : null
 
             delegate: Rectangle {
                 width: taskList.width
