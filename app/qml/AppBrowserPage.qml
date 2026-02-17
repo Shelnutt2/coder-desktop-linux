@@ -142,15 +142,17 @@ Page {
 
             // Expose a duck-typed interface so the nav-bar bindings don't
             // produce errors even when using the fallback.
+            // Properties declared as var so they can be reassigned to real
+            // WebEngineView methods once the engine is available.
             property bool canGoBack: false
             property bool canGoForward: false
             property bool loading: false
             property url url: root.appUrl
 
-            function goBack() {}
-            function goForward() {}
-            function stop() {}
-            function reload() {}
+            property var goBack: function() {}
+            property var goForward: function() {}
+            property var stop: function() {}
+            property var reload: function() {}
 
             Component.onCompleted: {
                 // Try to instantiate a real WebEngineView.
