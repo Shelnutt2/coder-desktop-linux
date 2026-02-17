@@ -68,19 +68,27 @@ Item {
         spacing: 16
         visible: loginPage.currentStep === "url"
 
+        Image {
+            source: "qrc:/CoderDesktop/assets/coder-icon.svg"
+            sourceSize.height: 32
+            sourceSize.width: 64
+            fillMode: Image.PreserveAspectFit
+            Layout.alignment: Qt.AlignHCenter
+            Layout.bottomMargin: 8
+        }
+
         Label {
             text: "Coder Desktop"
             font.pixelSize: 28
             font.bold: true
-            color: Material.accent
+            color: CoderTheme.textPrimary
             Layout.alignment: Qt.AlignHCenter
         }
 
         Label {
             text: "Sign in to your Coder deployment"
             font.pixelSize: 14
-            color: Material.foreground
-            opacity: 0.7
+            color: CoderTheme.textSecondary
             Layout.alignment: Qt.AlignHCenter
         }
 
@@ -90,6 +98,7 @@ Item {
             text: "Deployment URL"
             font.pixelSize: 12
             font.bold: true
+            color: CoderTheme.textPrimary
         }
         TextField {
             id: urlField
@@ -97,6 +106,7 @@ Item {
             Layout.fillWidth: true
             selectByMouse: true
             inputMethodHints: Qt.ImhUrlCharactersOnly
+            Material.accent: CoderTheme.primary
             onAccepted: signInButton.clicked()
         }
 
@@ -105,8 +115,10 @@ Item {
             id: errorBanner
             Layout.fillWidth: true
             height: errorLabel.implicitHeight + 16
-            radius: 4
-            color: Material.color(Material.Red, Material.Shade50)
+            radius: CoderTheme.radiusSm
+            color: CoderTheme.errorSurface
+            border.color: CoderTheme.error
+            border.width: 1
             visible: loginPage.errorText.length > 0
                      && loginPage.currentStep !== "browser"
 
@@ -115,21 +127,20 @@ Item {
                 anchors.fill: parent
                 anchors.margins: 8
                 text: loginPage.errorText
-                color: Material.color(Material.Red)
+                color: CoderTheme.error
                 wrapMode: Text.WordWrap
                 font.pixelSize: 13
             }
         }
 
-        Button {
+        CoderButton {
             id: signInButton
             text: loginFlowController.probing ? "Connecting…" : "Sign In"
             Layout.fillWidth: true
             Layout.preferredHeight: 44
+
             enabled: urlField.text.trim().length > 0
                      && !loginFlowController.probing
-            highlighted: true
-            Material.background: Material.accent
 
             onClicked: {
                 loginPage.errorText = ""
@@ -159,7 +170,8 @@ Item {
         Label {
             text: "<a href='#'>Use session token instead</a>"
             font.pixelSize: 12
-            color: Material.accent
+            color: CoderTheme.primary
+            linkColor: CoderTheme.primary
             Layout.alignment: Qt.AlignHCenter
             onLinkActivated: loginPage.currentStep = "token"
             MouseArea {
@@ -182,6 +194,8 @@ Item {
         // Toolbar
         ToolBar {
             Layout.fillWidth: true
+            Material.background: CoderTheme.surface
+
             RowLayout {
                 anchors.fill: parent
                 spacing: 4
@@ -189,6 +203,7 @@ Item {
                 ToolButton {
                     text: "✕"
                     font.pixelSize: 16
+                    Material.foreground: CoderTheme.textPrimary
                     onClicked: {
                         loginFlowController.cancelFlow()
                         loginPage.currentStep = "url"
@@ -200,6 +215,7 @@ Item {
                 Label {
                     text: "Sign in to " + urlField.text.trim()
                     font.pixelSize: 13
+                    color: CoderTheme.textPrimary
                     elide: Text.ElideMiddle
                     Layout.fillWidth: true
                 }
@@ -274,6 +290,7 @@ Item {
             Layout.alignment: Qt.AlignHCenter
             Layout.topMargin: 32
             text: "Loading browser…"
+            color: CoderTheme.textSecondary
             visible: false
         }
     }
@@ -288,19 +305,27 @@ Item {
         spacing: 16
         visible: loginPage.currentStep === "token"
 
+        Image {
+            source: "qrc:/CoderDesktop/assets/coder-icon.svg"
+            sourceSize.height: 32
+            sourceSize.width: 64
+            fillMode: Image.PreserveAspectFit
+            Layout.alignment: Qt.AlignHCenter
+            Layout.bottomMargin: 8
+        }
+
         Label {
             text: "Coder Desktop"
             font.pixelSize: 28
             font.bold: true
-            color: Material.accent
+            color: CoderTheme.textPrimary
             Layout.alignment: Qt.AlignHCenter
         }
 
         Label {
             text: "Paste your session token"
             font.pixelSize: 14
-            color: Material.foreground
-            opacity: 0.7
+            color: CoderTheme.textSecondary
             Layout.alignment: Qt.AlignHCenter
         }
 
@@ -310,6 +335,7 @@ Item {
             text: "Deployment URL"
             font.pixelSize: 12
             font.bold: true
+            color: CoderTheme.textPrimary
         }
         TextField {
             id: tokenUrlField
@@ -319,6 +345,7 @@ Item {
             enabled: !loginPage.loggingIn
             selectByMouse: true
             inputMethodHints: Qt.ImhUrlCharactersOnly
+            Material.accent: CoderTheme.primary
             onAccepted: tokenField.forceActiveFocus()
         }
 
@@ -326,6 +353,7 @@ Item {
             text: "Session Token"
             font.pixelSize: 12
             font.bold: true
+            color: CoderTheme.textPrimary
         }
         TextField {
             id: tokenField
@@ -334,13 +362,15 @@ Item {
             Layout.fillWidth: true
             enabled: !loginPage.loggingIn
             selectByMouse: true
+            Material.accent: CoderTheme.primary
             onAccepted: tokenSignInButton.clicked()
         }
 
         Label {
             text: "<a href='#'>Get your token from your Coder dashboard</a>"
             font.pixelSize: 12
-            color: Material.accent
+            color: CoderTheme.primary
+            linkColor: CoderTheme.primary
             Layout.alignment: Qt.AlignRight
             onLinkActivated: {
                 loginFlowController.openExternalCliAuth(tokenUrlField.text.trim())
@@ -356,8 +386,10 @@ Item {
         Rectangle {
             Layout.fillWidth: true
             height: tokenErrorLabel.implicitHeight + 16
-            radius: 4
-            color: Material.color(Material.Red, Material.Shade50)
+            radius: CoderTheme.radiusSm
+            color: CoderTheme.errorSurface
+            border.color: CoderTheme.error
+            border.width: 1
             visible: loginPage.errorText.length > 0
                      && loginPage.currentStep === "token"
 
@@ -366,22 +398,21 @@ Item {
                 anchors.fill: parent
                 anchors.margins: 8
                 text: loginPage.errorText
-                color: Material.color(Material.Red)
+                color: CoderTheme.error
                 wrapMode: Text.WordWrap
                 font.pixelSize: 13
             }
         }
 
-        Button {
+        CoderButton {
             id: tokenSignInButton
             text: loginPage.loggingIn ? "Signing in…" : "Sign In"
             Layout.fillWidth: true
             Layout.preferredHeight: 44
+
             enabled: !loginPage.loggingIn
                      && tokenUrlField.text.trim().length > 0
                      && tokenField.text.trim().length > 0
-            highlighted: true
-            Material.background: Material.accent
 
             onClicked: {
                 loginPage.errorText = ""
@@ -400,7 +431,8 @@ Item {
         Label {
             text: "<a href='#'>← Back</a>"
             font.pixelSize: 12
-            color: Material.accent
+            color: CoderTheme.primary
+            linkColor: CoderTheme.primary
             Layout.alignment: Qt.AlignHCenter
             onLinkActivated: {
                 loginPage.errorText = ""
