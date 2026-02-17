@@ -78,7 +78,7 @@ jobs:
         run: |
           git clone --depth 1 --branch ${{ env.WAYLAND_VERSION }} https://gitlab.freedesktop.org/wayland/wayland.git /tmp/wayland
           cd /tmp/wayland
-          meson setup build --prefix=/opt/wayland --buildtype=release -Ddocumentation=false
+          meson setup build --prefix=/opt/wayland --buildtype=release -Ddocumentation=false -Dtests=false
           ninja -C build
           ninja -C build install
 
@@ -88,7 +88,7 @@ jobs:
           export PKG_CONFIG_PATH=/opt/wayland/lib/x86_64-linux-gnu/pkgconfig:/opt/wayland/share/pkgconfig:$PKG_CONFIG_PATH
           git clone --depth 1 --branch ${{ env.WLROOTS_VERSION }} https://gitlab.freedesktop.org/wlroots/wlroots.git /tmp/wlroots
           cd /tmp/wlroots
-          meson setup build --prefix=/opt/wayland --buildtype=release -Dxwayland=disabled --force-fallback-for=pixman-1
+          meson setup build --prefix=/opt/wayland --buildtype=release -Dxwayland=disabled --wrap-mode=default
           ninja -C build
           ninja -C build install
 
