@@ -31,6 +31,13 @@ VpnBridge::VpnBridge(QObject* parent)
     // Note: m_helper.isValid() will return false here if the helper service
     // isn't running yet — that's expected.  D-Bus activation will launch the
     // helper on the first method call (Start/Stop/GetStatus).
+
+    // Query current helper state so the UI reflects a pre-existing tunnel
+    // (e.g. the user closed the app without stopping the VPN).
+    auto* watcher = new QDBusPendingCallWatcher(
+        m_helper.GetStatus(), this);
+    connect(watcher, &QDBusPendingCallWatcher::finished,
+            this,    &VpnBridge::onGetStatusFinished);
 }
 
 // ---------------------------------------------------------------------------
@@ -137,4 +144,23 @@ void VpnBridge::onStopFinished(QDBusPendingCallWatcher* watcher)
         emit errorOccurred(reply.error().message());
     }
     // On success the helper will emit StateChanged → onStateChanged().
+}
+
+void VpnBridge::onGetStatusFinished(QDBusPendingCallWatcher* watcher)
+{
+    QDBusPendingReply<QString, QString> reply = *watcher;
+    watcher->deleteLater();
+
+    if (reply.isError()) {
+        // Helper not running or not reachable — stay "disconnected".
+        qDebug() << "VpnBridge::GetStatus D-Bus error (helper may not be running):"
+                 << reply.error().message();
+        return;
+    }
+
+    const QString state = reply.argumentAt<0>();
+    if (m_state != state) {
+        m_state = state;
+        emit stateChanged();
+    }
 }
