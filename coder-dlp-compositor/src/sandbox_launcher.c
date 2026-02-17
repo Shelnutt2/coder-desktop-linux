@@ -8,6 +8,7 @@
 #include "compositor_internal.h"
 
 #include <errno.h>
+#include <linux/limits.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
@@ -23,6 +24,8 @@ char** dlp_build_bwrap_args(const coder_dlp_compositor* comp, const char* comman
     if (!comp || !command) {
         return NULL;
     }
+
+    const char* xdg_runtime = getenv("XDG_RUNTIME_DIR");
 
     int argc = 0;
     int capacity = 64;
@@ -60,6 +63,21 @@ char** dlp_build_bwrap_args(const coder_dlp_compositor* comp, const char* comman
     PUSH("--tmpfs");
     PUSH("/tmp");
 
+    /* Compositor Wayland socket: writable bind so clients can connect */
+    if (xdg_runtime && comp->socket) {
+        char socket_path[PATH_MAX];
+        snprintf(socket_path, sizeof(socket_path), "%s/%s", xdg_runtime, comp->socket);
+        PUSH("--bind");
+        PUSH(socket_path);
+        PUSH(socket_path);
+
+        char lock_path[PATH_MAX];
+        snprintf(lock_path, sizeof(lock_path), "%s/%s.lock", xdg_runtime, comp->socket);
+        PUSH("--bind");
+        PUSH(lock_path);
+        PUSH(lock_path);
+    }
+
     /* Workspace path: writable bind mount */
     if (sandbox && sandbox->workspace_path) {
         PUSH("--bind");
@@ -86,6 +104,12 @@ char** dlp_build_bwrap_args(const coder_dlp_compositor* comp, const char* comman
     PUSH("--setenv");
     PUSH("WAYLAND_DISPLAY");
     PUSH(comp->socket ? comp->socket : "wayland-0");
+
+    if (xdg_runtime) {
+        PUSH("--setenv");
+        PUSH("XDG_RUNTIME_DIR");
+        PUSH(xdg_runtime);
+    }
 
     PUSH("--unsetenv");
     PUSH("DISPLAY");
