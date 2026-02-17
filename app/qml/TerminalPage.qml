@@ -20,6 +20,7 @@ Page {
     signal closeRequested()
 
     title: qsTr("Terminal — %1").arg(agentName || "Agent")
+    background: Rectangle { color: CoderTheme.background }
 
     // ---- C++ bridge (QML-instantiated, exposed to JS via WebChannel) ----
     TerminalBridge {
@@ -44,12 +45,25 @@ Page {
 
     // -- Navigation bar --
     header: ToolBar {
+        background: Rectangle {
+            color: CoderTheme.surface
+
+            Rectangle {
+                anchors.left: parent.left
+                anchors.right: parent.right
+                anchors.bottom: parent.bottom
+                height: 1
+                color: CoderTheme.divider
+            }
+        }
+
         RowLayout {
             anchors.fill: parent
             spacing: 4
 
             ToolButton {
                 icon.name: "go-previous"
+                icon.color: hovered ? CoderTheme.textPrimary : CoderTheme.textSecondary
                 text: qsTr("Back to workspace")
                 display: AbstractButton.TextBesideIcon
                 onClicked: root.closeRequested()
@@ -64,6 +78,7 @@ Page {
                 text: root.title
                 elide: Text.ElideRight
                 font.bold: true
+                color: CoderTheme.textPrimary
             }
         }
     }
@@ -97,12 +112,21 @@ Page {
 
                     // 2. Create a WebEngineView that uses the channel and
                     //    loads the local xterm.js HTML page.
+                    // Build terminal URL with theme color query parameters.
+                    var bg = String(CoderTheme.background).substring(0, 7);
+                    var fg = String(CoderTheme.textPrimary).substring(0, 7);
+                    var cursor = String(CoderTheme.primary).substring(0, 7);
+                    var termUrl = "qrc:/CoderDesktop/assets/terminal/terminal.html"
+                        + "?bg=" + encodeURIComponent(bg)
+                        + "&fg=" + encodeURIComponent(fg)
+                        + "&cursor=" + encodeURIComponent(cursor);
+
                     var weSrc =
                         'import QtQuick; ' +
                         'import QtWebEngine; ' +
                         'WebEngineView { ' +
                         '    anchors.fill: parent; ' +
-                        '    url: "qrc:/CoderDesktop/assets/terminal/terminal.html"; ' +
+                        '    url: "' + termUrl + '"; ' +
                         '    settings.javascriptEnabled: true; ' +
                         '    settings.localContentCanAccessRemoteUrls: true; ' +
                         '    onJavaScriptConsoleMessage: function(level, message, lineNumber, sourceID) { ' +
@@ -144,6 +168,7 @@ Page {
             text: qsTr("Terminal unavailable")
             font.pointSize: 16
             font.bold: true
+            color: CoderTheme.textPrimary
         }
 
         Label {
@@ -155,7 +180,7 @@ Page {
                         "module must be installed to use the in-app terminal.\n\n" +
                         "Install the package (e.g. 'qt6-websockets' or " +
                         "'libqt6websockets6') and restart the application.")
-            opacity: 0.7
+            color: CoderTheme.textSecondary
         }
 
         Button {
@@ -177,6 +202,7 @@ Page {
             text: qsTr("Terminal unavailable")
             font.pointSize: 16
             font.bold: true
+            color: CoderTheme.textPrimary
         }
 
         Label {
@@ -187,7 +213,7 @@ Page {
             text: qsTr("Qt WebEngine and Qt WebChannel are required for the " +
                         "embedded terminal. Please install these Qt modules " +
                         "and restart the application.")
-            opacity: 0.7
+            color: CoderTheme.textSecondary
         }
 
         Button {

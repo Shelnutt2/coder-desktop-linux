@@ -83,6 +83,7 @@ Page {
     }
 
     title: qsTr("App Browser")
+    background: Rectangle { color: CoderTheme.background }
 
     onResolvedUrlChanged: {
         console.log("[AppBrowser] resolvedUrl changed to:", resolvedUrl);
@@ -99,12 +100,25 @@ Page {
 
     // -- Navigation bar --
     header: ToolBar {
+        background: Rectangle {
+            color: CoderTheme.surface
+
+            Rectangle {
+                anchors.left: parent.left
+                anchors.right: parent.right
+                anchors.bottom: parent.bottom
+                height: 1
+                color: CoderTheme.divider
+            }
+        }
+
         RowLayout {
             anchors.fill: parent
             spacing: 4
 
             ToolButton {
                 icon.name: "go-previous"
+                icon.color: hovered ? CoderTheme.textPrimary : CoderTheme.textSecondary
                 text: qsTr("Back to workspace")
                 display: AbstractButton.TextBesideIcon
                 onClicked: root.closeRequested()
@@ -118,6 +132,7 @@ Page {
                 id: backButton
                 text: "◀"
                 font.pixelSize: 14
+                palette.buttonText: hovered ? CoderTheme.textPrimary : CoderTheme.textSecondary
                 enabled: webLoader.item ? webLoader.item.canGoBack : false
                 onClicked: {
                     if (webLoader.item) {
@@ -132,6 +147,7 @@ Page {
                 id: forwardButton
                 text: "▶"
                 font.pixelSize: 14
+                palette.buttonText: hovered ? CoderTheme.textPrimary : CoderTheme.textSecondary
                 enabled: webLoader.item ? webLoader.item.canGoForward : false
                 onClicked: {
                     if (webLoader.item) {
@@ -146,6 +162,7 @@ Page {
                 id: reloadButton
                 text: webLoader.item && webLoader.item.loading ? "✕" : "↻"
                 font.pixelSize: 16
+                palette.buttonText: hovered ? CoderTheme.textPrimary : CoderTheme.textSecondary
                 onClicked: {
                     if (webLoader.item) {
                         if (webLoader.item.loading) {
@@ -166,7 +183,13 @@ Page {
                 readOnly: true
                 text: webLoader.item ? webLoader.item.url : root.resolvedUrl
                 font.pointSize: 9
+                color: CoderTheme.textPrimary
                 verticalAlignment: TextInput.AlignVCenter
+
+                background: Rectangle {
+                    color: CoderTheme.surfaceSecondary
+                    radius: CoderTheme.radiusSm
+                }
             }
         }
     }
@@ -284,6 +307,7 @@ Page {
             text: qsTr("Web views require Qt WebEngine")
             font.pointSize: 16
             font.bold: true
+            color: CoderTheme.textPrimary
         }
 
         Label {
@@ -294,7 +318,7 @@ Page {
             text: qsTr("Qt WebEngine is required to browse workspace applications " +
                         "directly within Coder Desktop. Please install the " +
                         "QtWebEngine module or open the app in an external browser.")
-            opacity: 0.7
+            color: CoderTheme.textSecondary
         }
 
         Button {
@@ -315,7 +339,7 @@ Page {
         z: 10
         indeterminate: true
         visible: webLoader.item ? webLoader.item.loading : false
-        Material.accent: Material.Blue
+        Material.accent: CoderTheme.primary
     }
 
     // -- C++ backend instance --
