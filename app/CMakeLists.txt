@@ -72,6 +72,7 @@ set_source_files_properties(qml/CoderTheme.qml PROPERTIES QT_QML_SINGLETON_TYPE 
 qt_add_qml_module(coder-desktop
     URI CoderDesktop
     VERSION 1.0
+    RESOURCE_PREFIX /
     QML_FILES
         qml/Main.qml
         qml/LoginPage.qml
