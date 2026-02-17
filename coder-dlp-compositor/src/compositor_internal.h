@@ -68,7 +68,6 @@ struct coder_dlp_compositor {
 
     /* Backend */
     struct wl_listener new_output;
-    struct wl_listener backend_destroy;
 
     /* Input */
     struct wl_listener new_input;
