@@ -5,14 +5,19 @@ set(CMAKE_AUTOMOC ON)
 # Dependencies (Qt6, libsecret, etc.) are found centrally in
 # cmake/FindDependencies.cmake — variables are inherited from the parent scope.
 
+# ---------------------------------------------------------------------------
+# D-Bus interface proxy (auto-generated from introspection XML)
+# ---------------------------------------------------------------------------
+qt_add_dbus_interface(APP_DBUS_SOURCES
+    ${CMAKE_SOURCE_DIR}/dbus/com.coder.Desktop.Helper1.xml
+    helper1_interface
+)
+
 add_executable(coder-desktop
     src/main.cpp
+    ${APP_DBUS_SOURCES}
     src/vpn/VpnBridge.h
     src/vpn/VpnBridge.cpp
-    src/vpn/TunManager.h
-    src/vpn/TunManager.cpp
-    src/vpn/DnsManager.h
-    src/vpn/DnsManager.cpp
     src/tray/SystemTrayIcon.h
     src/tray/SystemTrayIcon.cpp
     src/api/CoderApiClient.h
@@ -77,14 +82,14 @@ qt_add_qml_module(coder-desktop
         qml/DlpPage.qml
 )
 
-target_include_directories(coder-desktop PRIVATE src)
+target_include_directories(coder-desktop PRIVATE src ${CMAKE_CURRENT_BINARY_DIR})
 target_compile_definitions(coder-desktop PRIVATE
     APP_VERSION="${PROJECT_VERSION}"
 )
 target_link_libraries(coder-desktop PRIVATE
     Qt6::Core Qt6::Gui Qt6::Quick Qt6::QuickControls2
-    Qt6::Network Qt6::Widgets
-    codervpn coderdlp
+    Qt6::Network Qt6::Widgets Qt6::DBus
+    coderdlp
 )
 
 if(Qt6WebSockets_FOUND)
@@ -108,14 +113,6 @@ endif()
 # ---------------------------------------------------------------------------
 if(BUILD_TESTING)
     enable_testing()
-
-    add_executable(tst_dnsmanager
-        tests/unit/tst_dnsmanager.cpp
-        src/vpn/DnsManager.cpp
-    )
-    target_include_directories(tst_dnsmanager PRIVATE src)
-    target_link_libraries(tst_dnsmanager PRIVATE Qt6::Core Qt6::Test)
-    add_test(NAME DnsManagerTest COMMAND tst_dnsmanager)
 
     add_executable(tst_apiclient
         tests/unit/tst_apiclient.cpp

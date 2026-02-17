@@ -29,7 +29,7 @@ static const struct {
     { "theme",                  QStringLiteral("system") },
     { "notificationsEnabled",   true               },
     { "checkForUpdates",        true               },
-    { "logLevel",               QStringLiteral("info") },
+    { "verbose",                false              },
     { "refreshIntervalSec",     10                 },
     { "disableDataCache",       false              },
 };
@@ -193,9 +193,9 @@ bool SettingsManager::checkForUpdates() const
     return resolve(QStringLiteral("checkForUpdates"), true).toBool();
 }
 
-QString SettingsManager::logLevel() const
+bool SettingsManager::verbose() const
 {
-    return resolve(QStringLiteral("logLevel"), QStringLiteral("info")).toString();
+    return resolve(QStringLiteral("verbose"), false).toBool();
 }
 
 int SettingsManager::refreshIntervalSec() const
