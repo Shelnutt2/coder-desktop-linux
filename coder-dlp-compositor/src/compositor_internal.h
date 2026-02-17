@@ -73,6 +73,18 @@ struct coder_dlp_compositor {
     /* Input */
     struct wl_listener new_input;
 
+    /* Keyboard */
+    struct wlr_keyboard* keyboard;
+    struct wl_listener keyboard_key;
+    struct wl_listener keyboard_modifiers;
+
+    /* Pointer */
+    struct wl_listener pointer_motion;
+    struct wl_listener pointer_button;
+    struct wl_listener pointer_axis;
+    struct wl_listener pointer_frame;
+    double cursor_x, cursor_y;
+
     /* Seat (keyboard/pointer/clipboard) */
     struct wlr_seat* seat;
 

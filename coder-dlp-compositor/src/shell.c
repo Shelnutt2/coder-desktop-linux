@@ -3,20 +3,38 @@
 
 #include <stdlib.h>
 
+#include <wlr/types/wlr_keyboard.h>
+#include <wlr/types/wlr_seat.h>
+#include <wlr/util/log.h>
+
 /* --- Toplevel event handlers --- */
 
 static void handle_toplevel_map(struct wl_listener* listener, void* data) {
     (void)data;
     struct coder_dlp_toplevel* toplevel = wl_container_of(listener, toplevel, map);
 
+    wlr_log(WLR_INFO, "toplevel mapped: app_id=%s title=%s",
+            toplevel->xdg_toplevel->app_id ? toplevel->xdg_toplevel->app_id : "(null)",
+            toplevel->xdg_toplevel->title ? toplevel->xdg_toplevel->title : "(null)");
+
     /* Focus the newly mapped surface by raising it in the scene graph */
     wlr_scene_node_raise_to_top(&toplevel->scene_tree->node);
+
+    /* Grant keyboard focus to the newly mapped surface */
+    struct wlr_keyboard* keyboard = wlr_seat_get_keyboard(toplevel->compositor->seat);
+    if (keyboard) {
+        wlr_seat_keyboard_notify_enter(toplevel->compositor->seat,
+                                       toplevel->xdg_toplevel->base->surface, keyboard->keycodes,
+                                       keyboard->num_keycodes, &keyboard->modifiers);
+    }
 }
 
 static void handle_toplevel_unmap(struct wl_listener* listener, void* data) {
     (void)data;
-    (void)listener;
-    /* Nothing to do on unmap for now — the scene tree handles visibility */
+    struct coder_dlp_toplevel* toplevel = wl_container_of(listener, toplevel, unmap);
+
+    wlr_log(WLR_INFO, "toplevel unmapped: app_id=%s",
+            toplevel->xdg_toplevel->app_id ? toplevel->xdg_toplevel->app_id : "(null)");
 }
 
 static void handle_toplevel_commit(struct wl_listener* listener, void* data) {
@@ -28,6 +46,9 @@ static void handle_toplevel_commit(struct wl_listener* listener, void* data) {
 static void handle_toplevel_destroy(struct wl_listener* listener, void* data) {
     (void)data;
     struct coder_dlp_toplevel* toplevel = wl_container_of(listener, toplevel, destroy);
+
+    wlr_log(WLR_INFO, "toplevel destroyed: app_id=%s",
+            toplevel->xdg_toplevel->app_id ? toplevel->xdg_toplevel->app_id : "(null)");
 
     wl_list_remove(&toplevel->map.link);
     wl_list_remove(&toplevel->unmap.link);
@@ -57,6 +78,10 @@ static void handle_toplevel_request_resize(struct wl_listener* listener, void* d
 void compositor_handle_new_xdg_toplevel(struct wl_listener* listener, void* data) {
     struct coder_dlp_compositor* comp = wl_container_of(listener, comp, new_xdg_toplevel);
     struct wlr_xdg_toplevel* xdg_toplevel = data;
+
+    wlr_log(WLR_INFO, "new xdg toplevel: app_id=%s title=%s",
+            xdg_toplevel->app_id ? xdg_toplevel->app_id : "(null)",
+            xdg_toplevel->title ? xdg_toplevel->title : "(null)");
 
     struct coder_dlp_toplevel* toplevel = calloc(1, sizeof(*toplevel));
     if (!toplevel) {
