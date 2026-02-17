@@ -4,11 +4,11 @@
 
 Coder Desktop for Linux is a monorepo producing three build targets:
 
-1. **`libcodervpn.so`** — Go c-shared library wrapping `github.com/coder/coder`'s VPN/tunnel SDK. Built with `go build -buildmode=c-shared`. Lives in `coder-vpn-linux/`.
+1. **`coder-desktop-helper`** — Go binary that runs as a privileged D-Bus system service, managing the VPN tunnel (TUN creation, DNS, routing). Communicates with the Qt app over D-Bus. Lives in `coder-vpn-linux/`.
 2. **`libcoderdlp.so`** — C library implementing a wlroots-based nested Wayland compositor for Data Loss Prevention. Lives in `coder-dlp-compositor/`.
 3. **`coder-desktop`** — Qt 6 / C++ desktop application (system tray, workspace management, VPN control, settings). Lives in `app/`.
 
-CMake is the top-level build system. The Go library is built via a custom command; the other two targets use standard CMake `add_subdirectory()`.
+CMake is the top-level build system. The Go helper binary is built separately; the other two targets use standard CMake `add_subdirectory()`.
 
 ## Directory Structure
 
@@ -20,11 +20,13 @@ coder-desktop-linux/
 ├── LICENSE
 ├── docs/
 │   └── planned_implementation.md
-├── coder-vpn-linux/            # Go module → libcodervpn.so
+├── coder-vpn-linux/            # Go module → coder-desktop-helper
 │   ├── go.mod / go.sum
-│   ├── bridge.go               # //export functions (C API)
-│   ├── internal/               # Go internals (tunnel, auth, DNS)
-│   └── scripts/build-so.sh     # Build script invoked by CMake
+│   ├── cmd/coder-desktop-helper/main.go  # Entry point
+│   └── internal/
+│       ├── dbusservice/        # D-Bus service implementation
+│       ├── dns/                # DNS configuration
+│       └── sdutil/             # systemd notify wrapper
 ├── coder-dlp-compositor/       # C / wlroots → libcoderdlp.so
 │   ├── CMakeLists.txt
 │   ├── include/coderdlp.h      # Public C API
@@ -34,8 +36,11 @@ coder-desktop-linux/
 │   ├── src/                    # C++ sources
 │   ├── qml/                    # QML UI files
 │   └── tests/                  # Unit tests
+├── dbus/                       # D-Bus config, interface XML, service files
 ├── packaging/                  # Distribution packaging
 │   ├── deb/ rpm/ flatpak/ appimage/
+│   ├── polkit/                 # Polkit policy for privileged helper
+│   └── systemd/                # systemd service unit for helper
 └── .github/workflows/          # CI pipelines
 ```
 
@@ -51,8 +56,8 @@ cmake --build build -j$(nproc)
 ### Individual targets
 
 ```bash
-# Go VPN shared library only
-cmake --build build --target codervpn_so
+# Go helper binary only
+cd coder-vpn-linux && go build -o ../build/coder-desktop-helper ./cmd/coder-desktop-helper/
 
 # DLP compositor only
 cmake --build build --target coderdlp
@@ -61,26 +66,30 @@ cmake --build build --target coderdlp
 cmake --build build --target coder-desktop
 ```
 
-### Go library standalone (without CMake)
+### Go helper standalone (without CMake)
 
 ```bash
-cd coder-vpn-linux
-./scripts/build-so.sh /tmp/libcodervpn.so
+cd coder-vpn-linux && go build ./cmd/coder-desktop-helper/
 ```
 
 ## Architecture Cheat Sheet
 
 | Component | Language | Build | Key Dependencies |
 |-----------|----------|-------|------------------|
-| `coder-vpn-linux/` | Go | `go build -buildmode=c-shared` | `coder/coder` SDK, `tailscale` |
+| `coder-vpn-linux/` | Go | `go build` | `coder/coder` SDK, `tailscale`, `godbus/dbus/v5` |
 | `coder-dlp-compositor/` | C | CMake / pkg-config | `wlroots 0.19`, `wayland`, `xkbcommon` |
 | `app/` | C++ / QML | CMake / Qt 6 | Qt 6.5+ (Widgets, Quick, Network, WebEngine), `libsecret` |
 
 ### Data flow
 
 ```
-coder-desktop (Qt app)
-  ├── dlopen(libcodervpn.so) → calls Go VPN functions via C ABI
+coder-desktop-helper (Go, runs as root)
+  ├── D-Bus system bus ← com.coder.Desktop.Helper1
+  ├── TUN device, DNS, routing
+  └── coder/coder VPN SDK → tailscale tunnel
+
+coder-desktop (Qt app, runs as user)
+  ├── D-Bus → coder-desktop-helper (Start/Stop VPN, receive state signals)
   ├── dlopen(libcoderdlp.so) → launches nested Wayland compositor
   └── REST → Coder deployment API
 ```
@@ -110,12 +119,15 @@ The Qt application (`app/`) targets **C++20 or newer** and follows the [C++ Core
 
 ## Key Patterns
 
-### C callbacks from Go shared library
+### D-Bus system service (privileged helper)
 
-The Go `.so` exports C functions. The Qt app calls them and registers C callback
-function pointers for async events (VPN state changes, peer updates, log messages).
-All callbacks must be safe to call from any goroutine — they post events to the
-Qt event loop via `QMetaObject::invokeMethod(obj, Qt::QueuedConnection, ...)`.
+The `coder-desktop-helper` binary runs as root via D-Bus system bus activation
+(or a systemd service). It exposes the `com.coder.Desktop.Helper1` interface.
+The Qt app sends method calls (`Start`, `Stop`, `GetStatus`) and subscribes to
+signals (`StateChanged`, `PeerUpdated`, `LogMessage`). Polkit authorizes
+privileged operations so the unprivileged Qt app can control the VPN.
+D-Bus activation auto-starts the helper on first method call if it isn't already
+running.
 
 ### QSocketNotifier for wlroots event loop integration
 
@@ -157,7 +169,7 @@ cd build && ctest --test-dir coder-dlp-compositor --output-on-failure
 
 2. **Do NOT use X11 for DLP** — The DLP compositor MUST use Wayland (wlroots). X11 cannot enforce clipboard/screenshot restrictions because any client can read any other client's windows. This is a fundamental security requirement.
 
-3. **Only one Go c-shared `.so` per process** — The Go runtime can only be initialized once per process. Do NOT try to load multiple Go shared libraries. Everything that needs Go goes into `libcodervpn.so`.
+3. **Do NOT run the helper as an unprivileged user** — It requires `CAP_NET_ADMIN` for TUN/route management and runs as root via D-Bus activation. Attempting to run it unprivileged will fail to create TUN devices and manage routes.
 
 4. **Do NOT run the wlroots event loop on a separate thread** — Integrate via `QSocketNotifier` on the Qt main thread. wlroots is not thread-safe.
 
