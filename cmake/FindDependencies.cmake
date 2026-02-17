@@ -18,7 +18,7 @@ include(CMakePrintHelpers)
 find_package(PkgConfig REQUIRED)
 
 # ── Qt 6 (required) ──────────────────────────────────────────────────────
-find_package(Qt6 6.5 REQUIRED COMPONENTS
+find_package(Qt6 6.4 REQUIRED COMPONENTS
     Core Gui Quick QuickControls2 Network Widgets DBus Test)
 
 # Optional Qt components — available on some distros/configurations.
