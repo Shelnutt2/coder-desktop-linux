@@ -24,8 +24,9 @@ find_package(Qt6 6.5 REQUIRED COMPONENTS
 # Optional Qt components — available on some distros/configurations.
 find_package(Qt6 COMPONENTS WebSockets QUIET)
 find_package(Qt6 COMPONENTS WebEngineQuick QUIET)
+find_package(Qt6 COMPONENTS WebChannel QUIET)
 
-cmake_print_variables(Qt6_VERSION Qt6WebSockets_FOUND Qt6WebEngineQuick_FOUND)
+cmake_print_variables(Qt6_VERSION Qt6WebSockets_FOUND Qt6WebEngineQuick_FOUND Qt6WebChannel_FOUND)
 
 # ── wlroots + Wayland (required for DLP compositor) ──────────────────────
 pkg_check_modules(WLROOTS REQUIRED wlroots-0.19)

@@ -63,6 +63,8 @@ add_executable(coder-desktop
     src/auth/LoginFlowController.cpp
     src/api/PollingController.h
     src/api/PollingController.cpp
+    src/terminal/TerminalBridge.h
+    src/terminal/TerminalBridge.cpp
 )
 
 qt_add_qml_module(coder-desktop
@@ -80,6 +82,16 @@ qt_add_qml_module(coder-desktop
         qml/TaskDetailPage.qml
         qml/WorkspaceDetailPage.qml
         qml/DlpPage.qml
+        qml/TerminalPage.qml
+)
+
+qt_add_resources(coder-desktop "terminal_assets"
+    PREFIX "/CoderDesktop"
+    FILES
+        assets/terminal/terminal.html
+        assets/terminal/xterm.min.js
+        assets/terminal/xterm.min.css
+        assets/terminal/addon-fit.min.js
 )
 
 target_include_directories(coder-desktop PRIVATE src ${CMAKE_CURRENT_BINARY_DIR})
@@ -100,6 +112,11 @@ endif()
 if(Qt6WebEngineQuick_FOUND)
     target_link_libraries(coder-desktop PRIVATE Qt6::WebEngineQuick)
     target_compile_definitions(coder-desktop PRIVATE HAS_WEBENGINE)
+endif()
+
+if(Qt6WebChannel_FOUND)
+    target_link_libraries(coder-desktop PRIVATE Qt6::WebChannel)
+    target_compile_definitions(coder-desktop PRIVATE HAS_WEBCHANNEL)
 endif()
 
 if(LIBSECRET_FOUND)

@@ -33,6 +33,10 @@ Item {
     property string selectedAgentName: ""
     property bool selectedAppExternal: false
 
+    // -- Terminal state --
+    property string selectedTerminalAgentId: ""
+    property string selectedTerminalAgentName: ""
+
     function loadDetail() {
         detailLoading = true
         apiClient.fetchWorkspaceDetail(workspaceId)
@@ -363,13 +367,16 @@ Item {
                                 opacity: 0.5
                             }
 
-                            // Terminal button (placeholder)
+                            // Terminal button
                             Button {
                                 flat: true
                                 text: "Terminal"
                                 enabled: model.agentStatus === "connected"
                                 font.pixelSize: 12
-                                // TODO: open terminal session
+                                onClicked: {
+                                    workspaceDetailPage.selectedTerminalAgentId = model.agentId
+                                    workspaceDetailPage.selectedTerminalAgentName = model.agentName
+                                }
                             }
                         }
                     }
@@ -565,6 +572,21 @@ Item {
             item.isExternal = Qt.binding(function() { return workspaceDetailPage.selectedAppExternal; });
             item.sessionToken = Qt.binding(function() { return sessionManager.sessionToken(); });
             item.closeRequested.connect(function() { workspaceDetailPage.selectedAppSlug = ""; });
+        }
+    }
+
+    // ---- In-app terminal overlay ----
+    Loader {
+        id: terminalLoader
+        anchors.fill: parent
+        active: workspaceDetailPage.selectedTerminalAgentId.length > 0
+        z: 11
+        source: "TerminalPage.qml"
+        onLoaded: {
+            item.agentId = Qt.binding(function() { return workspaceDetailPage.selectedTerminalAgentId; });
+            item.agentName = Qt.binding(function() { return workspaceDetailPage.selectedTerminalAgentName; });
+            item.workspaceName = Qt.binding(function() { return workspaceDetailPage.workspaceName; });
+            item.closeRequested.connect(function() { workspaceDetailPage.selectedTerminalAgentId = ""; });
         }
     }
 }
