@@ -121,6 +121,8 @@ jobs:
 
       - name: Run C++ tests (app)
         run: ctest --test-dir build/app --output-on-failure
+        env:
+          QT_QPA_PLATFORM: offscreen
 
       - name: Run C tests (DLP compositor)
         run: ctest --test-dir build/coder-dlp-compositor --output-on-failure

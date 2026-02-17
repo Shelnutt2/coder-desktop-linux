@@ -99,6 +99,8 @@ jobs:
           ctest --test-dir build/app --output-on-failure
           ctest --test-dir build/coder-dlp-compositor --output-on-failure
           cd coder-vpn-linux && go test ./...
+        env:
+          QT_QPA_PLATFORM: offscreen
 
       - name: Build deb package
         run: |
