@@ -26,8 +26,17 @@
 #include "auth/LoginFlowController.h"
 #include "api/PollingController.h"
 
+#ifdef HAS_WEBENGINE
+#include <QtWebEngineQuick/qtwebenginequickglobal.h>
+#endif
+
 int main(int argc, char* argv[])
 {
+    // QtWebEngine requires initialization before QApplication is created.
+#ifdef HAS_WEBENGINE
+    QtWebEngineQuick::initialize();
+#endif
+
     QApplication app(argc, argv);
     app.setApplicationVersion(QStringLiteral(APP_VERSION));
     app.setApplicationName(QStringLiteral("Coder Desktop"));
