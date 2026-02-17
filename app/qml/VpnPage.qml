@@ -2,6 +2,7 @@ import QtQuick
 import QtQuick.Controls
 import QtQuick.Controls.Material
 import QtQuick.Layouts
+import CoderDesktop
 
 // VPN status and peer list page.
 // Connects/disconnects the VPN tunnel and displays reachable workspace agents.

@@ -2,6 +2,7 @@ import QtQuick
 import QtQuick.Controls
 import QtQuick.Controls.Material
 import QtQuick.Layouts
+import CoderDesktop
 
 // Workspace list page — shows all workspaces from workspaceModel with
 // status chips, actions (start/stop), filter chips, and a search filter.

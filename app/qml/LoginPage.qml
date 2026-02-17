@@ -2,6 +2,7 @@ import QtQuick
 import QtQuick.Controls
 import QtQuick.Controls.Material
 import QtQuick.Layouts
+import CoderDesktop
 
 // Login page with two-step flow:
 //   Step 1 ("url"):      Enter deployment URL → "Sign In" opens embedded browser

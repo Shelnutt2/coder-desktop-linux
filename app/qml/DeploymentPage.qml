@@ -2,6 +2,7 @@ import QtQuick
 import QtQuick.Controls
 import QtQuick.Controls.Material
 import QtQuick.Layouts
+import CoderDesktop
 
 // Settings subpage for managing multiple Coder deployments.
 // Shows saved deployments with switch/remove actions and an inline form
