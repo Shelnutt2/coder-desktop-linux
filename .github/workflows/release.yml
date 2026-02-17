@@ -36,13 +36,41 @@ jobs:
             libqt6websockets6-dev \
             qt6-webengine-dev \
             libsecret-1-dev \
-            libwlroots-dev \
             wayland-protocols \
             pkg-config \
             bubblewrap \
             ninja-build \
             dpkg-dev \
-            rpm
+            rpm \
+            meson \
+            libwayland-dev \
+            libdrm-dev \
+            libgbm-dev \
+            libxkbcommon-dev \
+            libegl-dev \
+            libgles-dev \
+            libpixman-1-dev \
+            libseat-dev \
+            hwdata \
+            libdisplay-info-dev \
+            libliftoff-dev \
+            libxcb-dri3-dev \
+            libxcb-present-dev \
+            libxcb-composite0-dev \
+            libxcb-render-util0-dev \
+            libxcb-ewmh-dev \
+            libxcb-xinput-dev \
+            libxcb-icccm4-dev \
+            libxcb-res0-dev \
+            libxwayland-dev
+
+      - name: Build wlroots 0.19 from source
+        run: |
+          git clone --depth 1 --branch 0.19.0 https://gitlab.freedesktop.org/wlroots/wlroots.git /tmp/wlroots
+          cd /tmp/wlroots
+          meson setup build --prefix=/usr --buildtype=release
+          ninja -C build
+          sudo ninja -C build install
 
       - name: CMake configure (Release)
         run: |
