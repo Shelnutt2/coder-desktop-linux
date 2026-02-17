@@ -72,6 +72,29 @@ cmake --build build --target coder-desktop
 cd coder-vpn-linux && go build ./cmd/coder-desktop-helper/
 ```
 
+## Formatting
+
+All C, C++, and header files under `app/` and `coder-dlp-compositor/` are formatted with **clang-format**. The style is defined in `.clang-format` at the repo root. CI enforces formatting via `clang-format --dry-run --Werror`.
+
+### Format all files
+
+```bash
+find app/src coder-dlp-compositor/src -type f \( -name '*.h' -o -name '*.cpp' -o -name '*.c' \) \
+  -exec clang-format -i {} +
+```
+
+### Pre-commit hook
+
+Install the git pre-commit hook to catch formatting issues before commit:
+
+```bash
+./scripts/install-hooks.sh
+```
+
+### Go
+
+Go code in `coder-vpn-linux/` follows standard `gofmt` formatting.
+
 ## Architecture Cheat Sheet
 
 | Component | Language | Build | Key Dependencies |
