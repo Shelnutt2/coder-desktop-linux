@@ -1,4 +1,5 @@
 ---
+# Applies to both C and C++ files (clang-format treats C as Cpp).
 Language: Cpp
 BasedOnStyle: Google
 ColumnLimit: 100
@@ -6,15 +7,6 @@ IndentWidth: 4
 AccessModifierOffset: -4
 AllowShortFunctionsOnASingleLine: Inline
 BreakBeforeBraces: Attach
-PointerAlignment: Left
-DerivePointerAlignment: false
-SortIncludes: CaseSensitive
-IncludeBlocks: Preserve
----
-Language: C
-BasedOnStyle: Google
-ColumnLimit: 100
-IndentWidth: 4
 PointerAlignment: Left
 DerivePointerAlignment: false
 SortIncludes: CaseSensitive
