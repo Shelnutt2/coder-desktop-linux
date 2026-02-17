@@ -210,20 +210,26 @@ int main(int argc, char* argv[]) {
     engine.rootContext()->setContextProperty(QStringLiteral("pollingController"),
                                              &pollingController);
 
-    // Load Main.qml via the QML module system so that the module's qmldir
-    // is processed, singletons (CoderTheme) are registered, and all types
-    // within the CoderDesktop module resolve correctly.
+    // Load Main.qml from compiled-in Qt resources.  Each QML file has an
+    // explicit "import CoderDesktop" so the module's qmldir is processed and
+    // singletons (CoderTheme) are properly registered regardless of how the
+    // root component is loaded.
+    //
+    // We use engine.load(qrc:…) instead of engine.loadFromModule() for Qt 6.4
+    // compatibility (loadFromModule was added in Qt 6.5).
+    const QUrl mainQml(QStringLiteral("qrc:/CoderDesktop/qml/Main.qml"));
+
     QObject::connect(
         &engine, &QQmlApplicationEngine::objectCreated, &app,
-        [](QObject* obj, const QUrl& url) {
-            if (!obj) {
+        [&mainQml](QObject* obj, const QUrl& url) {
+            if (!obj && url == mainQml) {
                 qCritical() << "Failed to load QML:" << url;
                 QCoreApplication::exit(-1);
             }
         },
         Qt::QueuedConnection);
 
-    engine.loadFromModule("CoderDesktop", "Main");
+    engine.load(mainQml);
 
     // ---- System tray ----
     SystemTrayIcon tray(&vpnBridge);
