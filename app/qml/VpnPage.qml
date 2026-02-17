@@ -16,7 +16,7 @@ Item {
             vpnPage.vpnError = message
         }
         function onStateChanged() {
-            if (vpnBridge.connected)
+            if (vpnBridge.isRunning)
                 vpnPage.vpnError = ""
         }
     }
@@ -34,17 +34,17 @@ Item {
 
             // Large status icon
             Label {
-                text: vpnBridge.connected ? "🟢" : "🔴"
+                text: vpnBridge.isRunning ? "🟢" : "🔴"
                 font.pixelSize: 48
                 Layout.alignment: Qt.AlignHCenter
             }
 
             Label {
-                text: vpnBridge.stateString
+                text: vpnBridge.state
                 font.pixelSize: 22
                 font.bold: true
                 Layout.alignment: Qt.AlignHCenter
-                color: vpnBridge.connected
+                color: vpnBridge.isRunning
                     ? Material.color(Material.Green)
                     : Material.foreground
             }
@@ -57,19 +57,19 @@ Item {
                 highlighted: true
                 text: {
                     switch (vpnBridge.state) {
-                    case 0: return "Connect VPN"       // Disconnected
-                    case 1: return "Connecting…"        // Connecting
-                    case 2: return "Disconnect VPN"    // Connected
-                    case 3: return "Disconnecting…"     // Disconnecting
+                    case "disconnected":  return "Connect VPN"
+                    case "connecting":    return "Connecting…"
+                    case "connected":     return "Disconnect VPN"
+                    case "disconnecting": return "Disconnecting…"
                     }
                     return "Connect VPN"
                 }
-                enabled: vpnBridge.state === 0 || vpnBridge.state === 2
-                Material.background: vpnBridge.connected
+                enabled: vpnBridge.state === "disconnected" || vpnBridge.state === "connected"
+                Material.background: vpnBridge.isRunning
                     ? Material.color(Material.Red)
                     : Material.accent
                 onClicked: {
-                    if (vpnBridge.connected) {
+                    if (vpnBridge.isRunning) {
                         vpnBridge.stop()
                     } else {
                         vpnPage.vpnError = ""
@@ -215,7 +215,7 @@ Item {
                 spacing: 8
 
                 Label {
-                    text: vpnBridge.connected
+                    text: vpnBridge.isRunning
                         ? "No peers connected"
                         : "Connect VPN to see workspace peers"
                     font.pixelSize: 15

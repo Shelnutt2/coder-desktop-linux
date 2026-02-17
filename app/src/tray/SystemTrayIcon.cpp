@@ -76,11 +76,11 @@ void SystemTrayIcon::buildMenu()
 
 void SystemTrayIcon::onVpnStateChanged()
 {
-    const bool running = m_vpn->connected();
+    const bool running = m_vpn->isRunning();
     m_connectAction->setVisible(!running);
     m_disconnectAction->setVisible(running);
 
-    setToolTip(QStringLiteral("Coder Desktop — VPN %1").arg(m_vpn->stateString()));
+    setToolTip(QStringLiteral("Coder Desktop — VPN %1").arg(m_vpn->state()));
 }
 
 void SystemTrayIcon::onConnectClicked()

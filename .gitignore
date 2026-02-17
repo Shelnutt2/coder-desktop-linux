@@ -101,6 +101,7 @@ qrc_*.cpp
 # Go build cache & binaries
 coder-vpn-linux/libcodervpn.so
 coder-vpn-linux/libcodervpn.h
+coder-vpn-linux/coder-desktop-helper
 *.test
 *.prof
 *.coverprofile

@@ -41,9 +41,8 @@ int main(int argc, char* argv[])
     // Default to the Fusion style for a consistent cross-desktop look.
     QQuickStyle::setStyle(QStringLiteral("Fusion"));
 
-    // ---- VPN bridge singleton ----
+    // ---- VPN bridge (D-Bus client) ----
     VpnBridge vpnBridge;
-    VpnBridge::setInstance(&vpnBridge);
 
     // ---- CLI argument parsing ----
     QCommandLineParser parser;
@@ -51,46 +50,25 @@ int main(int argc, char* argv[])
     parser.addHelpOption();
     parser.addVersionOption();
 
-    QCommandLineOption logLevelOption(
-        QStringList() << QStringLiteral("l") << QStringLiteral("log-level"),
-        QStringLiteral("Set log level (trace, debug, info, warn, error). Default: info"),
-        QStringLiteral("level"),
-        QStringLiteral("info"));
-    parser.addOption(logLevelOption);
+    QCommandLineOption verboseOption(
+        QStringList() << QStringLiteral("v") << QStringLiteral("verbose"),
+        QStringLiteral("Enable verbose/debug logging"));
+    parser.addOption(verboseOption);
     parser.process(app);
 
     // ---- Phase 2 managers ----
     SettingsManager settingsManager;
 
     // ---- Logging configuration ----
-    QString logLevel = parser.isSet(logLevelOption)
-        ? parser.value(logLevelOption)
-        : settingsManager.logLevel();
+    const bool verbose = parser.isSet(verboseOption)
+        || settingsManager.verbose();
 
-    // Qt log types: debug, info, warning, critical, fatal
-    // Map our levels to Qt filter rules:
-    //   trace/debug → show all (debug + info + warning + critical)
-    //   info        → hide debug; show info + warning + critical
-    //   warn        → hide debug + info; show warning + critical
-    //   error       → hide debug + info + warning; show critical only
-    if (logLevel == QStringLiteral("trace") || logLevel == QStringLiteral("debug")) {
+    if (verbose) {
         QLoggingCategory::setFilterRules(QStringLiteral("*.debug=true"));
         qSetMessagePattern(QStringLiteral(
             "[%{time yyyy-MM-dd hh:mm:ss.zzz}] [%{type}] %{category}: %{message}"));
-        qDebug() << "Debug logging enabled (level:" << logLevel << ")";
-    } else if (logLevel == QStringLiteral("error")) {
-        QLoggingCategory::setFilterRules(QStringLiteral(
-            "*.debug=false\n*.info=false\n*.warning=false"));
-        qSetMessagePattern(QStringLiteral(
-            "[%{time hh:mm:ss}] [%{type}] %{message}"));
-    } else if (logLevel == QStringLiteral("warn")) {
-        QLoggingCategory::setFilterRules(QStringLiteral(
-            "*.debug=false\n*.info=false"));
-        qSetMessagePattern(QStringLiteral(
-            "[%{time hh:mm:ss}] [%{type}] %{message}"));
+        qDebug() << "Verbose logging enabled";
     } else {
-        // "info" or unrecognized → default: suppress debug messages
-        QLoggingCategory::setFilterRules(QStringLiteral("*.debug=false"));
         qSetMessagePattern(QStringLiteral(
             "[%{time hh:mm:ss}] [%{type}] %{message}"));
     }

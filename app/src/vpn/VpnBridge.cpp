@@ -1,251 +1,140 @@
 #include "vpn/VpnBridge.h"
-#include "vpn/TunManager.h"
-#include "vpn/DnsManager.h"
-#include "util/UniqueFd.h"
 
+#include <QDBusError>
+#include <QDBusPendingReply>
 #include <QDebug>
-#include <QMetaObject>
-#include <QVariantMap>
 
 // ---------------------------------------------------------------------------
-// Singleton bookkeeping
+// D-Bus service coordinates
 // ---------------------------------------------------------------------------
-
-VpnBridge* VpnBridge::s_instance = nullptr;
-
-VpnBridge* VpnBridge::instance() { return s_instance; }
-
-void VpnBridge::setInstance(VpnBridge* inst) { s_instance = inst; }
+static constexpr auto kHelperService = "com.coder.Desktop.Helper";
+static constexpr auto kHelperPath    = "/com/coder/Desktop/Helper";
 
 // ---------------------------------------------------------------------------
-// Lifecycle
+// Construction — connect to the system bus and wire up D-Bus signals
 // ---------------------------------------------------------------------------
 
 VpnBridge::VpnBridge(QObject* parent)
     : QObject(parent)
+    , m_helper(QLatin1String(kHelperService),
+               QLatin1String(kHelperPath),
+               QDBusConnection::systemBus())
 {
-    if (!s_instance)
-        s_instance = this;
+    // Wire D-Bus signals → local slots.
+    connect(&m_helper, &ComCoderDesktopHelper1Interface::StateChanged,
+            this,      &VpnBridge::onStateChanged);
+    connect(&m_helper, &ComCoderDesktopHelper1Interface::PeerUpdated,
+            this,      &VpnBridge::onPeerUpdated);
+    connect(&m_helper, &ComCoderDesktopHelper1Interface::LogMessage,
+            this,      &VpnBridge::onLogMessage);
+
+    // Note: m_helper.isValid() will return false here if the helper service
+    // isn't running yet — that's expected.  D-Bus activation will launch the
+    // helper on the first method call (Start/Stop/GetStatus).
 }
 
-VpnBridge::~VpnBridge()
-{
-    if (s_instance == this)
-        s_instance = nullptr;
-}
-
-QString VpnBridge::stateString() const
-{
-    switch (m_state) {
-    case State::Disconnected:  return QStringLiteral("Disconnected");
-    case State::Connecting:    return QStringLiteral("Connecting");
-    case State::Connected:     return QStringLiteral("Connected");
-    case State::Disconnecting: return QStringLiteral("Disconnecting");
-    }
-    return QStringLiteral("Unknown");
-}
+// ---------------------------------------------------------------------------
+// Public API — asynchronous D-Bus calls
+// ---------------------------------------------------------------------------
 
 void VpnBridge::start(const QString& url, const QString& token)
 {
-    if (m_state != State::Disconnected) {
-        qWarning() << "VpnBridge::start called while state is" << stateString();
+    if (m_state != QStringLiteral("disconnected")) {
+        qWarning() << "VpnBridge::start called while state is" << m_state;
         return;
     }
 
-    m_state = State::Connecting;
+    m_state = QStringLiteral("connecting");
     emit stateChanged();
 
-    const QByteArray urlUtf8   = url.toUtf8();
-    const QByteArray tokenUtf8 = token.toUtf8();
-
-    int32_t rc = CoderVPN_Start(
-        urlUtf8.constData(),
-        tokenUtf8.constData(),
-        &VpnBridge::onNetworkSettings,
-        &VpnBridge::onPeerUpdate,
-        &VpnBridge::onError,
-        &VpnBridge::onLog);
-
-    if (rc != 0) {
-        m_state = State::Disconnected;
-        emit stateChanged();
-        emit errorOccurred(QStringLiteral("CoderVPN_Start returned %1").arg(rc));
-    }
+    auto* watcher = new QDBusPendingCallWatcher(
+        m_helper.Start(url, token), this);
+    connect(watcher, &QDBusPendingCallWatcher::finished,
+            this,    &VpnBridge::onStartFinished);
 }
 
 void VpnBridge::stop()
 {
-    if (m_state == State::Disconnected || m_state == State::Disconnecting)
+    if (m_state == QStringLiteral("disconnected")
+        || m_state == QStringLiteral("disconnecting"))
         return;
 
-    m_state = State::Disconnecting;
+    m_state = QStringLiteral("disconnecting");
     emit stateChanged();
 
-    CoderVPN_Stop();
+    auto* watcher = new QDBusPendingCallWatcher(
+        m_helper.Stop(), this);
+    connect(watcher, &QDBusPendingCallWatcher::finished,
+            this,    &VpnBridge::onStopFinished);
+}
 
-    m_state = State::Disconnected;
-    m_peers.clear();
+// ---------------------------------------------------------------------------
+// D-Bus signal handlers
+// ---------------------------------------------------------------------------
+
+void VpnBridge::onStateChanged(const QString& newState,
+                                const QString& errorMessage)
+{
+    if (m_state == newState)
+        return;
+
+    m_state = newState;
     emit stateChanged();
-    emit peersChanged();
+
+    if (!errorMessage.isEmpty())
+        emit errorOccurred(errorMessage);
 }
 
-bool VpnBridge::isRunning() const
+void VpnBridge::onPeerUpdated(const QString& workspace,
+                               const QString& agent,
+                               const QString& hostname,
+                               int status, int lastPingMs, bool isP2P)
 {
-    return CoderVPN_IsRunning() != 0;
+    emit peerUpdated(workspace, agent, hostname, status, lastPingMs, isP2P);
 }
 
-// ---------------------------------------------------------------------------
-// Static C callback trampolines — called from Go goroutines
-// ---------------------------------------------------------------------------
-
-int32_t VpnBridge::onNetworkSettings(const char* addresses,
-                                     const char* dnsServers,
-                                     const char* searchDomains,
-                                     const char* routes,
-                                     int32_t mtu)
+void VpnBridge::onLogMessage(int level, const QString& message)
 {
-    auto* self = VpnBridge::s_instance;
-    if (!self) return -1;
-
-    // Copy strings to Qt types before crossing thread boundary.
-    QStringList addrList   = QString::fromUtf8(addresses).split(QLatin1Char(','), Qt::SkipEmptyParts);
-    QStringList dnsList    = QString::fromUtf8(dnsServers).split(QLatin1Char(','), Qt::SkipEmptyParts);
-    QStringList searchList = QString::fromUtf8(searchDomains).split(QLatin1Char(','), Qt::SkipEmptyParts);
-    QStringList routeList  = QString::fromUtf8(routes).split(QLatin1Char(','), Qt::SkipEmptyParts);
-
-    // Post to main thread.  The callback must return a TUN fd, but we cannot
-    // block here waiting for the Qt event loop.  Create the TUN synchronously
-    // on *this* goroutine thread and return it; the main thread will receive
-    // the configuration asynchronously for DNS / route setup.
-    TunManager tunMgr;
-    UniqueFd fd = tunMgr.createTun(QStringLiteral("coder0"));
-
-    // Fire-and-forget to main thread for DNS + bookkeeping.
-    QMetaObject::invokeMethod(self, "handleNetworkSettings",
-                              Qt::QueuedConnection,
-                              Q_ARG(QStringList, addrList),
-                              Q_ARG(QStringList, dnsList),
-                              Q_ARG(QStringList, searchList),
-                              Q_ARG(QStringList, routeList),
-                              Q_ARG(int, static_cast<int>(mtu)));
-
-    // Ownership of the fd transfers to the Go runtime via CoderVPN_UpdateTunFd.
-    return static_cast<int32_t>(fd.release());
-}
-
-void VpnBridge::onPeerUpdate(const char* workspaceName,
-                             const char* agentName,
-                             const char* hostname,
-                             int32_t status,
-                             int64_t lastPingMs,
-                             int32_t isP2P)
-{
-    auto* self = VpnBridge::s_instance;
-    if (!self) return;
-
-    QMetaObject::invokeMethod(self, "handlePeerUpdate",
-                              Qt::QueuedConnection,
-                              Q_ARG(QString, QString::fromUtf8(workspaceName)),
-                              Q_ARG(QString, QString::fromUtf8(agentName)),
-                              Q_ARG(QString, QString::fromUtf8(hostname)),
-                              Q_ARG(int, static_cast<int>(status)),
-                              Q_ARG(qint64, static_cast<qint64>(lastPingMs)),
-                              Q_ARG(bool, isP2P != 0));
-}
-
-void VpnBridge::onError(const char* message)
-{
-    auto* self = VpnBridge::s_instance;
-    if (!self) return;
-
-    QMetaObject::invokeMethod(self, "handleError",
-                              Qt::QueuedConnection,
-                              Q_ARG(QString, QString::fromUtf8(message)));
-}
-
-void VpnBridge::onLog(int32_t level, const char* message)
-{
-    auto* self = VpnBridge::s_instance;
-    if (!self) return;
-
-    QMetaObject::invokeMethod(self, "handleLog",
-                              Qt::QueuedConnection,
-                              Q_ARG(int, static_cast<int>(level)),
-                              Q_ARG(QString, QString::fromUtf8(message)));
-}
-
-// ---------------------------------------------------------------------------
-// Main-thread handlers (invoked via QueuedConnection)
-// ---------------------------------------------------------------------------
-
-void VpnBridge::handleNetworkSettings(const QStringList& addresses,
-                                      const QStringList& dnsServers,
-                                      const QStringList& searchDomains,
-                                      const QStringList& routes,
-                                      int mtu)
-{
-    Q_UNUSED(routes)
-    Q_UNUSED(mtu)
-
-    // Configure DNS via the system resolver cascade.
-    DnsManager dns;
-    if (!dns.configure(dnsServers, searchDomains, QStringLiteral("coder0"))) {
-        qWarning() << "DnsManager::configure failed";
-    }
-
-    if (m_state == State::Connecting) {
-        m_state = State::Connected;
-        emit stateChanged();
-    }
-
-    emit networkSettingsReceived(addresses, dnsServers, searchDomains, routes, mtu);
-}
-
-void VpnBridge::handlePeerUpdate(const QString& workspaceName,
-                                 const QString& agentName,
-                                 const QString& hostname,
-                                 int status, qint64 lastPingMs, bool isP2P)
-{
-    QVariantMap peer;
-    peer[QStringLiteral("workspaceName")] = workspaceName;
-    peer[QStringLiteral("agentName")]     = agentName;
-    peer[QStringLiteral("hostname")]      = hostname;
-    peer[QStringLiteral("status")]        = status;
-    peer[QStringLiteral("lastPingMs")]    = lastPingMs;
-    peer[QStringLiteral("isP2P")]         = isP2P;
-
-    // Upsert by hostname.
-    for (int i = 0; i < m_peers.size(); ++i) {
-        if (m_peers[i].toMap()[QStringLiteral("hostname")] == hostname) {
-            m_peers[i] = peer;
-            emit peersChanged();
-            return;
-        }
-    }
-    m_peers.append(peer);
-    emit peersChanged();
-}
-
-void VpnBridge::handleError(const QString& message)
-{
-    qWarning() << "VPN error:" << message;
-
-    // A fatal error moves us back to Disconnected.
-    if (m_state != State::Disconnected) {
-        m_state = State::Disconnected;
-        emit stateChanged();
-    }
-    emit errorOccurred(message);
-}
-
-void VpnBridge::handleLog(int level, const QString& message)
-{
-    // Forward to Qt logging (levels: 0=DEBUG, 1=INFO, 2=WARN, 3=ERROR).
     switch (level) {
     case 0:  qDebug()    << "[vpn]" << message; break;
     case 1:  qInfo()     << "[vpn]" << message; break;
     case 2:  qWarning()  << "[vpn]" << message; break;
     default: qCritical() << "[vpn]" << message; break;
     }
-    emit logMessage(level, message);
+}
+
+// ---------------------------------------------------------------------------
+// Async method-call completion handlers
+// ---------------------------------------------------------------------------
+
+void VpnBridge::onStartFinished(QDBusPendingCallWatcher* watcher)
+{
+    QDBusPendingReply<> reply = *watcher;
+    watcher->deleteLater();
+
+    if (reply.isError()) {
+        qWarning() << "VpnBridge::Start D-Bus error:"
+                    << "name=" << reply.error().name()
+                    << "message=" << reply.error().message()
+                    << "type=" << reply.error().type();
+        m_state = QStringLiteral("disconnected");
+        emit stateChanged();
+        emit errorOccurred(reply.error().message());
+    } else {
+        qDebug() << "VpnBridge::Start D-Bus call returned successfully";
+    }
+    // On success the helper will emit StateChanged → onStateChanged().
+}
+
+void VpnBridge::onStopFinished(QDBusPendingCallWatcher* watcher)
+{
+    QDBusPendingReply<> reply = *watcher;
+    watcher->deleteLater();
+
+    if (reply.isError()) {
+        qWarning() << "VpnBridge::Stop D-Bus error:"
+                    << reply.error().message();
+        emit errorOccurred(reply.error().message());
+    }
+    // On success the helper will emit StateChanged → onStateChanged().
 }

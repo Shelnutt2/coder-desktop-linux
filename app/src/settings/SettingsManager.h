@@ -136,7 +136,7 @@ public:
 
     [[nodiscard]] int  refreshIntervalSec() const;
     [[nodiscard]] bool disableDataCache()   const;
-    [[nodiscard]] QString logLevel()             const;
+    [[nodiscard]] bool    verbose()              const;
 
     [[nodiscard]] bool mdmEnabled() const;
 

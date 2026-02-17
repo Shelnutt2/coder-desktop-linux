@@ -19,7 +19,7 @@ find_package(PkgConfig REQUIRED)
 
 # ── Qt 6 (required) ──────────────────────────────────────────────────────
 find_package(Qt6 6.5 REQUIRED COMPONENTS
-    Core Gui Quick QuickControls2 Network Widgets Test)
+    Core Gui Quick QuickControls2 Network Widgets DBus Test)
 
 # Optional Qt components — available on some distros/configurations.
 find_package(Qt6 COMPONENTS WebSockets QUIET)
@@ -46,7 +46,7 @@ else()
     message(STATUS "libsecret not found — credential storage will use file fallback")
 endif()
 
-# ── Go toolchain (for libcodervpn.so) ────────────────────────────────────
+# ── Go toolchain (for coder-desktop-helper) ──────────────────────────────
 find_program(GO_EXECUTABLE go)
 if(GO_EXECUTABLE)
     execute_process(
@@ -57,6 +57,6 @@ if(GO_EXECUTABLE)
     )
     message(STATUS "Go: ${GO_VERSION_STRING}")
 else()
-    message(STATUS "Go not found — libcodervpn.so must be built separately "
-                   "(cd coder-vpn-linux && ./scripts/build-so.sh)")
+    message(STATUS "Go not found — coder-desktop-helper must be built separately "
+                   "(cd coder-vpn-linux && go build ./cmd/coder-desktop-helper/)")
 endif()

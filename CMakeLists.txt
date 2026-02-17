@@ -34,28 +34,17 @@ set(CMAKE_INSTALL_RPATH_USE_LINK_LIBRARIES ON)
 include(cmake/FindDependencies.cmake)
 
 # ---------------------------------------------------------------------------
-# Target 1: libcodervpn.so (Go c-shared) — built via custom command
+# Target 1: coder-desktop-helper (Go binary — D-Bus system service)
 # ---------------------------------------------------------------------------
 add_custom_command(
-    OUTPUT ${CMAKE_BINARY_DIR}/libcodervpn.so ${CMAKE_BINARY_DIR}/libcodervpn.h
-    COMMAND ${CMAKE_SOURCE_DIR}/coder-vpn-linux/scripts/build-so.sh
-            ${CMAKE_BINARY_DIR}/libcodervpn.so
+    OUTPUT ${CMAKE_BINARY_DIR}/coder-desktop-helper
+    COMMAND go build -o ${CMAKE_BINARY_DIR}/coder-desktop-helper
+            ./cmd/coder-desktop-helper/
     WORKING_DIRECTORY ${CMAKE_SOURCE_DIR}/coder-vpn-linux
-    DEPENDS coder-vpn-linux/bridge.go coder-vpn-linux/go.mod
-    COMMENT "Building Go VPN shared library"
+    DEPENDS coder-vpn-linux/cmd/coder-desktop-helper/main.go
+    COMMENT "Building Go VPN helper binary"
 )
-add_custom_target(codervpn_so DEPENDS ${CMAKE_BINARY_DIR}/libcodervpn.so)
-
-# The Go toolchain produces a .so without a SONAME. If we link via the full
-# path the dynamic linker records a path-relative NEEDED entry (e.g.
-# "../libcodervpn.so") which breaks at runtime.  Instead we create an
-# INTERFACE library that passes -L<dir> -l:libcodervpn.so so the linker
-# records the bare filename, and RPATH (set above) handles the rest.
-add_library(codervpn INTERFACE)
-add_dependencies(codervpn codervpn_so)
-target_link_options(codervpn INTERFACE
-    "-L${CMAKE_BINARY_DIR}" "-l:libcodervpn.so")
-target_include_directories(codervpn INTERFACE ${CMAKE_BINARY_DIR})
+add_custom_target(helper ALL DEPENDS ${CMAKE_BINARY_DIR}/coder-desktop-helper)
 
 # ---------------------------------------------------------------------------
 # Target 2: libcoderdlp.so (C / wlroots)
@@ -71,9 +60,51 @@ add_subdirectory(app)
 # Install targets
 # ---------------------------------------------------------------------------
 
-# Install the Go VPN shared library (built via custom command)
-install(FILES ${CMAKE_BINARY_DIR}/libcodervpn.so
-    DESTINATION "${CODER_LIB_DIR}"
+# Install the Go VPN helper binary
+install(PROGRAMS ${CMAKE_BINARY_DIR}/coder-desktop-helper
+    DESTINATION "${CMAKE_INSTALL_LIBEXECDIR}"
+    COMPONENT runtime
+)
+
+# D-Bus, Polkit, and systemd files MUST go to absolute system paths —
+# the daemons only search /usr/share (or /etc), not ${CMAKE_INSTALL_PREFIX}/share.
+# Packagers can override these with -DDBUS_SYSTEM_CONF_DIR=... etc.
+set(DBUS_SYSTEM_CONF_DIR "/usr/share/dbus-1/system.d"
+    CACHE PATH "D-Bus system bus policy directory")
+set(DBUS_SYSTEM_SERVICES_DIR "/usr/share/dbus-1/system-services"
+    CACHE PATH "D-Bus system bus service activation directory")
+set(POLKIT_ACTIONS_DIR "/usr/share/polkit-1/actions"
+    CACHE PATH "Polkit actions directory")
+set(SYSTEMD_SYSTEM_UNIT_DIR "/usr/lib/systemd/system"
+    CACHE PATH "systemd system unit directory")
+
+# Compute the full helper binary path for service file templates.
+set(HELPER_BINARY_PATH "${CMAKE_INSTALL_FULL_LIBEXECDIR}/coder-desktop-helper")
+
+# Generate D-Bus activation and systemd unit files with the correct binary path.
+configure_file(dbus/com.coder.Desktop.Helper.service.in
+    "${CMAKE_CURRENT_BINARY_DIR}/com.coder.Desktop.Helper.service" @ONLY)
+configure_file(packaging/systemd/coder-desktop-helper.service.in
+    "${CMAKE_CURRENT_BINARY_DIR}/coder-desktop-helper.service" @ONLY)
+
+install(FILES dbus/com.coder.Desktop.Helper.conf
+    DESTINATION "${DBUS_SYSTEM_CONF_DIR}"
+    COMPONENT runtime
+)
+install(FILES "${CMAKE_CURRENT_BINARY_DIR}/com.coder.Desktop.Helper.service"
+    DESTINATION "${DBUS_SYSTEM_SERVICES_DIR}"
+    COMPONENT runtime
+)
+
+# Polkit policy (authorises desktop users to control the VPN helper)
+install(FILES packaging/polkit/com.coder.Desktop.Helper.policy
+    DESTINATION "${POLKIT_ACTIONS_DIR}"
+    COMPONENT runtime
+)
+
+# systemd unit (optional — for distros that prefer systemd activation)
+install(FILES "${CMAKE_CURRENT_BINARY_DIR}/coder-desktop-helper.service"
+    DESTINATION "${SYSTEMD_SYSTEM_UNIT_DIR}"
     COMPONENT runtime
 )
 
