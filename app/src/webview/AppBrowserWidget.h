@@ -7,11 +7,13 @@
 
 /// C++ backend for the workspace app browser.
 ///
-/// Constructs the correct URL based on VPN mode vs proxy mode,
+/// Constructs the correct URL based on app type, VPN mode, and proxy mode,
 /// and provides helpers for authentication cookie injection.
 ///
-/// VPN mode URLs:   https://{appSlug}--{agentName}--{workspaceName}.coder
-/// Proxy mode URLs: {deploymentUrl}/api/v2/workspaceagents/{agentId}/proxy/
+/// URL construction follows the same logic as the Android app (AppLauncher.kt):
+///   1. External apps: return appUrl directly
+///   2. VPN mode + appUrl present: rewrite appUrl hostname to {agent}.{workspace}.me.coder
+///   3. Non-VPN: {deploymentUrl}/@{ownerName}/{workspaceName}/apps/{appSlug}
 class AppBrowserWidget : public QObject {
     Q_OBJECT
     Q_PROPERTY(QString currentUrl READ currentUrl NOTIFY urlChanged)
@@ -26,19 +28,18 @@ public:
 
     /// Build URL for a workspace app.
     ///
-    /// @param deploymentUrl  Base URL of the Coder deployment (e.g. "https://coder.example.com")
-    /// @param agentId        UUID of the workspace agent
-    /// @param appSlug        Application slug identifier
-    /// @param workspaceName  Name of the workspace
-    /// @param agentName      Name of the agent within the workspace
-    /// @param vpnActive      Whether VPN tunnel is currently connected
-    /// @return Fully-qualified URL string for the app
+    /// URL construction follows the same logic as the Android app:
+    ///   1. External apps: return appUrl directly
+    ///   2. VPN mode + appUrl present: rewrite appUrl hostname to {agent}.{workspace}.me.coder
+    ///   3. Non-VPN: {deploymentUrl}/@{ownerName}/{workspaceName}/apps/{appSlug}
     [[nodiscard]] Q_INVOKABLE QString buildAppUrl(const QString &deploymentUrl,
-                                                   const QString &agentId,
+                                                   const QString &appUrl,
                                                    const QString &appSlug,
                                                    const QString &workspaceName,
+                                                   const QString &ownerName,
                                                    const QString &agentName,
-                                                   bool vpnActive) const;
+                                                   bool vpnActive,
+                                                   bool isExternal) const;
 
     /// Build a session cookie value for authenticating WebEngine requests.
     ///

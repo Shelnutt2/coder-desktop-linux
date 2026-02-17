@@ -16,31 +16,52 @@ AppBrowserWidget::AppBrowserWidget(QObject *parent)
 }
 
 QString AppBrowserWidget::buildAppUrl(const QString &deploymentUrl,
-                                       const QString &agentId,
+                                       const QString &appUrl,
                                        const QString &appSlug,
                                        const QString &workspaceName,
+                                       const QString &ownerName,
                                        const QString &agentName,
-                                       bool vpnActive) const
+                                       bool vpnActive,
+                                       bool isExternal) const
 {
-    if (vpnActive) {
-        // VPN mode: use the .coder hostname directly.
-        // Format: https://{appSlug}--{agentName}--{workspaceName}.coder
-        return QStringLiteral("https://%1--%2--%3.coder")
-            .arg(appSlug, agentName, workspaceName);
+    qDebug() << "[AppBrowser] buildAppUrl: deploymentUrl=" << deploymentUrl
+             << "appUrl=" << appUrl << "appSlug=" << appSlug
+             << "workspace=" << workspaceName << "owner=" << ownerName
+             << "agent=" << agentName << "vpn=" << vpnActive
+             << "external=" << isExternal;
+
+    // 1. External apps — use the API URL directly
+    if (isExternal) {
+        qDebug() << "[AppBrowser] External app, using URL directly:" << appUrl;
+        return appUrl;
     }
 
-    // Proxy mode: route through the deployment's API proxy endpoint.
-    // Format: {deploymentUrl}/api/v2/workspaceagents/{agentId}/proxy/
+    // 2. VPN mode — rewrite app URL hostname to tailnet FQDN
+    if (vpnActive && !appUrl.isEmpty()) {
+        QUrl parsed(appUrl);
+        if (parsed.isValid()) {
+            // Build tailnet hostname: {agentName}.{workspaceName}.me.coder
+            const QString hostname = QStringLiteral("%1.%2.me.coder")
+                .arg(agentName, workspaceName);
+            parsed.setHost(hostname);
+            const QString result = parsed.toString();
+            qDebug() << "[AppBrowser] VPN mode, rewrote URL to:" << result;
+            return result;
+        }
+    }
+
+    // 3. Path-based proxy — {deploymentUrl}/@{owner}/{workspace}/apps/{slug}
     QUrl base(deploymentUrl);
     if (!base.isValid() || base.scheme().isEmpty()) {
+        qWarning() << "[AppBrowser] Invalid deployment URL:" << deploymentUrl;
         return {};
     }
-
-    // Ensure the path ends with a trailing slash for correct relative resolution.
-    const QString path = QStringLiteral("/api/v2/workspaceagents/%1/proxy/").arg(agentId);
+    const QString path = QStringLiteral("/@%1/%2/apps/%3")
+        .arg(ownerName, workspaceName, appSlug);
     base.setPath(path);
-
-    return base.toString();
+    const QString result = base.toString();
+    qDebug() << "[AppBrowser] Proxy mode, built URL:" << result;
+    return result;
 }
 
 QString AppBrowserWidget::buildSessionCookie(const QString &token) const
