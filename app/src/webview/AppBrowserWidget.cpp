@@ -1,7 +1,14 @@
 #include "AppBrowserWidget.h"
 
+#include <QDebug>
+#include <QNetworkCookie>
 #include <QUrl>
 #include <QUrlQuery>
+
+#ifdef HAS_WEBENGINE
+#include <QWebEngineCookieStore>
+#include <QWebEngineProfile>
+#endif
 
 AppBrowserWidget::AppBrowserWidget(QObject *parent)
     : QObject(parent)
@@ -67,4 +74,35 @@ void AppBrowserWidget::setLoading(bool loading)
         m_loading = loading;
         emit loadingChanged();
     }
+}
+
+void AppBrowserWidget::injectSessionCookie(const QString &deploymentUrl, const QString &token)
+{
+    qDebug() << "AppBrowserWidget::injectSessionCookie: deploymentUrl=" << deploymentUrl;
+    if (token.isEmpty() || deploymentUrl.isEmpty()) {
+        qWarning() << "AppBrowserWidget::injectSessionCookie: missing token or URL";
+        return;
+    }
+
+#ifdef HAS_WEBENGINE
+    QUrl url(deploymentUrl);
+    if (!url.isValid()) {
+        qWarning() << "AppBrowserWidget::injectSessionCookie: invalid URL:" << deploymentUrl;
+        return;
+    }
+
+    QNetworkCookie cookie;
+    cookie.setName("coder_session_token");
+    cookie.setValue(token.toUtf8());
+    cookie.setDomain(url.host());
+    cookie.setPath("/");
+    cookie.setSecure(url.scheme() == "https");
+    cookie.setHttpOnly(true);
+
+    auto *profile = QWebEngineProfile::defaultProfile();
+    profile->cookieStore()->setCookie(cookie, url);
+    qDebug() << "AppBrowserWidget::injectSessionCookie: cookie set for domain" << url.host();
+#else
+    qWarning() << "AppBrowserWidget::injectSessionCookie: WebEngine not available, skipping";
+#endif
 }
