@@ -4,6 +4,9 @@ project(coder-dlp-compositor C)
 # Dependencies (wlroots, wayland, wayland-protocols) are found centrally in
 # cmake/FindDependencies.cmake — variables are inherited from the parent scope.
 
+# xkbcommon is needed for keyboard XKB keymap setup in input.c.
+pkg_check_modules(XKBCOMMON REQUIRED xkbcommon)
+
 # Generate xdg-shell protocol header (required by wlroots xdg_shell.h)
 set(XDG_SHELL_XML "${WAYLAND_PROTOCOLS_DIR}/stable/xdg-shell/xdg-shell.xml")
 set(XDG_SHELL_HEADER "${CMAKE_CURRENT_BINARY_DIR}/xdg-shell-protocol.h")
@@ -23,14 +26,15 @@ add_library(coderdlp SHARED
     src/dlp_policy.c
     src/sandbox_launcher.c
     src/output.c
+    src/input.c
 )
 add_dependencies(coderdlp xdg_shell_protocol)
 target_include_directories(coderdlp
     PUBLIC include
-    PRIVATE ${WLROOTS_INCLUDE_DIRS} ${WAYLAND_INCLUDE_DIRS}
+    PRIVATE ${WLROOTS_INCLUDE_DIRS} ${WAYLAND_INCLUDE_DIRS} ${XKBCOMMON_INCLUDE_DIRS}
             ${CMAKE_CURRENT_BINARY_DIR}
 )
-target_link_libraries(coderdlp PRIVATE ${WLROOTS_LIBRARIES} ${WAYLAND_LIBRARIES})
+target_link_libraries(coderdlp PRIVATE ${WLROOTS_LIBRARIES} ${WAYLAND_LIBRARIES} ${XKBCOMMON_LIBRARIES})
 target_compile_definitions(coderdlp PRIVATE WLR_USE_UNSTABLE)
 
 # Tests  (disable with -DBUILD_TESTING=OFF at top level)

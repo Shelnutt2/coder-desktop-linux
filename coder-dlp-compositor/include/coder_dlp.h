@@ -28,8 +28,15 @@ typedef struct coder_dlp_sandbox_config {
     bool isolate_ipc;
 } coder_dlp_sandbox_config;
 
+/* Log verbosity (maps to wlroots log levels internally) */
+typedef enum coder_dlp_log_level {
+    CODER_DLP_LOG_ERROR = 0, /* WLR_ERROR — errors only (default) */
+    CODER_DLP_LOG_INFO = 1,  /* WLR_INFO  — errors + info */
+    CODER_DLP_LOG_DEBUG = 2, /* WLR_DEBUG — everything */
+} coder_dlp_log_level;
+
 /* Lifecycle */
-coder_dlp_compositor* coder_dlp_create(void* parent_wl_surface);
+coder_dlp_compositor* coder_dlp_create(void* parent_wl_surface, coder_dlp_log_level log_level);
 void coder_dlp_destroy(coder_dlp_compositor* comp);
 int coder_dlp_get_fd(coder_dlp_compositor* comp);
 void coder_dlp_dispatch(coder_dlp_compositor* comp);

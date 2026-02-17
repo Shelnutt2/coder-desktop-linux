@@ -70,6 +70,9 @@ struct coder_dlp_compositor {
     struct wl_listener new_output;
     struct wl_listener backend_destroy;
 
+    /* Input */
+    struct wl_listener new_input;
+
     /* Seat (keyboard/pointer/clipboard) */
     struct wlr_seat* seat;
 
@@ -98,6 +101,9 @@ void dlp_free_bwrap_args(char** argv);
 
 /* Output event handlers (output.c) */
 void compositor_handle_new_output(struct wl_listener* listener, void* data);
+
+/* Input event handlers (input.c) */
+void compositor_handle_new_input(struct wl_listener* listener, void* data);
 
 /* Shell event handlers (shell.c) */
 void compositor_handle_new_xdg_toplevel(struct wl_listener* listener, void* data);

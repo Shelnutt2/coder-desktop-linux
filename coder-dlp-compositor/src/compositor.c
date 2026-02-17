@@ -9,13 +9,25 @@
 
 #define LOG_ERR(fmt, ...) fprintf(stderr, "coder-dlp: " fmt "\n", ##__VA_ARGS__)
 
-coder_dlp_compositor* coder_dlp_create(void* parent_wl_surface) {
+coder_dlp_compositor* coder_dlp_create(void* parent_wl_surface, coder_dlp_log_level log_level) {
     /* parent_wl_surface is reserved for future use with
      * wlr_wl_output_create_from_surface() for embedded rendering.
      * Currently the Wayland backend picks up WAYLAND_DISPLAY automatically. */
     (void)parent_wl_surface;
 
-    wlr_log_init(WLR_ERROR, NULL);
+    enum wlr_log_importance wlr_level;
+    switch (log_level) {
+        case CODER_DLP_LOG_DEBUG:
+            wlr_level = WLR_DEBUG;
+            break;
+        case CODER_DLP_LOG_INFO:
+            wlr_level = WLR_INFO;
+            break;
+        default:
+            wlr_level = WLR_ERROR;
+            break;
+    }
+    wlr_log_init(wlr_level, NULL);
 
     coder_dlp_compositor* comp = calloc(1, sizeof(*comp));
     if (!comp) {
@@ -82,6 +94,10 @@ coder_dlp_compositor* coder_dlp_create(void* parent_wl_surface) {
     /* Listen for new outputs from the backend */
     comp->new_output.notify = compositor_handle_new_output;
     wl_signal_add(&comp->backend->events.new_output, &comp->new_output);
+
+    /* Listen for new input devices from the backend */
+    comp->new_input.notify = compositor_handle_new_input;
+    wl_signal_add(&comp->backend->events.new_input, &comp->new_input);
 
     /* Start the backend — this triggers new_output for Wayland backend */
     if (!wlr_backend_start(comp->backend)) {

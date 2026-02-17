@@ -3,7 +3,9 @@
 
 #include <time.h>
 
+#include <wlr/render/allocator.h>
 #include <wlr/types/wlr_output.h>
+#include <wlr/util/log.h>
 
 /* --- Output event handlers --- */
 
@@ -16,7 +18,9 @@ static void handle_output_frame(struct wl_listener* listener, void* data) {
         return;
     }
 
-    wlr_scene_output_commit(scene_output, NULL);
+    if (!wlr_scene_output_commit(scene_output, NULL)) {
+        wlr_log(WLR_DEBUG, "scene output commit failed");
+    }
 
     struct timespec now;
     clock_gettime(CLOCK_MONOTONIC, &now);
@@ -47,6 +51,10 @@ void compositor_handle_new_output(struct wl_listener* listener, void* data) {
 
     /* Only handle one output for the nested compositor */
     comp->output = output;
+
+    /* wlroots 0.19 requires render initialization before the output can
+     * produce frames.  Without this call the output stays blank. */
+    wlr_output_init_render(output, comp->allocator, comp->renderer);
 
     /* Configure the output with its preferred mode */
     struct wlr_output_state state;
