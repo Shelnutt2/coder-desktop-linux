@@ -512,7 +512,19 @@ Item {
                                     id: appOverflowMenu
                                     MenuItem {
                                         text: qsTr("Open in Browser")
-                                        onTriggered: Qt.openUrlExternally(model.appUrl)
+                                        onTriggered: {
+                                            var url = appBrowser.buildAppUrl(
+                                                sessionManager.currentUrl,
+                                                model.appUrl,
+                                                model.appSlug,
+                                                workspaceDetailPage.workspaceName,
+                                                workspaceDetailPage.workspaceOwner,
+                                                model.agentName,
+                                                vpnBridge.isRunning,
+                                                model.appExternal
+                                            );
+                                            Qt.openUrlExternally(url);
+                                        }
                                     }
                                 }
                             }
@@ -584,7 +596,7 @@ Item {
             item.ownerName = Qt.binding(function() { return workspaceDetailPage.workspaceOwner; });
             item.agentName = Qt.binding(function() { return workspaceDetailPage.selectedAgentName; });
             item.vpnActive = Qt.binding(function() {
-                return typeof vpnManager !== "undefined" && vpnManager ? vpnManager.connected : false;
+                return vpnBridge.isRunning;
             });
             item.isExternal = Qt.binding(function() { return workspaceDetailPage.selectedAppExternal; });
             item.sessionToken = Qt.binding(function() { return sessionManager.sessionToken(); });
