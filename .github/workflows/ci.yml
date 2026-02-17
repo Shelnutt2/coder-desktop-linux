@@ -11,6 +11,8 @@ concurrency:
 
 env:
   GO_VERSION: "1.25"
+  WAYLAND_VERSION: "1.23.1"
+  WLROOTS_VERSION: "0.19.0"
 
 jobs:
   lint:
@@ -62,7 +64,8 @@ jobs:
             ccache \
             ninja-build \
             meson \
-            libwayland-dev \
+            libffi-dev \
+            libxml2-dev \
             libdrm-dev \
             libgbm-dev \
             libxkbcommon-dev \
@@ -82,13 +85,31 @@ jobs:
             libxcb-icccm4-dev \
             libxcb-res0-dev
 
-      - name: Build wlroots 0.19 from source
+      - name: Cache wayland & wlroots
+        id: cache-wayland-wlroots
+        uses: actions/cache@v4
+        with:
+          path: /opt/wayland
+          key: wayland-${{ env.WAYLAND_VERSION }}-wlroots-${{ env.WLROOTS_VERSION }}-ubuntu-24.04
+
+      - name: Build wayland ${{ env.WAYLAND_VERSION }} from source
+        if: steps.cache-wayland-wlroots.outputs.cache-hit != 'true'
         run: |
-          git clone --depth 1 --branch 0.19.0 https://gitlab.freedesktop.org/wlroots/wlroots.git /tmp/wlroots
-          cd /tmp/wlroots
-          meson setup build --prefix=/usr --buildtype=release -Dxwayland=disabled
+          git clone --depth 1 --branch ${{ env.WAYLAND_VERSION }} https://gitlab.freedesktop.org/wayland/wayland.git /tmp/wayland
+          cd /tmp/wayland
+          meson setup build --prefix=/opt/wayland --buildtype=release
           ninja -C build
-          sudo ninja -C build install
+          ninja -C build install
+
+      - name: Build wlroots ${{ env.WLROOTS_VERSION }} from source
+        if: steps.cache-wayland-wlroots.outputs.cache-hit != 'true'
+        run: |
+          export PKG_CONFIG_PATH=/opt/wayland/lib/x86_64-linux-gnu/pkgconfig:/opt/wayland/share/pkgconfig:$PKG_CONFIG_PATH
+          git clone --depth 1 --branch ${{ env.WLROOTS_VERSION }} https://gitlab.freedesktop.org/wlroots/wlroots.git /tmp/wlroots
+          cd /tmp/wlroots
+          meson setup build --prefix=/opt/wayland --buildtype=release -Dxwayland=disabled
+          ninja -C build
+          ninja -C build install
 
       - name: Set up ccache
         uses: hendrikmuhs/ccache-action@v1
@@ -97,6 +118,7 @@ jobs:
 
       - name: CMake configure
         run: |
+          export PKG_CONFIG_PATH=/opt/wayland/lib/x86_64-linux-gnu/pkgconfig:/opt/wayland/share/pkgconfig:$PKG_CONFIG_PATH
           cmake -B build \
             -G Ninja \
             -DCMAKE_BUILD_TYPE=Debug \
@@ -104,7 +126,9 @@ jobs:
             -DCMAKE_CXX_COMPILER_LAUNCHER=ccache
 
       - name: Build all targets
-        run: cmake --build build -j$(nproc)
+        run: |
+          export LD_LIBRARY_PATH=/opt/wayland/lib/x86_64-linux-gnu:$LD_LIBRARY_PATH
+          cmake --build build -j$(nproc)
 
       - name: Run C++ tests (app)
         run: ctest --test-dir build/app --output-on-failure
