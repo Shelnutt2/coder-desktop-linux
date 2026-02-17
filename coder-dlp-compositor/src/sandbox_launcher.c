@@ -75,19 +75,28 @@ char** dlp_build_bwrap_args(const coder_dlp_compositor* comp, const char* comman
     PUSH("--tmpfs");
     PUSH("/tmp");
 
-    /* Compositor Wayland socket: writable bind so clients can connect */
-    if (xdg_runtime && comp->socket) {
-        char socket_path[PATH_MAX];
-        snprintf(socket_path, sizeof(socket_path), "%s/%s", xdg_runtime, comp->socket);
-        PUSH("--bind");
-        PUSH(socket_path);
-        PUSH(socket_path);
+    /* XDG_RUNTIME_DIR — apps need a writable runtime directory to create
+     * their own sockets, lock files, dconf databases, etc.  We overlay a
+     * tmpfs and then bind the specific host sockets the app needs. */
+    if (xdg_runtime) {
+        PUSH("--tmpfs");
+        PUSH(xdg_runtime);
 
-        char lock_path[PATH_MAX];
-        snprintf(lock_path, sizeof(lock_path), "%s/%s.lock", xdg_runtime, comp->socket);
-        PUSH("--bind");
-        PUSH(lock_path);
-        PUSH(lock_path);
+        /* Compositor Wayland socket: bind into the fresh tmpfs so
+         * clients can connect to our nested compositor. */
+        if (comp->socket) {
+            char socket_path[PATH_MAX];
+            snprintf(socket_path, sizeof(socket_path), "%s/%s", xdg_runtime, comp->socket);
+            PUSH("--bind");
+            PUSH(socket_path);
+            PUSH(socket_path);
+
+            char lock_path[PATH_MAX];
+            snprintf(lock_path, sizeof(lock_path), "%s/%s.lock", xdg_runtime, comp->socket);
+            PUSH("--ro-bind");
+            PUSH(lock_path);
+            PUSH(lock_path);
+        }
     }
 
     /* Workspace path: writable bind mount */
@@ -121,11 +130,13 @@ char** dlp_build_bwrap_args(const coder_dlp_compositor* comp, const char* comman
         PUSH("--setenv");
         PUSH("XDG_RUNTIME_DIR");
         PUSH(xdg_runtime);
+    }
 
-        /* D-Bus session bus (many GUI apps need it) */
+    /* D-Bus session bus — bind the host bus socket into the sandbox tmpfs.
+     * Must come after the tmpfs overlay of XDG_RUNTIME_DIR above. */
+    if (xdg_runtime) {
         char dbus_path[PATH_MAX];
         snprintf(dbus_path, sizeof(dbus_path), "%s/bus", xdg_runtime);
-        /* Only bind if the bus socket exists */
         if (access(dbus_path, F_OK) == 0) {
             PUSH("--bind");
             PUSH(dbus_path);
