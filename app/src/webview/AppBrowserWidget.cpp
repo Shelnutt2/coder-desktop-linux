@@ -99,16 +99,17 @@ void AppBrowserWidget::setLoading(bool loading)
 
 void AppBrowserWidget::injectSessionCookie(const QString &deploymentUrl, const QString &token)
 {
-    qDebug() << "AppBrowserWidget::injectSessionCookie: deploymentUrl=" << deploymentUrl;
+    qDebug() << "[AppBrowser] injectSessionCookie: deploymentUrl=" << deploymentUrl
+             << "token length=" << token.length();
     if (token.isEmpty() || deploymentUrl.isEmpty()) {
-        qWarning() << "AppBrowserWidget::injectSessionCookie: missing token or URL";
+        qWarning() << "[AppBrowser] injectSessionCookie: missing token or URL";
         return;
     }
 
 #ifdef HAS_WEBENGINE
     QUrl url(deploymentUrl);
     if (!url.isValid()) {
-        qWarning() << "AppBrowserWidget::injectSessionCookie: invalid URL:" << deploymentUrl;
+        qWarning() << "[AppBrowser] injectSessionCookie: invalid URL:" << deploymentUrl;
         return;
     }
 
@@ -117,13 +118,23 @@ void AppBrowserWidget::injectSessionCookie(const QString &deploymentUrl, const Q
     cookie.setValue(token.toUtf8());
     cookie.setDomain(url.host());
     cookie.setPath("/");
-    cookie.setSecure(url.scheme() == "https");
+    cookie.setSecure(url.scheme() == QLatin1String("https"));
     cookie.setHttpOnly(true);
 
     auto *profile = QWebEngineProfile::defaultProfile();
-    profile->cookieStore()->setCookie(cookie, url);
-    qDebug() << "AppBrowserWidget::injectSessionCookie: cookie set for domain" << url.host();
+    auto *store = profile->cookieStore();
+
+    // Connect to cookieAdded to know when the cookie is ready.
+    // Use a single-shot connection to avoid repeated signals.
+    QObject::connect(store, &QWebEngineCookieStore::cookieAdded, this,
+                     [this]() {
+                         qDebug() << "[AppBrowser] Cookie confirmed added, emitting cookieReady";
+                         emit cookieReady();
+                     }, static_cast<Qt::ConnectionType>(Qt::QueuedConnection | Qt::SingleShotConnection));
+
+    store->setCookie(cookie, url);
+    qDebug() << "[AppBrowser] injectSessionCookie: cookie set request sent for domain" << url.host();
 #else
-    qWarning() << "AppBrowserWidget::injectSessionCookie: WebEngine not available, skipping";
+    qWarning() << "[AppBrowser] injectSessionCookie: WebEngine not available, skipping";
 #endif
 }

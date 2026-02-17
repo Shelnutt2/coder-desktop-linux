@@ -65,6 +65,7 @@ signals:
     void loadingChanged();
     void titleChanged(const QString &title);
     void navigationRequested(const QUrl &url);
+    void cookieReady();  // Emitted after session cookie is confirmed set
 
 private:
     QString m_currentUrl;
