@@ -8,6 +8,12 @@
 #include <stdarg.h>
 #include <wlr/util/log.h>
 
+#include <wlr/types/wlr_fractional_scale_v1.h>
+#include <wlr/types/wlr_linux_dmabuf_v1.h>
+#include <wlr/types/wlr_presentation_time.h>
+#include <wlr/types/wlr_viewporter.h>
+#include <wlr/types/wlr_xdg_decoration_v1.h>
+
 #define LOG_ERR(fmt, ...) fprintf(stderr, "coder-dlp: " fmt "\n", ##__VA_ARGS__)
 
 /* Global pointer used by the wlr_log callback — wlr_log is process-global so
@@ -95,6 +101,13 @@ coder_dlp_compositor* coder_dlp_create(void* parent_wl_surface, coder_dlp_log_le
     comp->wlr_compositor = wlr_compositor_create(comp->wl_display, 5, comp->renderer);
     comp->subcompositor = wlr_subcompositor_create(comp->wl_display);
     comp->data_device_mgr = wlr_data_device_manager_create(comp->wl_display);
+
+    /* Additional protocol globals required by Electron/Chromium clients */
+    wlr_linux_dmabuf_v1_create_with_renderer(comp->wl_display, 4, comp->renderer);
+    wlr_viewporter_create(comp->wl_display);
+    wlr_xdg_decoration_manager_v1_create(comp->wl_display);
+    wlr_fractional_scale_manager_v1_create(comp->wl_display, 1);
+    wlr_presentation_create(comp->wl_display, comp->backend, 1);
 
     /* Output layout + scene graph */
     comp->output_layout = wlr_output_layout_create(comp->wl_display);
