@@ -4,11 +4,13 @@ import QtQuick.Controls.Material
 import QtQuick.Layouts
 
 // Workspace list page — shows all workspaces from workspaceModel with
-// status badges, actions (start/stop), and a search filter.
+// status chips, actions (start/stop), filter chips, and a search filter.
+// Themed with CoderTheme singleton for consistent light/dark support.
 Item {
     id: workspacesPage
 
     property string filterText: ""
+    property string statusFilter: ""  // "", "Running", "Stopped", "Failed"
 
     // Set this to a workspace ID to show the detail page.
     property string selectedWorkspaceId: ""
@@ -18,6 +20,11 @@ Item {
     property string selectedWorkspaceStatus: ""
     property bool   selectedWorkspaceOutdated: false
     property string selectedWorkspaceHealth: ""
+
+    Rectangle {
+        anchors.fill: parent
+        color: CoderTheme.background
+    }
 
     ColumnLayout {
         anchors.fill: parent
@@ -34,12 +41,22 @@ Item {
                 placeholderText: "Search workspaces…"
                 Layout.fillWidth: true
                 selectByMouse: true
+                color: CoderTheme.textPrimary
+                placeholderTextColor: CoderTheme.textDisabled
                 onTextChanged: workspacesPage.filterText = text.toLowerCase()
+
+                background: Rectangle {
+                    implicitHeight: 36
+                    radius: CoderTheme.radius
+                    color: CoderTheme.surface
+                    border.color: searchField.activeFocus ? CoderTheme.primary : CoderTheme.border
+                    border.width: 1
+                }
             }
 
-            Button {
+            CoderButton {
                 text: "Refresh"
-                icon.name: "view-refresh"
+                variant: "outline"
                 enabled: !workspaceModel.loading
                 onClicked: pollingController.refreshNow()
             }
@@ -47,9 +64,52 @@ Item {
             Label {
                 text: "Auto-refreshing every " + pollingController.refreshIntervalSec + "s"
                 font.pixelSize: 10
-                opacity: 0.4
+                color: CoderTheme.textDisabled
                 visible: pollingController.polling
                 Layout.alignment: Qt.AlignVCenter
+            }
+        }
+
+        // ---- Filter chips ----
+        RowLayout {
+            Layout.fillWidth: true
+            spacing: 6
+
+            Repeater {
+                model: [
+                    { label: "All",     value: "" },
+                    { label: "Running", value: "Running" },
+                    { label: "Stopped", value: "Stopped" },
+                    { label: "Failed",  value: "Failed" }
+                ]
+
+                Rectangle {
+                    required property var modelData
+                    width: chipLabel.implicitWidth + 20
+                    height: chipLabel.implicitHeight + 10
+                    radius: height / 2
+                    color: workspacesPage.statusFilter === modelData.value
+                           ? CoderTheme.primary : CoderTheme.surface
+                    border.color: workspacesPage.statusFilter === modelData.value
+                                  ? CoderTheme.primary : CoderTheme.border
+                    border.width: 1
+
+                    Label {
+                        id: chipLabel
+                        anchors.centerIn: parent
+                        text: modelData.label
+                        font.pixelSize: 12
+                        font.weight: Font.Medium
+                        color: workspacesPage.statusFilter === modelData.value
+                               ? CoderTheme.textInvert : CoderTheme.textSecondary
+                    }
+
+                    MouseArea {
+                        anchors.fill: parent
+                        cursorShape: Qt.PointingHandCursor
+                        onClicked: workspacesPage.statusFilter = modelData.value
+                    }
+                }
             }
         }
 
@@ -57,8 +117,10 @@ Item {
         Rectangle {
             Layout.fillWidth: true
             height: wsErrorLabel.implicitHeight + 16
-            radius: 4
-            color: Material.color(Material.Red, Material.Shade50)
+            radius: CoderTheme.radiusSm
+            color: CoderTheme.errorSurface
+            border.color: CoderTheme.error
+            border.width: 1
             visible: workspaceModel.errorMessage.length > 0
 
             Label {
@@ -66,7 +128,7 @@ Item {
                 anchors.fill: parent
                 anchors.margins: 8
                 text: workspaceModel.errorMessage
-                color: Material.color(Material.Red)
+                color: CoderTheme.error
                 wrapMode: Text.WordWrap
                 font.pixelSize: 13
             }
@@ -95,16 +157,19 @@ Item {
             model: workspacesPage.visible ? workspaceModel : null
 
             delegate: Rectangle {
+                id: delegateCard
                 width: workspaceList.width
-                radius: 8
-                color: Material.background
-                border.color: Material.dividerColor
+                radius: CoderTheme.radius
+                color: delegateMouseArea.containsMouse ? CoderTheme.hoverBg : CoderTheme.surface
+                border.color: CoderTheme.border
                 border.width: 1
 
                 // Tap area to open detail — outside the layout to avoid
                 // "anchors on an item managed by a layout" warnings.
                 MouseArea {
+                    id: delegateMouseArea
                     anchors.fill: parent
+                    hoverEnabled: true
                     onClicked: {
                         workspacesPage.selectedWorkspaceId = model.id
                         workspacesPage.selectedWorkspaceName = model.name
@@ -122,85 +187,60 @@ Item {
                     anchors.margins: 12
                     spacing: 12
 
-                    // Hide filtered-out items
-                    visible: workspacesPage.filterText.length === 0
-                             || model.name.toLowerCase().indexOf(workspacesPage.filterText) >= 0
-                             || model.ownerName.toLowerCase().indexOf(workspacesPage.filterText) >= 0
-
-                    // Status indicator dot
-                    Rectangle {
-                        width: 12; height: 12; radius: 6
-                        color: {
-                            var s = model.statusString
-                            if (s === "Running") return Material.color(Material.Green)
-                            if (s === "Stopped") return Material.color(Material.Grey)
-                            if (s === "Failed")  return Material.color(Material.Red)
-                            // Starting, Stopping, Canceling, Deleting
-                            return Material.color(Material.Orange)
-                        }
-                        Layout.alignment: Qt.AlignVCenter
+                    // Hide filtered-out items (text filter + status filter)
+                    visible: {
+                        var textMatch = workspacesPage.filterText.length === 0
+                                     || model.name.toLowerCase().indexOf(workspacesPage.filterText) >= 0
+                                     || model.ownerName.toLowerCase().indexOf(workspacesPage.filterText) >= 0
+                        var statusMatch = workspacesPage.statusFilter.length === 0
+                                       || model.statusString === workspacesPage.statusFilter
+                        return textMatch && statusMatch
                     }
 
                     // Workspace info
                     ColumnLayout {
                         Layout.fillWidth: true
-                        spacing: 2
+                        spacing: 4
 
                         Label {
                             text: model.name
                             font.pixelSize: 15
                             font.bold: true
+                            color: CoderTheme.textPrimary
                             elide: Text.ElideRight
                             Layout.fillWidth: true
                         }
 
-                        RowLayout {
-                            spacing: 8
-                            Label {
-                                text: model.ownerName
-                                font.pixelSize: 12
-                                opacity: 0.6
-                            }
-                            Label {
-                                text: "·"
-                                font.pixelSize: 12
-                                opacity: 0.4
-                            }
-                            Label {
-                                text: model.templateName
-                                font.pixelSize: 12
-                                opacity: 0.6
-                            }
+                        Label {
+                            text: "@" + model.ownerName + " · " + model.templateName
+                            font.pixelSize: 12
+                            color: CoderTheme.textSecondary
                         }
 
-                        // Status + outdated badge
+                        // Status chip + outdated badge
                         RowLayout {
                             spacing: 6
 
-                            Label {
-                                text: model.statusString
-                                font.pixelSize: 11
-                                color: {
-                                    var s = model.statusString
-                                    if (s === "Running") return Material.color(Material.Green)
-                                    if (s === "Failed")  return Material.color(Material.Red)
-                                    return Material.foreground
-                                }
+                            StatusChip {
+                                status: model.statusString
                             }
 
                             Rectangle {
                                 visible: model.outdated
                                 width: outdatedLabel.implicitWidth + 12
-                                height: outdatedLabel.implicitHeight + 4
-                                radius: 3
-                                color: Material.color(Material.Orange, Material.Shade100)
+                                height: outdatedLabel.implicitHeight + 6
+                                radius: height / 2
+                                color: CoderTheme.warningSurface
+                                border.color: CoderTheme.warning
+                                border.width: 1
 
                                 Label {
                                     id: outdatedLabel
                                     anchors.centerIn: parent
                                     text: "Update available"
                                     font.pixelSize: 10
-                                    color: Material.color(Material.Orange, Material.Shade900)
+                                    font.weight: Font.Medium
+                                    color: CoderTheme.warning
                                 }
                             }
                         }
@@ -212,9 +252,9 @@ Item {
                         Layout.alignment: Qt.AlignVCenter
 
                         // Update & Start — shown for outdated+stopped workspaces
-                        Button {
-                            flat: true
+                        CoderButton {
                             text: "Update & Start"
+                            variant: "default"
                             visible: model.outdated
                                      && model.statusString === "Stopped"
                             onClicked: {
@@ -224,13 +264,15 @@ Item {
                         }
 
                         // Start / Stop toggle
-                        Button {
-                            flat: true
+                        CoderButton {
                             text: model.statusString === "Running" ? "Stop" : "Start"
+                            variant: model.statusString === "Running" ? "destructive" : "default"
                             enabled: model.statusString === "Running"
                                      || model.statusString === "Stopped"
                             visible: !(model.outdated
                                        && model.statusString === "Stopped")
+                                     && (model.statusString === "Running"
+                                         || model.statusString === "Stopped")
                             onClicked: {
                                 if (model.statusString === "Running")
                                     apiClient.stopWorkspace(model.id)
@@ -239,12 +281,36 @@ Item {
                             }
                         }
 
+                        // Transitional busy indicator
+                        BusyIndicator {
+                            width: 28; height: 28
+                            running: visible
+                            visible: model.statusString === "Starting"
+                                     || model.statusString === "Stopping"
+                                     || model.statusString === "Canceling"
+                                     || model.statusString === "Deleting"
+                        }
+
                         // Overflow menu
                         Button {
                             flat: true
                             text: "⋮"
                             font.pixelSize: 18
                             onClicked: overflowMenu.open()
+
+                            contentItem: Text {
+                                text: "⋮"
+                                font.pixelSize: 18
+                                color: CoderTheme.textSecondary
+                                horizontalAlignment: Text.AlignHCenter
+                                verticalAlignment: Text.AlignVCenter
+                            }
+
+                            background: Rectangle {
+                                implicitWidth: 36; implicitHeight: 36
+                                radius: CoderTheme.radius
+                                color: parent.hovered ? CoderTheme.hoverBg : "transparent"
+                            }
 
                             Menu {
                                 id: overflowMenu
@@ -266,7 +332,7 @@ Item {
                                 MenuItem {
                                     text: "Delete"
                                     onTriggered: apiClient.deleteWorkspace(model.id)
-                                    Material.foreground: Material.Red
+                                    Material.foreground: CoderTheme.error
                                 }
                             }
                         }
@@ -279,25 +345,26 @@ Item {
             }
 
             // ---- Empty state ----
-            Label {
+            ColumnLayout {
                 anchors.centerIn: parent
+                spacing: 12
                 visible: workspaceModel.count === 0 && !workspaceModel.loading
-                text: "No workspaces found"
-                font.pixelSize: 16
-                opacity: 0.5
-            }
 
-            Label {
-                anchors.horizontalCenter: parent.horizontalCenter
-                anchors.top: parent.verticalCenter
-                anchors.topMargin: 24
-                visible: workspaceModel.count === 0 && !workspaceModel.loading
-                text: "<a href='#'>Create a workspace in your browser</a>"
-                font.pixelSize: 13
-                color: Material.accent
-                onLinkActivated: {
-                    var base = sessionManager.currentUrl.replace(/\/+$/, "")
-                    Qt.openUrlExternally(base + "/workspaces")
+                Label {
+                    text: "No workspaces found"
+                    font.pixelSize: 16
+                    color: CoderTheme.textSecondary
+                    Layout.alignment: Qt.AlignHCenter
+                }
+
+                CoderButton {
+                    text: "Create Workspace"
+                    variant: "default"
+                    Layout.alignment: Qt.AlignHCenter
+                    onClicked: {
+                        var base = sessionManager.currentUrl.replace(/\/+$/, "")
+                        Qt.openUrlExternally(base + "/workspaces")
+                    }
                 }
             }
         }

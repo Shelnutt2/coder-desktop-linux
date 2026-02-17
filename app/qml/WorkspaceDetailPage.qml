@@ -109,7 +109,7 @@ Item {
     // -- Background fill ----------------------------------------------------
     Rectangle {
         anchors.fill: parent
-        color: Material.background
+        color: CoderTheme.background
     }
 
     ColumnLayout {
@@ -117,47 +117,67 @@ Item {
         anchors.margins: 16
         spacing: 16
 
-        // ---- Back button + title ----
-        RowLayout {
+        // ---- Top bar: back + title ----
+        Rectangle {
             Layout.fillWidth: true
-            spacing: 8
+            implicitHeight: topBarRow.implicitHeight + 16
+            radius: CoderTheme.radius
+            color: CoderTheme.surface
+            border.color: CoderTheme.divider
+            border.width: 1
 
-            Button {
-                flat: true
-                text: "← Back"
-                onClicked: workspaceDetailPage.backClicked()
-            }
+            RowLayout {
+                id: topBarRow
+                anchors.fill: parent
+                anchors.margins: 8
+                spacing: 8
 
-            Label {
-                text: workspaceDetailPage.workspaceName
-                font.pixelSize: 20
-                font.bold: true
-                elide: Text.ElideRight
-                Layout.fillWidth: true
+                CoderButton {
+                    text: "← Back"
+                    variant: "subtle"
+                    onClicked: workspaceDetailPage.backClicked()
+                }
+
+                Label {
+                    text: workspaceDetailPage.workspaceName
+                    font.pixelSize: 20
+                    font.bold: true
+                    color: CoderTheme.textPrimary
+                    elide: Text.ElideRight
+                    Layout.fillWidth: true
+                }
             }
         }
 
-        // ---- Subtitle: owner · template ----
+        // ---- Header section: owner · template + status ----
         RowLayout {
             Layout.fillWidth: true
             spacing: 12
 
-            Label {
-                text: workspaceDetailPage.workspaceOwner
-                font.pixelSize: 13
-                opacity: 0.6
-            }
+            ColumnLayout {
+                Layout.fillWidth: true
+                spacing: 4
 
-            Label {
-                text: "·"
-                font.pixelSize: 13
-                opacity: 0.4
-            }
+                Label {
+                    text: "@" + workspaceDetailPage.workspaceOwner + " · " + workspaceDetailPage.workspaceTemplate
+                    font.pixelSize: 13
+                    color: CoderTheme.textSecondary
+                }
 
-            Label {
-                text: workspaceDetailPage.workspaceTemplate
-                font.pixelSize: 13
-                opacity: 0.6
+                RowLayout {
+                    spacing: 8
+                    StatusChip {
+                        status: workspaceDetailPage.workspaceStatus
+                    }
+                    Label {
+                        visible: workspaceDetailPage.workspaceHealth.length > 0
+                        text: workspaceDetailPage.workspaceHealth
+                        font.pixelSize: 12
+                        font.weight: Font.Medium
+                        color: workspaceDetailPage.workspaceHealth === "Healthy"
+                               ? CoderTheme.success : CoderTheme.error
+                    }
+                }
             }
         }
 
@@ -178,21 +198,9 @@ Item {
                 Rectangle {
                     Layout.fillWidth: true
                     height: wsStatusLayout.implicitHeight + 24
-                    radius: 8
-                    color: {
-                        var s = workspaceDetailPage.workspaceStatus
-                        if (s === "Running")  return Qt.rgba(0.0, 0.7, 0.0, 0.08)
-                        if (s === "Stopped")  return Qt.rgba(0.5, 0.5, 0.5, 0.08)
-                        if (s === "Failed")   return Qt.rgba(1.0, 0.0, 0.0, 0.08)
-                        return Qt.rgba(1.0, 0.6, 0.0, 0.08)
-                    }
-                    border.color: {
-                        var s = workspaceDetailPage.workspaceStatus
-                        if (s === "Running")  return Material.color(Material.Green)
-                        if (s === "Stopped")  return Material.color(Material.Grey)
-                        if (s === "Failed")   return Material.color(Material.Red)
-                        return Material.color(Material.Orange)
-                    }
+                    radius: CoderTheme.radius
+                    color: CoderTheme.statusSurface(workspaceDetailPage.workspaceStatus)
+                    border.color: CoderTheme.statusColor(workspaceDetailPage.workspaceStatus)
                     border.width: 1
 
                     ColumnLayout {
@@ -204,27 +212,8 @@ Item {
                         RowLayout {
                             spacing: 8
 
-                            // Status badge
-                            Rectangle {
-                                width: wsStatusBadgeLabel.implicitWidth + 16
-                                height: wsStatusBadgeLabel.implicitHeight + 8
-                                radius: 4
-                                color: {
-                                    var s = workspaceDetailPage.workspaceStatus
-                                    if (s === "Running")  return Material.color(Material.Green)
-                                    if (s === "Stopped")  return Material.color(Material.Grey)
-                                    if (s === "Failed")   return Material.color(Material.Red)
-                                    return Material.color(Material.Orange)
-                                }
-
-                                Label {
-                                    id: wsStatusBadgeLabel
-                                    anchors.centerIn: parent
-                                    text: workspaceDetailPage.workspaceStatus
-                                    font.pixelSize: 12
-                                    font.bold: true
-                                    color: "white"
-                                }
+                            StatusChip {
+                                status: workspaceDetailPage.workspaceStatus
                             }
 
                             // Outdated badge
@@ -232,15 +221,18 @@ Item {
                                 visible: workspaceDetailPage.workspaceOutdated
                                 width: wsOutdatedBadge.implicitWidth + 12
                                 height: wsOutdatedBadge.implicitHeight + 6
-                                radius: 4
-                                color: Material.color(Material.Orange, Material.Shade100)
+                                radius: height / 2
+                                color: CoderTheme.warningSurface
+                                border.color: CoderTheme.warning
+                                border.width: 1
 
                                 Label {
                                     id: wsOutdatedBadge
                                     anchors.centerIn: parent
                                     text: "Update available"
                                     font.pixelSize: 11
-                                    color: Material.color(Material.Orange, Material.Shade900)
+                                    font.weight: Font.Medium
+                                    color: CoderTheme.warning
                                 }
                             }
 
@@ -249,10 +241,9 @@ Item {
                                 visible: workspaceDetailPage.workspaceHealth.length > 0
                                 text: workspaceDetailPage.workspaceHealth
                                 font.pixelSize: 12
-                                opacity: 0.7
+                                font.weight: Font.Medium
                                 color: workspaceDetailPage.workspaceHealth === "Healthy"
-                                       ? Material.color(Material.Green)
-                                       : Material.color(Material.Red)
+                                       ? CoderTheme.success : CoderTheme.error
                             }
                         }
                     }
@@ -263,10 +254,12 @@ Item {
                     Layout.fillWidth: true
                     spacing: 8
 
-                    Button {
+                    CoderButton {
                         text: workspaceDetailPage.workspaceStatus === "Running"
                               ? "Stop" : "Start"
-                        enabled: workspaceDetailPage.workspaceStatus === "Running"
+                        variant: workspaceDetailPage.workspaceStatus === "Running"
+                                 ? "destructive" : "default"
+                        visible: workspaceDetailPage.workspaceStatus === "Running"
                                  || workspaceDetailPage.workspaceStatus === "Stopped"
                         onClicked: {
                             if (workspaceDetailPage.workspaceStatus === "Running")
@@ -276,9 +269,25 @@ Item {
                         }
                     }
 
-                    Button {
+                    CoderButton {
+                        text: "Update"
+                        variant: "default"
+                        visible: workspaceDetailPage.workspaceOutdated
+                        onClicked: apiClient.updateWorkspace(workspaceDetailPage.workspaceId)
+                    }
+
+                    BusyIndicator {
+                        width: 28; height: 28
+                        running: visible
+                        visible: workspaceDetailPage.workspaceStatus === "Starting"
+                                 || workspaceDetailPage.workspaceStatus === "Stopping"
+                                 || workspaceDetailPage.workspaceStatus === "Canceling"
+                                 || workspaceDetailPage.workspaceStatus === "Deleting"
+                    }
+
+                    CoderButton {
                         text: "Open in Browser"
-                        flat: true
+                        variant: "outline"
                         onClicked: {
                             var base = sessionManager.currentUrl.replace(/\/+$/, "")
                             Qt.openUrlExternally(
@@ -300,6 +309,7 @@ Item {
                     text: "Agents"
                     font.pixelSize: 14
                     font.bold: true
+                    color: CoderTheme.textPrimary
                     visible: agentsModel.count > 0
                 }
 
@@ -309,9 +319,9 @@ Item {
                     Rectangle {
                         Layout.fillWidth: true
                         height: agentLayout.implicitHeight + 24
-                        radius: 6
-                        color: Material.background
-                        border.color: Material.dividerColor
+                        radius: CoderTheme.radius
+                        color: CoderTheme.surface
+                        border.color: CoderTheme.border
                         border.width: 1
 
                         ColumnLayout {
@@ -328,10 +338,10 @@ Item {
                                     width: 10; height: 10; radius: 5
                                     color: {
                                         var s = model.agentStatus
-                                        if (s === "connected")    return Material.color(Material.Green)
-                                        if (s === "disconnected") return Material.color(Material.Red)
-                                        if (s === "connecting")   return Material.color(Material.Orange)
-                                        return Material.color(Material.Grey)
+                                        if (s === "connected")    return CoderTheme.success
+                                        if (s === "disconnected") return CoderTheme.error
+                                        if (s === "connecting")   return CoderTheme.warning
+                                        return CoderTheme.textDisabled
                                     }
                                 }
 
@@ -339,13 +349,14 @@ Item {
                                     text: model.agentName
                                     font.pixelSize: 14
                                     font.bold: true
+                                    color: CoderTheme.textPrimary
                                     Layout.fillWidth: true
                                 }
 
                                 Label {
                                     text: model.agentStatus
                                     font.pixelSize: 12
-                                    opacity: 0.7
+                                    color: CoderTheme.textSecondary
                                 }
                             }
 
@@ -355,7 +366,7 @@ Item {
                                       + "." + workspaceDetailPage.workspaceOwner + ".coder"
                                 font.pixelSize: 11
                                 font.family: "monospace"
-                                opacity: 0.5
+                                color: CoderTheme.textDisabled
                             }
 
                             // OS / Arch info
@@ -364,13 +375,13 @@ Item {
                                 text: model.agentOs + (model.agentArch.length > 0
                                                        ? " / " + model.agentArch : "")
                                 font.pixelSize: 11
-                                opacity: 0.5
+                                color: CoderTheme.textDisabled
                             }
 
                             // Terminal button
-                            Button {
-                                flat: true
+                            CoderButton {
                                 text: "Terminal"
+                                variant: "outline"
                                 enabled: model.agentStatus === "connected"
                                 font.pixelSize: 12
                                 onClicked: {
@@ -387,6 +398,7 @@ Item {
                     text: "Apps"
                     font.pixelSize: 14
                     font.bold: true
+                    color: CoderTheme.textPrimary
                     visible: appsModel.count > 0
                 }
 
@@ -401,15 +413,18 @@ Item {
                         model: appsModel
 
                         Rectangle {
+                            id: appCard
                             Layout.fillWidth: true
                             height: appItemLayout.implicitHeight + 16
-                            radius: 6
-                            color: Material.background
-                            border.color: Material.dividerColor
+                            radius: CoderTheme.radius
+                            color: appMouseArea.containsMouse ? CoderTheme.hoverBg : CoderTheme.surface
+                            border.color: CoderTheme.border
                             border.width: 1
 
                             MouseArea {
+                                id: appMouseArea
                                 anchors.fill: parent
+                                hoverEnabled: true
                                 enabled: model.appUrl.length > 0
                                 cursorShape: enabled ? Qt.PointingHandCursor
                                                      : Qt.ArrowCursor
@@ -457,8 +472,8 @@ Item {
                                     // Fallback: letter initial in a colored rectangle
                                     Rectangle {
                                         anchors.fill: parent
-                                        radius: 4
-                                        color: Material.color(Material.Blue, Material.Shade50)
+                                        radius: CoderTheme.radiusSm
+                                        color: CoderTheme.activeSurface
                                         visible: appIconImage.status !== Image.Ready
 
                                         Label {
@@ -466,7 +481,7 @@ Item {
                                             text: model.appName.charAt(0).toUpperCase()
                                             font.pixelSize: 16
                                             font.bold: true
-                                            color: Material.color(Material.Blue)
+                                            color: CoderTheme.primary
                                         }
                                     }
                                 }
@@ -474,6 +489,7 @@ Item {
                                 Label {
                                     text: model.appName
                                     font.pixelSize: 12
+                                    color: CoderTheme.textPrimary
                                     elide: Text.ElideRight
                                     horizontalAlignment: Text.AlignHCenter
                                     Layout.fillWidth: true
@@ -492,6 +508,20 @@ Item {
                                 visible: settingsManager.externalBrowserAllowed
                                 onClicked: appOverflowMenu.open()
 
+                                contentItem: Text {
+                                    text: "⋮"
+                                    font.pixelSize: 14
+                                    color: CoderTheme.textSecondary
+                                    horizontalAlignment: Text.AlignHCenter
+                                    verticalAlignment: Text.AlignVCenter
+                                }
+
+                                background: Rectangle {
+                                    implicitWidth: 28; implicitHeight: 28
+                                    radius: CoderTheme.radiusSm
+                                    color: parent.hovered ? CoderTheme.hoverBg : "transparent"
+                                }
+
                                 Menu {
                                     id: appOverflowMenu
                                     MenuItem {
@@ -509,14 +539,15 @@ Item {
                     text: "Information"
                     font.pixelSize: 14
                     font.bold: true
+                    color: CoderTheme.textPrimary
                 }
 
                 Rectangle {
                     Layout.fillWidth: true
                     height: infoLayout.implicitHeight + 24
-                    radius: 6
-                    color: Material.background
-                    border.color: Material.dividerColor
+                    radius: CoderTheme.radius
+                    color: CoderTheme.surface
+                    border.color: CoderTheme.border
                     border.width: 1
 
                     ColumnLayout {
@@ -529,19 +560,19 @@ Item {
                             text: "ID: " + workspaceDetailPage.workspaceId
                             font.pixelSize: 12
                             font.family: "monospace"
-                            opacity: 0.6
+                            color: CoderTheme.textSecondary
                         }
 
                         Label {
                             text: "Agents: " + agentsModel.count
                             font.pixelSize: 12
-                            opacity: 0.6
+                            color: CoderTheme.textSecondary
                         }
 
                         Label {
                             text: "Apps: " + appsModel.count
                             font.pixelSize: 12
-                            opacity: 0.6
+                            color: CoderTheme.textSecondary
                         }
                     }
                 }
