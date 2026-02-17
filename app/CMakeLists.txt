@@ -67,6 +67,8 @@ add_executable(coder-desktop
     src/terminal/TerminalBridge.cpp
 )
 
+set_source_files_properties(qml/CoderTheme.qml PROPERTIES QT_QML_SINGLETON_TYPE TRUE)
+
 qt_add_qml_module(coder-desktop
     URI CoderDesktop
     VERSION 1.0
@@ -81,8 +83,11 @@ qt_add_qml_module(coder-desktop
         qml/TasksPage.qml
         qml/TaskDetailPage.qml
         qml/WorkspaceDetailPage.qml
-        qml/DlpPage.qml
+        qml/SecureDevPage.qml
         qml/TerminalPage.qml
+        qml/CoderTheme.qml
+        qml/StatusChip.qml
+        qml/CoderButton.qml
 )
 
 qt_add_resources(coder-desktop "terminal_assets"
@@ -92,6 +97,13 @@ qt_add_resources(coder-desktop "terminal_assets"
         assets/terminal/xterm.min.js
         assets/terminal/xterm.min.css
         assets/terminal/addon-fit.min.js
+)
+
+qt_add_resources(coder-desktop "brand_assets"
+    PREFIX "/CoderDesktop"
+    FILES
+        assets/coder-logo.svg
+        assets/coder-icon.svg
 )
 
 target_include_directories(coder-desktop PRIVATE src ${CMAKE_CURRENT_BINARY_DIR})
