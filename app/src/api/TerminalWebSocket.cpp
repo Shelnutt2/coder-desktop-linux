@@ -34,7 +34,8 @@ void TerminalWebSocket::sendInput(const QString &data)
 {
     QJsonObject msg;
     msg[QStringLiteral("data")] = data;
-    sendTextMessage(QString::fromUtf8(QJsonDocument(msg).toJson(QJsonDocument::Compact)));
+    // Coder PTY API expects binary WebSocket frames (matching Android client).
+    sendBinaryMessage(QJsonDocument(msg).toJson(QJsonDocument::Compact));
 }
 
 void TerminalWebSocket::resize(int cols, int rows)
@@ -45,7 +46,8 @@ void TerminalWebSocket::resize(int cols, int rows)
     QJsonObject msg;
     msg[QStringLiteral("width")] = cols;
     msg[QStringLiteral("height")] = rows;
-    sendTextMessage(QString::fromUtf8(QJsonDocument(msg).toJson(QJsonDocument::Compact)));
+    // Coder PTY API expects binary WebSocket frames (matching Android client).
+    sendBinaryMessage(QJsonDocument(msg).toJson(QJsonDocument::Compact));
 }
 
 QString TerminalWebSocket::sessionId() const

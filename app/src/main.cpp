@@ -25,6 +25,9 @@
 #include "updater/AutoUpdater.h"
 #include "auth/LoginFlowController.h"
 #include "api/PollingController.h"
+#include "terminal/TerminalBridge.h"
+
+#include <QtQml/qqml.h>
 
 #ifdef HAS_WEBENGINE
 #include <QtWebEngineQuick/qtwebenginequickglobal.h>
@@ -168,6 +171,9 @@ int main(int argc, char* argv[])
     // ---- QML engine ----
     // All context properties must be set BEFORE loadFromModule() so they
     // are available when QML bindings are first evaluated.
+    // Register QML types for in-app terminal.
+    qmlRegisterType<TerminalBridge>("CoderDesktop", 1, 0, "TerminalBridge");
+
     QQmlApplicationEngine engine;
 
     engine.rootContext()->setContextProperty(
