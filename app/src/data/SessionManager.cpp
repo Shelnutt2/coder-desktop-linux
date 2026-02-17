@@ -77,7 +77,10 @@ void SessionManager::login(const QString& url, const QString& token) {
         const User user = User::fromJson(doc.object());
 
         // Store token securely.
-        (void)m_storage.storeToken(url, token);
+        if (!m_storage.storeToken(url, token)) {
+            qWarning() << "SessionManager: failed to persist credentials — login will not survive "
+                          "a restart";
+        }
 
         // Build / update the deployment entry.
         Deployment dep;
