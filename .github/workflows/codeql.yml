@@ -67,37 +67,22 @@ jobs:
             libxcb-icccm4-dev \
             libxcb-res0-dev
 
-      - name: Cache wayland & wlroots
-        id: cache-wayland-wlroots
-        uses: actions/cache@v4
-        with:
-          path: /tmp/wayland-wlroots-install
-          key: wayland-${{ env.WAYLAND_VERSION }}-wlroots-${{ env.WLROOTS_VERSION }}-ubuntu-24.04
-
       - name: Build wayland ${{ env.WAYLAND_VERSION }} from source
-        if: steps.cache-wayland-wlroots.outputs.cache-hit != 'true'
         run: |
           git clone --depth 1 --branch ${{ env.WAYLAND_VERSION }} https://gitlab.freedesktop.org/wayland/wayland.git /tmp/wayland
           cd /tmp/wayland
           meson setup build --prefix=/usr --buildtype=release -Ddocumentation=false -Dtests=false
           ninja -C build
-          DESTDIR=/tmp/wayland-wlroots-install ninja -C build install
+          sudo ninja -C build install
+          sudo ldconfig
 
       - name: Build wlroots ${{ env.WLROOTS_VERSION }} from source
-        if: steps.cache-wayland-wlroots.outputs.cache-hit != 'true'
         run: |
-          export PKG_CONFIG_PATH=/tmp/wayland-wlroots-install/usr/lib/x86_64-linux-gnu/pkgconfig:/tmp/wayland-wlroots-install/usr/share/pkgconfig:$PKG_CONFIG_PATH
-          export C_INCLUDE_PATH=/tmp/wayland-wlroots-install/usr/include
-          export LIBRARY_PATH=/tmp/wayland-wlroots-install/usr/lib/x86_64-linux-gnu
           git clone --depth 1 --branch ${{ env.WLROOTS_VERSION }} https://gitlab.freedesktop.org/wlroots/wlroots.git /tmp/wlroots
           cd /tmp/wlroots
           meson setup build --prefix=/usr --buildtype=release -Dxwayland=disabled --wrap-mode=default
           ninja -C build
-          DESTDIR=/tmp/wayland-wlroots-install ninja -C build install
-
-      - name: Install wayland & wlroots
-        run: |
-          sudo cp -a /tmp/wayland-wlroots-install/usr/. /usr/
+          sudo ninja -C build install
           sudo ldconfig
 
       - name: Initialize CodeQL
