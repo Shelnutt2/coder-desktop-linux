@@ -1,6 +1,7 @@
 #include "dlp/DlpCompositorWidget.h"
 
 #include <QByteArray>
+#include <QDebug>
 
 DlpCompositorWidget::DlpCompositorWidget(QObject* parent) : QObject(parent) {}
 
