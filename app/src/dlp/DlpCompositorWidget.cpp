@@ -20,6 +20,17 @@ int DlpCompositorWidget::launchedAppCount() const {
     return m_appCount;
 }
 
+void DlpCompositorWidget::setLogLevel(const QString& level) {
+    if (level == QStringLiteral("trace") || level == QStringLiteral("debug")) {
+        m_logLevel = CODER_DLP_LOG_DEBUG;
+    } else if (level == QStringLiteral("info")) {
+        m_logLevel = CODER_DLP_LOG_INFO;
+    } else {
+        // "warn", "error", or unrecognized → errors only
+        m_logLevel = CODER_DLP_LOG_ERROR;
+    }
+}
+
 bool DlpCompositorWidget::start() {
     if (m_compositor) {
         return true;  // already running
@@ -30,7 +41,7 @@ bool DlpCompositorWidget::start() {
         return false;
     }
 
-    m_compositor = coder_dlp_create(nullptr);
+    m_compositor = coder_dlp_create(nullptr, m_logLevel);
     if (!m_compositor) {
         emit errorOccurred(QStringLiteral("Failed to create DLP compositor"));
         return false;

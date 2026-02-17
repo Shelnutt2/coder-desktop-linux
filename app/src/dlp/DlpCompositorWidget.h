@@ -34,6 +34,9 @@ public:
     /// Number of applications launched inside the DLP sandbox.
     [[nodiscard]] int launchedAppCount() const;
 
+    /// Set the log level before calling start(). Maps app log levels to compositor levels.
+    void setLogLevel(const QString& level);
+
     /// Start the DLP compositor.  No-op if already running or unavailable.
     /// @return true on success, false on failure or unavailability.
     Q_INVOKABLE bool start();
@@ -62,6 +65,7 @@ private:
     coder_dlp_compositor* m_compositor = nullptr;
     std::unique_ptr<QSocketNotifier> m_notifier;
     int m_appCount = 0;
+    coder_dlp_log_level m_logLevel = CODER_DLP_LOG_ERROR;
 
     /// Static callback registered with coder_dlp_on_new_surface().
     static void onNewSurface(coder_dlp_compositor* comp, void* surface, void* data);
