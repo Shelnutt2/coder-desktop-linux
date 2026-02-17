@@ -34,7 +34,7 @@ jobs:
             qt6-tools-dev-tools \
             libqt6quick3d6 \
             libqt6websockets6-dev \
-            libqt6webengine6-dev \
+            qt6-webengine-dev \
             libsecret-1-dev \
             libwlroots-dev \
             wayland-protocols \
