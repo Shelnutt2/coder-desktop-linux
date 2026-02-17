@@ -79,7 +79,7 @@ jobs:
         run: |
           git clone --depth 1 --branch ${{ env.WAYLAND_VERSION }} https://gitlab.freedesktop.org/wayland/wayland.git /tmp/wayland
           cd /tmp/wayland
-          meson setup build --prefix=/opt/wayland --buildtype=release
+          meson setup build --prefix=/opt/wayland --buildtype=release -Ddocumentation=false
           ninja -C build
           ninja -C build install
 
