@@ -155,6 +155,21 @@ void coder_dlp_destroy(coder_dlp_compositor* comp) {
         wl_list_remove(&comp->pointer_frame.link);
     }
 
+    /* Clean up any remaining toplevels — remove their listeners so wlroots
+     * assertions don't fire during display teardown. */
+    struct coder_dlp_toplevel* toplevel;
+    struct coder_dlp_toplevel* tmp;
+    wl_list_for_each_safe(toplevel, tmp, &comp->toplevels, link) {
+        wl_list_remove(&toplevel->map.link);
+        wl_list_remove(&toplevel->unmap.link);
+        wl_list_remove(&toplevel->commit.link);
+        wl_list_remove(&toplevel->destroy.link);
+        wl_list_remove(&toplevel->request_move.link);
+        wl_list_remove(&toplevel->request_resize.link);
+        wl_list_remove(&toplevel->link);
+        free(toplevel);
+    }
+
     /* Destroy scene graph */
     if (comp->scene) {
         wlr_scene_node_destroy(&comp->scene->tree.node);
