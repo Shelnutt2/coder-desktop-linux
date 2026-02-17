@@ -1,0 +1,63 @@
+<!DOCTYPE node PUBLIC "-//freedesktop//DTD D-BUS Object Introspection 1.0//EN"
+    "http://www.freedesktop.org/standards/dbus/1.0/introspect.dtd">
+<!--
+    D-Bus interface for the Coder Desktop VPN helper service.
+
+    Bus name:    com.coder.Desktop.Helper
+    Object path: /com/coder/Desktop/Helper
+    Interface:   com.coder.Desktop.Helper1
+
+    The Go helper binary (coder-desktop-helper) implements this interface
+    as a D-Bus system service.  The Qt desktop app acts as a pure client,
+    calling methods and listening to signals defined here.
+-->
+<node name="/com/coder/Desktop/Helper">
+  <interface name="com.coder.Desktop.Helper1">
+
+    <!-- Start the VPN tunnel.
+         @coder_url:  Base URL of the Coder deployment (e.g. https://coder.example.com)
+         @api_token:  API token for authentication -->
+    <method name="Start">
+      <arg name="coder_url" type="s" direction="in"/>
+      <arg name="api_token" type="s" direction="in"/>
+    </method>
+
+    <!-- Stop the VPN tunnel. -->
+    <method name="Stop"/>
+
+    <!-- Query current VPN status.
+         @state:      One of "disconnected", "connecting", "connected", "disconnecting"
+         @coder_url:  The Coder URL for the active session (empty when disconnected) -->
+    <method name="GetStatus">
+      <arg name="state"     type="s" direction="out"/>
+      <arg name="coder_url" type="s" direction="out"/>
+    </method>
+
+    <!-- Emitted when the VPN state changes.
+         @new_state:     New state string (same values as GetStatus)
+         @error_message: Non-empty when the transition was caused by an error -->
+    <signal name="StateChanged">
+      <arg name="new_state"     type="s"/>
+      <arg name="error_message" type="s"/>
+    </signal>
+
+    <!-- Emitted when a workspace peer is added or updated. -->
+    <signal name="PeerUpdated">
+      <arg name="workspace"    type="s"/>
+      <arg name="agent"        type="s"/>
+      <arg name="hostname"     type="s"/>
+      <arg name="status"       type="i"/>
+      <arg name="last_ping_ms" type="i"/>
+      <arg name="is_p2p"       type="b"/>
+    </signal>
+
+    <!-- Forwarded log message from the VPN helper.
+         @level:   Log level (0=DEBUG, 1=INFO, 2=WARN, 3=ERROR)
+         @message: Human-readable log line -->
+    <signal name="LogMessage">
+      <arg name="level"   type="i"/>
+      <arg name="message" type="s"/>
+    </signal>
+
+  </interface>
+</node>

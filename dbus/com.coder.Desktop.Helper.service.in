@@ -1,0 +1,4 @@
+[D-BUS Service]
+Name=com.coder.Desktop.Helper
+Exec=@HELPER_BINARY_PATH@
+User=root
