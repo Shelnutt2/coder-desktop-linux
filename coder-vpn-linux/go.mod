@@ -3,15 +3,17 @@ module github.com/coder/coder-vpn-linux
 go 1.25.6
 
 require (
+	cdr.dev/slog/v3 v3.0.0-rc1
 	github.com/coder/coder/v2 v2.30.1
 	github.com/coder/quartz v0.3.0
 	github.com/coder/websocket v1.8.14
+	github.com/godbus/dbus/v5 v5.2.2
+	github.com/mdlayher/sdnotify v1.0.0
 	github.com/tailscale/wireguard-go v0.0.0-20250107165329-9b7a56210e49
 	tailscale.com v1.80.3
 )
 
 require (
-	cdr.dev/slog/v3 v3.0.0-rc1 // indirect
 	filippo.io/edwards25519 v1.1.0 // indirect
 	github.com/DataDog/appsec-internal-go v1.11.2 // indirect
 	github.com/DataDog/datadog-agent/comp/core/tagger/origindetection v0.64.2 // indirect
@@ -79,7 +81,6 @@ require (
 	github.com/go-logr/stdr v1.2.2 // indirect
 	github.com/go-ole/go-ole v1.3.0 // indirect
 	github.com/go-viper/mapstructure/v2 v2.4.0 // indirect
-	github.com/godbus/dbus/v5 v5.1.0 // indirect
 	github.com/gogo/protobuf v1.3.2 // indirect
 	github.com/golang/groupcache v0.0.0-20241129210726-2c02b8208cf8 // indirect
 	github.com/golang/protobuf v1.5.4 // indirect
@@ -116,7 +117,6 @@ require (
 	github.com/mattn/go-isatty v0.0.20 // indirect
 	github.com/mdlayher/genetlink v1.3.2 // indirect
 	github.com/mdlayher/netlink v1.7.2 // indirect
-	github.com/mdlayher/sdnotify v1.0.0 // indirect
 	github.com/mdlayher/socket v0.5.0 // indirect
 	github.com/microcosm-cc/bluemonday v1.0.27 // indirect
 	github.com/miekg/dns v1.1.58 // indirect
