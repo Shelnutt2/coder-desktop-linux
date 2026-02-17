@@ -126,10 +126,47 @@ void coder_dlp_destroy(coder_dlp_compositor* comp) {
         return;
     }
 
+    /* Remove all signal listeners BEFORE tearing down wlroots objects.
+     * wlroots asserts that listener lists are empty during destroy. */
+    wl_list_remove(&comp->new_output.link);
+    wl_list_remove(&comp->new_input.link);
+    wl_list_remove(&comp->new_xdg_toplevel.link);
+    wl_list_remove(&comp->new_xdg_popup.link);
+    wl_list_remove(&comp->request_set_selection.link);
+    wl_list_remove(&comp->request_set_primary_selection.link);
+    wl_list_remove(&comp->security_context_commit.link);
+
+    /* Output listeners (wired in compositor_handle_new_output) */
+    if (comp->output) {
+        wl_list_remove(&comp->output_frame.link);
+        wl_list_remove(&comp->output_request_state.link);
+        wl_list_remove(&comp->output_destroy.link);
+    }
+
+    /* Input listeners (wired in setup_keyboard / setup_pointer) */
+    if (comp->keyboard) {
+        wl_list_remove(&comp->keyboard_key.link);
+        wl_list_remove(&comp->keyboard_modifiers.link);
+    }
+    if (comp->pointer_motion.notify) {
+        wl_list_remove(&comp->pointer_motion.link);
+        wl_list_remove(&comp->pointer_button.link);
+        wl_list_remove(&comp->pointer_axis.link);
+        wl_list_remove(&comp->pointer_frame.link);
+    }
+
+    /* Destroy scene graph */
     if (comp->scene) {
         wlr_scene_node_destroy(&comp->scene->tree.node);
         comp->scene = NULL;
     }
+
+    /* Destroy backend (triggers output destroy etc.) */
+    if (comp->backend) {
+        wlr_backend_destroy(comp->backend);
+    }
+
+    /* Finally destroy display */
     if (comp->wl_display) {
         wl_display_destroy_clients(comp->wl_display);
         wl_display_destroy(comp->wl_display);

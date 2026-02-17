@@ -14,6 +14,8 @@
 #include <sys/wait.h>
 #include <unistd.h>
 
+#include <wlr/util/log.h>
+
 /* Visible for testing via the internal header — builds the NULL-terminated
  * argv array for bwrap.  Caller must free with dlp_free_bwrap_args(). */
 char** dlp_build_bwrap_args(const coder_dlp_compositor* comp, const char* command,
@@ -123,6 +125,9 @@ int coder_dlp_launch_app(coder_dlp_compositor* comp, const char* command,
         return -1;
     }
 
+    wlr_log(WLR_INFO, "launching app: %s (socket=%s)", command,
+            comp->socket ? comp->socket : "(null)");
+
     char** argv = dlp_build_bwrap_args(comp, command, sandbox);
     if (!argv) {
         return -1;
@@ -142,6 +147,7 @@ int coder_dlp_launch_app(coder_dlp_compositor* comp, const char* command,
     }
 
     /* Parent */
+    wlr_log(WLR_INFO, "app launched with pid %d", pid);
     dlp_free_bwrap_args(argv);
     return (int)pid;
 }

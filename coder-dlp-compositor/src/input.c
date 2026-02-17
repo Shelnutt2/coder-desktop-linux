@@ -5,6 +5,7 @@
 #include <wlr/types/wlr_input_device.h>
 #include <wlr/types/wlr_keyboard.h>
 #include <wlr/types/wlr_pointer.h>
+#include <wlr/types/wlr_scene.h>
 #include <wlr/types/wlr_seat.h>
 #include <wlr/util/log.h>
 #include <xkbcommon/xkbcommon.h>
@@ -12,15 +13,21 @@
 /* --- Keyboard handling --- */
 
 static void handle_keyboard_key(struct wl_listener* listener, void* data) {
-    (void)listener;
-    /* The seat automatically forwards key events to the focused client when
-     * a keyboard is attached via wlr_seat_set_keyboard(). */
-    (void)data;
+    struct coder_dlp_compositor* comp = wl_container_of(listener, comp, keyboard_key);
+    struct wlr_keyboard_key_event* event = data;
+    struct wlr_keyboard* keyboard = comp->keyboard;
+
+    wlr_seat_set_keyboard(comp->seat, keyboard);
+    wlr_seat_keyboard_notify_key(comp->seat, event->time_msec, event->keycode, event->state);
 }
 
 static void handle_keyboard_modifiers(struct wl_listener* listener, void* data) {
-    (void)listener;
     (void)data;
+    struct coder_dlp_compositor* comp = wl_container_of(listener, comp, keyboard_modifiers);
+    struct wlr_keyboard* keyboard = comp->keyboard;
+
+    wlr_seat_set_keyboard(comp->seat, keyboard);
+    wlr_seat_keyboard_notify_modifiers(comp->seat, &keyboard->modifiers);
 }
 
 static void setup_keyboard(struct coder_dlp_compositor* comp, struct wlr_input_device* device) {
@@ -45,12 +52,15 @@ static void setup_keyboard(struct coder_dlp_compositor* comp, struct wlr_input_d
 
     wlr_keyboard_set_repeat_info(keyboard, 25, 600);
 
-    /* Wire key/modifier listeners (currently no-ops — seat forwarding is
-     * automatic once the keyboard is set on the seat). */
-    static struct wl_listener key_listener = {.notify = handle_keyboard_key};
-    static struct wl_listener mod_listener = {.notify = handle_keyboard_modifiers};
-    wl_signal_add(&keyboard->events.key, &key_listener);
-    wl_signal_add(&keyboard->events.modifiers, &mod_listener);
+    /* Store keyboard on comp and wire listeners through the struct so
+     * wl_container_of can recover comp in the handlers. */
+    comp->keyboard = keyboard;
+
+    comp->keyboard_key.notify = handle_keyboard_key;
+    wl_signal_add(&keyboard->events.key, &comp->keyboard_key);
+
+    comp->keyboard_modifiers.notify = handle_keyboard_modifiers;
+    wl_signal_add(&keyboard->events.modifiers, &comp->keyboard_modifiers);
 
     wlr_seat_set_keyboard(comp->seat, keyboard);
     wlr_log(WLR_INFO, "keyboard configured");
@@ -59,46 +69,103 @@ static void setup_keyboard(struct coder_dlp_compositor* comp, struct wlr_input_d
 /* --- Pointer handling --- */
 
 static void handle_pointer_motion(struct wl_listener* listener, void* data) {
-    (void)listener;
-    (void)data;
-    /* Pointer motion is forwarded automatically by the seat when a pointer
-     * capability is advertised.  Explicit notify calls are only needed for
-     * compositors that do cursor-image management, which the nested
-     * compositor delegates to the parent. */
+    struct coder_dlp_compositor* comp = wl_container_of(listener, comp, pointer_motion);
+    struct wlr_pointer_motion_event* event = data;
+
+    /* Accumulate delta into absolute cursor position */
+    comp->cursor_x += event->delta_x;
+    comp->cursor_y += event->delta_y;
+
+    /* Clamp to output bounds */
+    if (comp->output) {
+        int width, height;
+        wlr_output_effective_resolution(comp->output, &width, &height);
+        if (comp->cursor_x < 0) comp->cursor_x = 0;
+        if (comp->cursor_y < 0) comp->cursor_y = 0;
+        if (comp->cursor_x >= width) comp->cursor_x = width - 1;
+        if (comp->cursor_y >= height) comp->cursor_y = height - 1;
+    }
+
+    /* Find the surface under the cursor via the scene graph */
+    double sx, sy;
+    struct wlr_scene_node* node =
+        wlr_scene_node_at(&comp->scene->tree.node, comp->cursor_x, comp->cursor_y, &sx, &sy);
+
+    if (node && node->type == WLR_SCENE_NODE_BUFFER) {
+        struct wlr_scene_buffer* buffer = wlr_scene_buffer_from_node(node);
+        struct wlr_scene_surface* scene_surface = wlr_scene_surface_try_from_buffer(buffer);
+        if (scene_surface) {
+            wlr_seat_pointer_notify_enter(comp->seat, scene_surface->surface, sx, sy);
+            wlr_seat_pointer_notify_motion(comp->seat, event->time_msec, sx, sy);
+        }
+    } else {
+        wlr_seat_pointer_clear_focus(comp->seat);
+    }
 }
 
 static void handle_pointer_button(struct wl_listener* listener, void* data) {
-    (void)listener;
-    (void)data;
+    struct coder_dlp_compositor* comp = wl_container_of(listener, comp, pointer_button);
+    struct wlr_pointer_button_event* event = data;
+
+    wlr_seat_pointer_notify_button(comp->seat, event->time_msec, event->button, event->state);
+
+    /* On click, focus the toplevel under the cursor */
+    if (event->state == WL_POINTER_BUTTON_STATE_PRESSED) {
+        double sx, sy;
+        struct wlr_scene_node* node =
+            wlr_scene_node_at(&comp->scene->tree.node, comp->cursor_x, comp->cursor_y, &sx, &sy);
+        if (node) {
+            /* Walk up the scene tree to find the toplevel */
+            struct wlr_scene_tree* tree = node->parent;
+            while (tree && !tree->node.data) {
+                tree = tree->node.parent;
+            }
+            if (tree && tree->node.data) {
+                struct coder_dlp_toplevel* toplevel = tree->node.data;
+                wlr_scene_node_raise_to_top(&toplevel->scene_tree->node);
+                struct wlr_keyboard* keyboard = wlr_seat_get_keyboard(comp->seat);
+                if (keyboard) {
+                    wlr_seat_keyboard_notify_enter(
+                        comp->seat, toplevel->xdg_toplevel->base->surface, keyboard->keycodes,
+                        keyboard->num_keycodes, &keyboard->modifiers);
+                }
+            }
+        }
+    }
 }
 
 static void handle_pointer_axis(struct wl_listener* listener, void* data) {
-    (void)listener;
-    (void)data;
+    struct coder_dlp_compositor* comp = wl_container_of(listener, comp, pointer_axis);
+    struct wlr_pointer_axis_event* event = data;
+
+    wlr_seat_pointer_notify_axis(comp->seat, event->time_msec, event->orientation, event->delta,
+                                 event->delta_discrete, event->source, event->relative_direction);
 }
 
 static void handle_pointer_frame(struct wl_listener* listener, void* data) {
-    (void)listener;
+    struct coder_dlp_compositor* comp = wl_container_of(listener, comp, pointer_frame);
     (void)data;
+
+    wlr_seat_pointer_notify_frame(comp->seat);
 }
 
 static void setup_pointer(struct coder_dlp_compositor* comp, struct wlr_input_device* device) {
     struct wlr_pointer* pointer = wlr_pointer_from_input_device(device);
 
-    /* Wire pointer event listeners */
-    static struct wl_listener motion_listener = {.notify = handle_pointer_motion};
-    static struct wl_listener button_listener = {.notify = handle_pointer_button};
-    static struct wl_listener axis_listener = {.notify = handle_pointer_axis};
-    static struct wl_listener frame_listener = {.notify = handle_pointer_frame};
+    /* Wire pointer event listeners through the struct */
+    comp->pointer_motion.notify = handle_pointer_motion;
+    wl_signal_add(&pointer->events.motion, &comp->pointer_motion);
 
-    wl_signal_add(&pointer->events.motion, &motion_listener);
-    wl_signal_add(&pointer->events.button, &button_listener);
-    wl_signal_add(&pointer->events.axis, &axis_listener);
-    wl_signal_add(&pointer->events.frame, &frame_listener);
+    comp->pointer_button.notify = handle_pointer_button;
+    wl_signal_add(&pointer->events.button, &comp->pointer_button);
+
+    comp->pointer_axis.notify = handle_pointer_axis;
+    wl_signal_add(&pointer->events.axis, &comp->pointer_axis);
+
+    comp->pointer_frame.notify = handle_pointer_frame;
+    wl_signal_add(&pointer->events.frame, &comp->pointer_frame);
 
     wlr_log(WLR_INFO, "pointer configured");
-
-    (void)comp; /* seat capabilities updated below in new_input handler */
 }
 
 /* --- Backend new_input handler --- */
