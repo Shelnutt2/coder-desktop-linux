@@ -18,9 +18,36 @@ Item {
 
     signal backClicked()
 
+    // Map task statuses to StatusChip-compatible workspace statuses
+    function taskStatusToChipStatus(s) {
+        if (s === "Active")       return "Running"
+        if (s === "Initializing") return "Starting"
+        if (s === "Error")        return "Failed"
+        if (s === "Paused")       return "Stopping"
+        return "Stopped"  // Pending, Complete, etc.
+    }
+
+    // Map task status to CoderTheme status surface
+    function taskStatusSurface(s) {
+        if (s === "Active")       return CoderTheme.successSurface
+        if (s === "Paused")       return CoderTheme.warningSurface
+        if (s === "Error")        return CoderTheme.errorSurface
+        if (s === "Initializing") return CoderTheme.activeSurface
+        return CoderTheme.surface
+    }
+
+    // Map task status to CoderTheme color
+    function taskStatusColor(s) {
+        if (s === "Active")       return CoderTheme.success
+        if (s === "Paused")       return CoderTheme.warning
+        if (s === "Error")        return CoderTheme.error
+        if (s === "Initializing") return CoderTheme.info
+        return CoderTheme.textDisabled
+    }
+
     Rectangle {
         anchors.fill: parent
-        color: Material.background
+        color: CoderTheme.background
     }
 
     ColumnLayout {
@@ -33,8 +60,8 @@ Item {
             Layout.fillWidth: true
             spacing: 8
 
-            Button {
-                flat: true
+            CoderButton {
+                variant: "subtle"
                 text: "← Back"
                 onClicked: taskDetailPage.backClicked()
             }
@@ -43,6 +70,7 @@ Item {
                 text: taskDetailPage.taskName
                 font.pixelSize: 20
                 font.bold: true
+                color: CoderTheme.textPrimary
                 elide: Text.ElideRight
                 Layout.fillWidth: true
             }
@@ -56,19 +84,19 @@ Item {
             Label {
                 text: taskDetailPage.taskTemplate
                 font.pixelSize: 13
-                opacity: 0.6
+                color: CoderTheme.textSecondary
             }
 
             Label {
                 text: "·"
                 font.pixelSize: 13
-                opacity: 0.4
+                color: CoderTheme.textDisabled
             }
 
             Label {
                 text: taskDetailPage.taskOwner
                 font.pixelSize: 13
-                opacity: 0.6
+                color: CoderTheme.textSecondary
             }
         }
 
@@ -76,23 +104,9 @@ Item {
         Rectangle {
             Layout.fillWidth: true
             height: statusLayout.implicitHeight + 24
-            radius: 8
-            color: {
-                var s = taskDetailPage.taskStatus
-                if (s === "Active")       return Qt.rgba(0.0, 0.7, 0.0, 0.08)
-                if (s === "Paused")       return Qt.rgba(1.0, 0.6, 0.0, 0.08)
-                if (s === "Error")        return Qt.rgba(1.0, 0.0, 0.0, 0.08)
-                if (s === "Initializing") return Qt.rgba(0.0, 0.4, 1.0, 0.08)
-                return Qt.rgba(0.5, 0.5, 0.5, 0.08)
-            }
-            border.color: {
-                var s = taskDetailPage.taskStatus
-                if (s === "Active")       return Material.color(Material.Green)
-                if (s === "Paused")       return Material.color(Material.Orange)
-                if (s === "Error")        return Material.color(Material.Red)
-                if (s === "Initializing") return Material.color(Material.Blue)
-                return Material.color(Material.Grey)
-            }
+            radius: CoderTheme.radius
+            color: taskDetailPage.taskStatusSurface(taskDetailPage.taskStatus)
+            border.color: taskDetailPage.taskStatusColor(taskDetailPage.taskStatus)
             border.width: 1
 
             ColumnLayout {
@@ -104,38 +118,19 @@ Item {
                 RowLayout {
                     spacing: 8
 
-                    // Status badge
-                    Rectangle {
-                        width: statusBadgeLabel.implicitWidth + 16
-                        height: statusBadgeLabel.implicitHeight + 8
-                        radius: 4
-                        color: {
-                            var s = taskDetailPage.taskStatus
-                            if (s === "Active")       return Material.color(Material.Green)
-                            if (s === "Paused")       return Material.color(Material.Orange)
-                            if (s === "Error")        return Material.color(Material.Red)
-                            if (s === "Initializing") return Material.color(Material.Blue)
-                            return Material.color(Material.Grey)
-                        }
-
-                        Label {
-                            id: statusBadgeLabel
-                            anchors.centerIn: parent
-                            text: taskDetailPage.taskStatus
-                            font.pixelSize: 12
-                            font.bold: true
-                            color: "white"
-                        }
+                    // Status badge — use StatusChip
+                    StatusChip {
+                        status: taskDetailPage.taskStatusToChipStatus(taskDetailPage.taskStatus)
                     }
                 }
 
                 Label {
                     text: taskDetailPage.taskStateMessage
                     font.pixelSize: 13
+                    color: CoderTheme.textSecondary
                     wrapMode: Text.WordWrap
                     Layout.fillWidth: true
                     visible: taskDetailPage.taskStateMessage.length > 0
-                    opacity: 0.8
                 }
             }
         }
@@ -145,15 +140,16 @@ Item {
             text: "Prompt"
             font.pixelSize: 14
             font.bold: true
+            color: CoderTheme.textPrimary
             visible: taskDetailPage.taskPrompt.length > 0
         }
 
         Rectangle {
             Layout.fillWidth: true
             height: promptLabel.implicitHeight + 24
-            radius: 6
-            color: Material.background
-            border.color: Material.dividerColor
+            radius: CoderTheme.radius
+            color: CoderTheme.surface
+            border.color: CoderTheme.border
             border.width: 1
             visible: taskDetailPage.taskPrompt.length > 0
 
@@ -164,7 +160,7 @@ Item {
                 text: taskDetailPage.taskPrompt
                 font.pixelSize: 13
                 wrapMode: Text.WordWrap
-                opacity: 0.8
+                color: CoderTheme.textSecondary
             }
         }
 
@@ -173,6 +169,7 @@ Item {
             text: "Logs"
             font.pixelSize: 14
             font.bold: true
+            color: CoderTheme.textPrimary
         }
 
         ScrollView {
@@ -185,12 +182,13 @@ Item {
                 readOnly: true
                 font.family: "monospace"
                 font.pixelSize: 12
+                color: CoderTheme.textPrimary
                 placeholderText: "No log output yet…"
                 wrapMode: TextEdit.Wrap
                 background: Rectangle {
-                    color: Qt.rgba(0, 0, 0, 0.03)
-                    radius: 6
-                    border.color: Material.dividerColor
+                    color: CoderTheme.surface
+                    radius: CoderTheme.radius
+                    border.color: CoderTheme.border
                     border.width: 1
                 }
             }
@@ -201,6 +199,7 @@ Item {
             text: "Send Message"
             font.pixelSize: 14
             font.bold: true
+            color: CoderTheme.textPrimary
         }
 
         RowLayout {
@@ -213,9 +212,16 @@ Item {
                 Layout.fillWidth: true
                 selectByMouse: true
                 onAccepted: sendButton.clicked()
+                background: Rectangle {
+                    implicitHeight: 36
+                    radius: CoderTheme.radius
+                    color: CoderTheme.surface
+                    border.color: messageField.activeFocus ? CoderTheme.primary : CoderTheme.border
+                    border.width: 1
+                }
             }
 
-            Button {
+            CoderButton {
                 id: sendButton
                 text: "Send"
                 enabled: messageField.text.trim().length > 0
