@@ -121,7 +121,9 @@ void coder_dlp_destroy(coder_dlp_compositor* comp) {
     free(comp);
 }
 
-bool coder_dlp_is_available(void) { return getenv("WAYLAND_DISPLAY") != NULL; }
+bool coder_dlp_is_available(void) {
+    return getenv("WAYLAND_DISPLAY") != NULL;
+}
 
 void coder_dlp_on_new_surface(coder_dlp_compositor* comp, coder_dlp_surface_cb cb, void* data) {
     if (!comp) {
