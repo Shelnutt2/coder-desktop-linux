@@ -164,21 +164,6 @@ Item {
                     font.pixelSize: 13
                     color: CoderTheme.textSecondary
                 }
-
-                RowLayout {
-                    spacing: 8
-                    StatusChip {
-                        status: workspaceDetailPage.workspaceStatus
-                    }
-                    Label {
-                        visible: workspaceDetailPage.workspaceHealth.length > 0
-                        text: workspaceDetailPage.workspaceHealth
-                        font.pixelSize: 12
-                        font.weight: Font.Medium
-                        color: workspaceDetailPage.workspaceHealth === "Healthy"
-                               ? CoderTheme.success : CoderTheme.error
-                    }
-                }
             }
         }
 
