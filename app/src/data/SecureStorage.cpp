@@ -18,8 +18,7 @@
 // ---------------------------------------------------------------------------
 
 #ifdef HAS_LIBSECRET
-static const SecretSchema *coderSchema()
-{
+static const SecretSchema* coderSchema() {
     static const SecretSchema schema = {
         "com.coder.desktop.credentials",
         SECRET_SCHEMA_NONE,
@@ -36,35 +35,27 @@ static const SecretSchema *coderSchema()
 // Construction & detection
 // ---------------------------------------------------------------------------
 
-SecureStorage::SecureStorage(QObject *parent)
-    : QObject(parent)
-    , m_backend(detectBackend())
-{
+SecureStorage::SecureStorage(QObject* parent) : QObject(parent), m_backend(detectBackend()) {
     // Fallback file lives under the XDG config directory.
     const QString configDir =
-        QStandardPaths::writableLocation(QStandardPaths::GenericConfigLocation)
-        + QStringLiteral("/coder-desktop");
+        QStandardPaths::writableLocation(QStandardPaths::GenericConfigLocation) +
+        QStringLiteral("/coder-desktop");
     QDir().mkpath(configDir);
     m_fallbackPath = configDir + QStringLiteral("/credentials.json");
 
     if (m_backend == Backend::EncryptedFile) {
-        qWarning() << "SecureStorage: using INSECURE file-based fallback at"
-                    << m_fallbackPath
-                    << "— credentials are only base64-encoded, not encrypted.";
+        qWarning() << "SecureStorage: using INSECURE file-based fallback at" << m_fallbackPath
+                   << "— credentials are only base64-encoded, not encrypted.";
     }
-    qDebug() << "SecureStorage: backend ="
-             << static_cast<int>(m_backend);
+    qDebug() << "SecureStorage: backend =" << static_cast<int>(m_backend);
 }
 
-SecureStorage::Backend SecureStorage::detectBackend()
-{
+SecureStorage::Backend SecureStorage::detectBackend() {
 #ifdef HAS_LIBSECRET
     // Try a quick round-trip to see if the secret service is reachable.
-    GError *err = nullptr;
-    gchar *test = secret_password_lookup_sync(
-        coderSchema(), nullptr, &err,
-        "deployment_url", "__coder_desktop_probe__",
-        nullptr);
+    GError* err = nullptr;
+    gchar* test = secret_password_lookup_sync(coderSchema(), nullptr, &err, "deployment_url",
+                                              "__coder_desktop_probe__", nullptr);
     if (err) {
         qDebug() << "SecureStorage: libsecret probe failed:" << err->message;
         g_error_free(err);
@@ -80,18 +71,14 @@ SecureStorage::Backend SecureStorage::detectBackend()
 // Public API
 // ---------------------------------------------------------------------------
 
-bool SecureStorage::isSecureBackendAvailable() const
-{
+bool SecureStorage::isSecureBackendAvailable() const {
     return m_backend == Backend::LibSecret;
 }
 
-bool SecureStorage::storeToken(const QString &deploymentUrl,
-                               const QString &token)
-{
+bool SecureStorage::storeToken(const QString& deploymentUrl, const QString& token) {
 #ifdef HAS_LIBSECRET
     if (m_backend == Backend::LibSecret) {
-        if (!libsecretStore(deploymentUrl, token))
-            return false;
+        if (!libsecretStore(deploymentUrl, token)) return false;
         // Mirror the URL (not the token) to the fallback file so that
         // storedDeploymentUrls() works — libsecret has no schema-scoped
         // enumeration in its simple API.
@@ -104,17 +91,14 @@ bool SecureStorage::storeToken(const QString &deploymentUrl,
     return fileStore(deploymentUrl, token);
 }
 
-QString SecureStorage::retrieveToken(const QString &deploymentUrl)
-{
+QString SecureStorage::retrieveToken(const QString& deploymentUrl) {
 #ifdef HAS_LIBSECRET
-    if (m_backend == Backend::LibSecret)
-        return libsecretRetrieve(deploymentUrl);
+    if (m_backend == Backend::LibSecret) return libsecretRetrieve(deploymentUrl);
 #endif
     return fileRetrieve(deploymentUrl);
 }
 
-bool SecureStorage::removeToken(const QString &deploymentUrl)
-{
+bool SecureStorage::removeToken(const QString& deploymentUrl) {
 #ifdef HAS_LIBSECRET
     if (m_backend == Backend::LibSecret) {
         bool removed = libsecretRemove(deploymentUrl);
@@ -128,11 +112,9 @@ bool SecureStorage::removeToken(const QString &deploymentUrl)
     return fileRemove(deploymentUrl);
 }
 
-QStringList SecureStorage::storedDeploymentUrls()
-{
+QStringList SecureStorage::storedDeploymentUrls() {
 #ifdef HAS_LIBSECRET
-    if (m_backend == Backend::LibSecret)
-        return libsecretListKeys();
+    if (m_backend == Backend::LibSecret) return libsecretListKeys();
 #endif
     return fileListKeys();
 }
@@ -143,17 +125,12 @@ QStringList SecureStorage::storedDeploymentUrls()
 
 #ifdef HAS_LIBSECRET
 
-bool SecureStorage::libsecretStore(const QString &key, const QString &value)
-{
-    GError *err = nullptr;
-    secret_password_store_sync(
-        coderSchema(),
-        SECRET_COLLECTION_DEFAULT,
-        QStringLiteral("Coder Desktop — %1").arg(key).toUtf8().constData(),
-        value.toUtf8().constData(),
-        nullptr, &err,
-        "deployment_url", key.toUtf8().constData(),
-        nullptr);
+bool SecureStorage::libsecretStore(const QString& key, const QString& value) {
+    GError* err = nullptr;
+    secret_password_store_sync(coderSchema(), SECRET_COLLECTION_DEFAULT,
+                               QStringLiteral("Coder Desktop — %1").arg(key).toUtf8().constData(),
+                               value.toUtf8().constData(), nullptr, &err, "deployment_url",
+                               key.toUtf8().constData(), nullptr);
     if (err) {
         qWarning() << "SecureStorage: libsecret store failed:" << err->message;
         g_error_free(err);
@@ -162,32 +139,25 @@ bool SecureStorage::libsecretStore(const QString &key, const QString &value)
     return true;
 }
 
-QString SecureStorage::libsecretRetrieve(const QString &key)
-{
-    GError *err = nullptr;
-    gchar *password = secret_password_lookup_sync(
-        coderSchema(), nullptr, &err,
-        "deployment_url", key.toUtf8().constData(),
-        nullptr);
+QString SecureStorage::libsecretRetrieve(const QString& key) {
+    GError* err = nullptr;
+    gchar* password = secret_password_lookup_sync(coderSchema(), nullptr, &err, "deployment_url",
+                                                  key.toUtf8().constData(), nullptr);
     if (err) {
         qWarning() << "SecureStorage: libsecret lookup failed:" << err->message;
         g_error_free(err);
         return {};
     }
-    if (!password)
-        return {};
+    if (!password) return {};
     QString result = QString::fromUtf8(password);
     secret_password_free(password);
     return result;
 }
 
-bool SecureStorage::libsecretRemove(const QString &key)
-{
-    GError *err = nullptr;
-    gboolean removed = secret_password_clear_sync(
-        coderSchema(), nullptr, &err,
-        "deployment_url", key.toUtf8().constData(),
-        nullptr);
+bool SecureStorage::libsecretRemove(const QString& key) {
+    GError* err = nullptr;
+    gboolean removed = secret_password_clear_sync(coderSchema(), nullptr, &err, "deployment_url",
+                                                  key.toUtf8().constData(), nullptr);
     if (err) {
         qWarning() << "SecureStorage: libsecret remove failed:" << err->message;
         g_error_free(err);
@@ -196,8 +166,7 @@ bool SecureStorage::libsecretRemove(const QString &key)
     return removed;
 }
 
-QStringList SecureStorage::libsecretListKeys()
-{
+QStringList SecureStorage::libsecretListKeys() {
     // libsecret doesn't have a convenient "list by schema" in the simple API.
     // We also keep a mirror in the fallback file for enumeration.
     // This is a pragmatic compromise: the actual secrets live in the keyring,
@@ -205,22 +174,19 @@ QStringList SecureStorage::libsecretListKeys()
     return fileListKeys();
 }
 
-#endif // HAS_LIBSECRET
+#endif  // HAS_LIBSECRET
 
 // ---------------------------------------------------------------------------
 // File-based fallback
 // ---------------------------------------------------------------------------
 
-QJsonObject SecureStorage::loadFallbackFile() const
-{
+QJsonObject SecureStorage::loadFallbackFile() const {
     QFile f(m_fallbackPath);
-    if (!f.open(QIODevice::ReadOnly))
-        return {};
+    if (!f.open(QIODevice::ReadOnly)) return {};
     return QJsonDocument::fromJson(f.readAll()).object();
 }
 
-bool SecureStorage::saveFallbackFile(const QJsonObject &obj) const
-{
+bool SecureStorage::saveFallbackFile(const QJsonObject& obj) const {
     QFile f(m_fallbackPath);
     if (!f.open(QIODevice::WriteOnly | QIODevice::Truncate)) {
         qWarning() << "SecureStorage: cannot write" << m_fallbackPath;
@@ -232,33 +198,27 @@ bool SecureStorage::saveFallbackFile(const QJsonObject &obj) const
     return true;
 }
 
-bool SecureStorage::fileStore(const QString &key, const QString &value)
-{
+bool SecureStorage::fileStore(const QString& key, const QString& value) {
     QJsonObject root = loadFallbackFile();
     // Values are base64-encoded so casual inspection doesn't reveal tokens.
     root.insert(key, QString::fromLatin1(value.toUtf8().toBase64()));
     return saveFallbackFile(root);
 }
 
-QString SecureStorage::fileRetrieve(const QString &key)
-{
+QString SecureStorage::fileRetrieve(const QString& key) {
     const QJsonObject root = loadFallbackFile();
     const QString encoded = root.value(key).toString();
-    if (encoded.isEmpty())
-        return {};
+    if (encoded.isEmpty()) return {};
     return QString::fromUtf8(QByteArray::fromBase64(encoded.toLatin1()));
 }
 
-bool SecureStorage::fileRemove(const QString &key)
-{
+bool SecureStorage::fileRemove(const QString& key) {
     QJsonObject root = loadFallbackFile();
-    if (!root.contains(key))
-        return false;
+    if (!root.contains(key)) return false;
     root.remove(key);
     return saveFallbackFile(root);
 }
 
-QStringList SecureStorage::fileListKeys()
-{
+QStringList SecureStorage::fileListKeys() {
     return loadFallbackFile().keys();
 }

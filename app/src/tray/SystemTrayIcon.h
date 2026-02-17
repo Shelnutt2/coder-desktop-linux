@@ -33,14 +33,14 @@ private slots:
 private:
     void buildMenu();
 
-    VpnBridge* m_vpn = nullptr;              // non-owning
-    QMenu      m_menu;
-    QMenu*     m_workspacesMenu    = nullptr;  // Qt parent-owned (m_menu)
-    QAction*   m_connectAction     = nullptr;  // Qt parent-owned (m_menu)
-    QAction*   m_disconnectAction  = nullptr;  // Qt parent-owned (m_menu)
-    QAction*   m_settingsAction    = nullptr;  // Qt parent-owned (m_menu)
-    QAction*   m_openAction        = nullptr;  // Qt parent-owned (m_menu)
-    QAction*   m_quitAction        = nullptr;  // Qt parent-owned (m_menu)
+    VpnBridge* m_vpn = nullptr;  // non-owning
+    QMenu m_menu;
+    QMenu* m_workspacesMenu = nullptr;      // Qt parent-owned (m_menu)
+    QAction* m_connectAction = nullptr;     // Qt parent-owned (m_menu)
+    QAction* m_disconnectAction = nullptr;  // Qt parent-owned (m_menu)
+    QAction* m_settingsAction = nullptr;    // Qt parent-owned (m_menu)
+    QAction* m_openAction = nullptr;        // Qt parent-owned (m_menu)
+    QAction* m_quitAction = nullptr;        // Qt parent-owned (m_menu)
 };
 
-#endif // SYSTEMTRAYICON_H
+#endif  // SYSTEMTRAYICON_H

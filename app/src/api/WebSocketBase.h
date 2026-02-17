@@ -20,37 +20,37 @@ class WebSocketBase : public QObject {
     Q_PROPERTY(bool connected READ isConnected NOTIFY connectionStateChanged)
 
 public:
-    explicit WebSocketBase(QObject *parent = nullptr);
+    explicit WebSocketBase(QObject* parent = nullptr);
     ~WebSocketBase() override;
 
-    void setBaseUrl(const QString &url);
-    void setSessionToken(const QString &token);
+    void setBaseUrl(const QString& url);
+    void setSessionToken(const QString& token);
 
     [[nodiscard]] bool isConnected() const;
 
-    Q_INVOKABLE void connectToEndpoint(const QString &path);
+    Q_INVOKABLE void connectToEndpoint(const QString& path);
     Q_INVOKABLE void disconnect();
 
     // Reconnection policy
     void setAutoReconnect(bool enabled);
-    void setMaxReconnectAttempts(int max); // default 5
+    void setMaxReconnectAttempts(int max);  // default 5
 
 signals:
     void connectionStateChanged();
     void connected();
     void disconnected();
-    void errorOccurred(const QString &error);
-    void textMessageReceived(const QString &message);
-    void binaryMessageReceived(const QByteArray &data);
+    void errorOccurred(const QString& error);
+    void textMessageReceived(const QString& message);
+    void binaryMessageReceived(const QByteArray& data);
 
 protected:
-    void sendTextMessage(const QString &message);
-    void sendBinaryMessage(const QByteArray &data);
+    void sendTextMessage(const QString& message);
+    void sendBinaryMessage(const QByteArray& data);
 
     /// Subclasses override to handle incoming text frames.
-    virtual void onTextMessage(const QString &message);
+    virtual void onTextMessage(const QString& message);
     /// Subclasses override to handle incoming binary frames.
-    virtual void onBinaryMessage(const QByteArray &data);
+    virtual void onBinaryMessage(const QByteArray& data);
 
 private:
 #ifdef HAS_WEBSOCKETS
@@ -68,7 +68,7 @@ private:
     void onDisconnected();
     void onError(int error);
     void attemptReconnect();
-    [[nodiscard]] QUrl buildWsUrl(const QString &path) const;
+    [[nodiscard]] QUrl buildWsUrl(const QString& path) const;
 };
 
-#endif // WEBSOCKETBASE_H
+#endif  // WEBSOCKETBASE_H

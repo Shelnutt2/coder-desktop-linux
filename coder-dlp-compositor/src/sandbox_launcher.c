@@ -16,39 +16,47 @@
 
 /* Visible for testing via the internal header — builds the NULL-terminated
  * argv array for bwrap.  Caller must free with dlp_free_bwrap_args(). */
-char **dlp_build_bwrap_args(const coder_dlp_compositor *comp,
-                            const char *command,
-                            const coder_dlp_sandbox_config *sandbox) {
+char** dlp_build_bwrap_args(const coder_dlp_compositor* comp, const char* command,
+                            const coder_dlp_sandbox_config* sandbox) {
     if (!comp || !command) {
         return NULL;
     }
 
     int argc = 0;
     int capacity = 64;
-    char **argv = calloc((size_t)capacity, sizeof(char *));
+    char** argv = calloc((size_t)capacity, sizeof(char*));
     if (!argv) {
         return NULL;
     }
 
-#define PUSH(s)                                                     \
-    do {                                                            \
-        if (argc >= capacity - 1) {                                 \
-            capacity *= 2;                                          \
-            char **tmp = realloc(argv, (size_t)capacity * sizeof(char *)); \
-            if (!tmp) { goto oom; }                                 \
-            argv = tmp;                                             \
-        }                                                           \
-        argv[argc++] = strdup(s);                                   \
-        if (!argv[argc - 1]) { goto oom; }                          \
+#define PUSH(s)                                                           \
+    do {                                                                  \
+        if (argc >= capacity - 1) {                                       \
+            capacity *= 2;                                                \
+            char** tmp = realloc(argv, (size_t)capacity * sizeof(char*)); \
+            if (!tmp) {                                                   \
+                goto oom;                                                 \
+            }                                                             \
+            argv = tmp;                                                   \
+        }                                                                 \
+        argv[argc++] = strdup(s);                                         \
+        if (!argv[argc - 1]) {                                            \
+            goto oom;                                                     \
+        }                                                                 \
     } while (0)
 
     PUSH("bwrap");
 
     /* Base filesystem: read-only bind of / */
-    PUSH("--ro-bind"); PUSH("/"); PUSH("/");
-    PUSH("--dev");     PUSH("/dev");
-    PUSH("--proc");    PUSH("/proc");
-    PUSH("--tmpfs");   PUSH("/tmp");
+    PUSH("--ro-bind");
+    PUSH("/");
+    PUSH("/");
+    PUSH("--dev");
+    PUSH("/dev");
+    PUSH("--proc");
+    PUSH("/proc");
+    PUSH("--tmpfs");
+    PUSH("/tmp");
 
     /* Workspace path: writable bind mount */
     if (sandbox && sandbox->workspace_path) {
@@ -99,7 +107,7 @@ oom:
 #undef PUSH
 }
 
-void dlp_free_bwrap_args(char **argv) {
+void dlp_free_bwrap_args(char** argv) {
     if (!argv) {
         return;
     }
@@ -109,13 +117,13 @@ void dlp_free_bwrap_args(char **argv) {
     free(argv);
 }
 
-int coder_dlp_launch_app(coder_dlp_compositor *comp, const char *command,
-                          const coder_dlp_sandbox_config *sandbox) {
+int coder_dlp_launch_app(coder_dlp_compositor* comp, const char* command,
+                         const coder_dlp_sandbox_config* sandbox) {
     if (!comp || !command) {
         return -1;
     }
 
-    char **argv = dlp_build_bwrap_args(comp, command, sandbox);
+    char** argv = dlp_build_bwrap_args(comp, command, sandbox);
     if (!argv) {
         return -1;
     }

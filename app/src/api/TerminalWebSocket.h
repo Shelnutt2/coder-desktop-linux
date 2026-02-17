@@ -14,17 +14,16 @@ class TerminalWebSocket : public WebSocketBase {
     Q_OBJECT
 
 public:
-    explicit TerminalWebSocket(QObject *parent = nullptr);
+    explicit TerminalWebSocket(QObject* parent = nullptr);
 
     /// Connect to an agent's PTY session.
     /// @param agentId  The workspace agent UUID.
     /// @param cols     Terminal width  (default 80).
     /// @param rows     Terminal height (default 24).
-    Q_INVOKABLE void connectToPty(const QString &agentId,
-                                  int cols = 80, int rows = 24);
+    Q_INVOKABLE void connectToPty(const QString& agentId, int cols = 80, int rows = 24);
 
     /// Send input text to the terminal.
-    Q_INVOKABLE void sendInput(const QString &data);
+    Q_INVOKABLE void sendInput(const QString& data);
 
     /// Resize the remote terminal.
     Q_INVOKABLE void resize(int cols, int rows);
@@ -34,11 +33,11 @@ public:
 
 signals:
     /// Emitted when terminal output is received.
-    void outputReceived(const QString &data);
+    void outputReceived(const QString& data);
 
 protected:
-    void onTextMessage(const QString &message) override;
-    void onBinaryMessage(const QByteArray &data) override;
+    void onTextMessage(const QString& message) override;
+    void onBinaryMessage(const QByteArray& data) override;
 
 private:
     QString m_sessionId;
@@ -47,4 +46,4 @@ private:
     int m_rows = 24;
 };
 
-#endif // TERMINALWEBSOCKET_H
+#endif  // TERMINALWEBSOCKET_H

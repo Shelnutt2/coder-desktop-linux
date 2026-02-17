@@ -9,9 +9,9 @@
 #include <QUrl>
 
 #ifdef HAS_WEBENGINE
+#include <QNetworkCookie>
 #include <QWebEngineCookieStore>
 #include <QWebEngineProfile>
-#include <QNetworkCookie>
 #endif
 
 // Cookie name used by Coder deployments for session authentication.
@@ -25,12 +25,8 @@ static const QString kProbeEndpoint = QStringLiteral("/api/v2/buildinfo");
 // Probe timeout in milliseconds.
 static constexpr int kProbeTimeoutMs = 10000;
 
-LoginFlowController::LoginFlowController(SessionManager &sessionManager,
-                                         QObject *parent)
-    : QObject(parent)
-    , m_sessionManager(sessionManager)
-    , m_nam(new QNetworkAccessManager(this))
-{
+LoginFlowController::LoginFlowController(SessionManager& sessionManager, QObject* parent)
+    : QObject(parent), m_sessionManager(sessionManager), m_nam(new QNetworkAccessManager(this)) {
 #ifdef HAS_WEBENGINE
     // Off-the-record profile — cookies are not persisted to disk.
     m_profile = new QWebEngineProfile(this);
@@ -41,8 +37,7 @@ LoginFlowController::LoginFlowController(SessionManager &sessionManager,
 
 LoginFlowController::~LoginFlowController() = default;
 
-bool LoginFlowController::isWebEngineAvailable() const
-{
+bool LoginFlowController::isWebEngineAvailable() const {
 #ifdef HAS_WEBENGINE
     return true;
 #else
@@ -50,34 +45,27 @@ bool LoginFlowController::isWebEngineAvailable() const
 #endif
 }
 
-bool LoginFlowController::isFlowActive() const
-{
+bool LoginFlowController::isFlowActive() const {
     return m_flowActive;
 }
 
-bool LoginFlowController::isProbing() const
-{
+bool LoginFlowController::isProbing() const {
     return m_probing;
 }
 
-QString LoginFlowController::loginUrl() const
-{
+QString LoginFlowController::loginUrl() const {
     return m_loginUrl;
 }
 
-void LoginFlowController::startFlow(const QString &deploymentUrl)
-{
+void LoginFlowController::startFlow(const QString& deploymentUrl) {
     // Normalise: strip trailing slashes.
     QString base = deploymentUrl;
-    while (base.endsWith(QLatin1Char('/')))
-        base.chop(1);
+    while (base.endsWith(QLatin1Char('/'))) base.chop(1);
 
-    if (base.isEmpty())
-        return;
+    if (base.isEmpty()) return;
 
     // If the URL already has a scheme, proceed directly.
-    if (base.startsWith(QLatin1String("http://")) ||
-        base.startsWith(QLatin1String("https://"))) {
+    if (base.startsWith(QLatin1String("http://")) || base.startsWith(QLatin1String("https://"))) {
         continueStartFlow(base);
         return;
     }
@@ -86,8 +74,7 @@ void LoginFlowController::startFlow(const QString &deploymentUrl)
     probeScheme(base);
 }
 
-void LoginFlowController::probeScheme(const QString &hostWithoutScheme)
-{
+void LoginFlowController::probeScheme(const QString& hostWithoutScheme) {
     m_pendingHost = hostWithoutScheme;
     m_probing = true;
     emit probingChanged();
@@ -96,13 +83,12 @@ void LoginFlowController::probeScheme(const QString &hostWithoutScheme)
     QNetworkRequest request(httpsUrl);
     request.setTransferTimeout(kProbeTimeoutMs);
 
-    QNetworkReply *reply = m_nam->get(request);
+    QNetworkReply* reply = m_nam->get(request);
     connect(reply, &QNetworkReply::finished, this, [this, reply]() {
         reply->deleteLater();
 
         // If we're no longer probing (e.g. flow was cancelled), ignore.
-        if (!m_probing)
-            return;
+        if (!m_probing) return;
 
         if (reply->error() == QNetworkReply::NoError ||
             reply->error() == QNetworkReply::AuthenticationRequiredError ||
@@ -125,12 +111,11 @@ void LoginFlowController::probeScheme(const QString &hostWithoutScheme)
         QNetworkRequest httpReq(httpUrl);
         httpReq.setTransferTimeout(kProbeTimeoutMs);
 
-        QNetworkReply *httpReply = m_nam->get(httpReq);
+        QNetworkReply* httpReply = m_nam->get(httpReq);
         connect(httpReply, &QNetworkReply::finished, this, [this, httpReply]() {
             httpReply->deleteLater();
 
-            if (!m_probing)
-                return;
+            if (!m_probing) return;
 
             m_probing = false;
             emit probingChanged();
@@ -146,8 +131,8 @@ void LoginFlowController::probeScheme(const QString &hostWithoutScheme)
             } else {
                 // Neither scheme works — default to https and let the user
                 // see the actual connection error during login.
-                qWarning() << "LoginFlowController: both probes failed for"
-                           << m_pendingHost << "— defaulting to https";
+                qWarning() << "LoginFlowController: both probes failed for" << m_pendingHost
+                           << "— defaulting to https";
                 emit probeFailed(
                     QStringLiteral("Could not reach server. Check the URL and try again."));
             }
@@ -155,8 +140,7 @@ void LoginFlowController::probeScheme(const QString &hostWithoutScheme)
     });
 }
 
-void LoginFlowController::continueStartFlow(const QString &resolvedBaseUrl)
-{
+void LoginFlowController::continueStartFlow(const QString& resolvedBaseUrl) {
     m_deploymentUrl = resolvedBaseUrl;
 
 #ifdef HAS_WEBENGINE
@@ -174,8 +158,7 @@ void LoginFlowController::continueStartFlow(const QString &resolvedBaseUrl)
 #endif
 }
 
-void LoginFlowController::cancelFlow()
-{
+void LoginFlowController::cancelFlow() {
     m_flowActive = false;
     m_loginUrl.clear();
     m_deploymentUrl.clear();
@@ -195,14 +178,11 @@ void LoginFlowController::cancelFlow()
     emit flowActiveChanged();
 }
 
-void LoginFlowController::openExternalCliAuth(const QString &deploymentUrl)
-{
+void LoginFlowController::openExternalCliAuth(const QString& deploymentUrl) {
     QString base = deploymentUrl;
-    while (base.endsWith(QLatin1Char('/')))
-        base.chop(1);
+    while (base.endsWith(QLatin1Char('/'))) base.chop(1);
 
-    if (!base.startsWith(QLatin1String("http://")) &&
-        !base.startsWith(QLatin1String("https://"))) {
+    if (!base.startsWith(QLatin1String("http://")) && !base.startsWith(QLatin1String("https://"))) {
         base.prepend(QLatin1String("https://"));
     }
 
@@ -212,40 +192,34 @@ void LoginFlowController::openExternalCliAuth(const QString &deploymentUrl)
 }
 
 #ifdef HAS_WEBENGINE
-void LoginFlowController::setupCookieMonitoring()
-{
-    connect(m_cookieStore, &QWebEngineCookieStore::cookieAdded,
-            this, [this](const QNetworkCookie &cookie) {
-        if (!m_flowActive)
-            return;
+void LoginFlowController::setupCookieMonitoring() {
+    connect(m_cookieStore, &QWebEngineCookieStore::cookieAdded, this,
+            [this](const QNetworkCookie& cookie) {
+                if (!m_flowActive) return;
 
-        if (cookie.name() != kSessionCookieName)
-            return;
+                if (cookie.name() != kSessionCookieName) return;
 
-        const QString token = QString::fromUtf8(cookie.value());
-        if (token.isEmpty())
-            return;
+                const QString token = QString::fromUtf8(cookie.value());
+                if (token.isEmpty()) return;
 
-        qInfo() << "LoginFlowController: captured session token from browser cookie";
+                qInfo() << "LoginFlowController: captured session token from browser cookie";
 
-        // Auto-login with the captured token.
-        m_sessionManager.login(m_deploymentUrl, token);
+                // Auto-login with the captured token.
+                m_sessionManager.login(m_deploymentUrl, token);
 
-        // End the flow.
-        m_flowActive = false;
-        m_loginUrl.clear();
-        emit loginUrlChanged();
-        emit flowActiveChanged();
-        emit tokenObtained(m_deploymentUrl, token);
+                // End the flow.
+                m_flowActive = false;
+                m_loginUrl.clear();
+                emit loginUrlChanged();
+                emit flowActiveChanged();
+                emit tokenObtained(m_deploymentUrl, token);
 
-        // Clear cookies now that we have the token.
-        clearCookies();
-    });
+                // Clear cookies now that we have the token.
+                clearCookies();
+            });
 }
 
-void LoginFlowController::clearCookies()
-{
-    if (m_cookieStore)
-        m_cookieStore->deleteAllCookies();
+void LoginFlowController::clearCookies() {
+    if (m_cookieStore) m_cookieStore->deleteAllCookies();
 }
 #endif

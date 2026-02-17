@@ -21,7 +21,8 @@
 /// The constructor accepts an optional override for testing.
 class MdmConfigManager {
 public:
-    explicit MdmConfigManager(const QString& policyPath = QStringLiteral("/etc/coder-desktop/policy.json"));
+    explicit MdmConfigManager(
+        const QString& policyPath = QStringLiteral("/etc/coder-desktop/policy.json"));
 
     /// Returns true if the policy file exists and was successfully parsed.
     bool isEnabled() const { return m_enabled; }
@@ -38,9 +39,9 @@ public:
 private:
     QString m_policyPath;
     bool m_enabled = false;
-    QJsonObject m_settings; ///< The "settings" object from policy JSON.
+    QJsonObject m_settings;  ///< The "settings" object from policy JSON.
 
     void parse();
 };
 
-#endif // MDMCONFIGMANAGER_H
+#endif  // MDMCONFIGMANAGER_H

@@ -19,12 +19,11 @@ public:
     QString email;
     QString avatarUrl;
 
-    static User fromJson(const QJsonObject &obj)
-    {
+    static User fromJson(const QJsonObject& obj) {
         User u;
-        u.id        = obj.value(QLatin1String("id")).toString();
-        u.username  = obj.value(QLatin1String("username")).toString();
-        u.email     = obj.value(QLatin1String("email")).toString();
+        u.id = obj.value(QLatin1String("id")).toString();
+        u.username = obj.value(QLatin1String("username")).toString();
+        u.email = obj.value(QLatin1String("email")).toString();
         u.avatarUrl = obj.value(QLatin1String("avatar_url")).toString();
         return u;
     }
@@ -32,4 +31,4 @@ public:
 
 Q_DECLARE_METATYPE(User)
 
-#endif // CODER_DTO_USER_H
+#endif  // CODER_DTO_USER_H

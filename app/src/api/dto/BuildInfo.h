@@ -17,11 +17,10 @@ public:
     QString dashboardUrl;
     bool externalAuthEnabled = false;
 
-    static BuildInfo fromJson(const QJsonObject &obj)
-    {
+    static BuildInfo fromJson(const QJsonObject& obj) {
         BuildInfo b;
-        b.version             = obj.value(QLatin1String("version")).toString();
-        b.dashboardUrl        = obj.value(QLatin1String("dashboard_url")).toString();
+        b.version = obj.value(QLatin1String("version")).toString();
+        b.dashboardUrl = obj.value(QLatin1String("dashboard_url")).toString();
         b.externalAuthEnabled = obj.value(QLatin1String("external_auth_enabled")).toBool();
         return b;
     }
@@ -29,4 +28,4 @@ public:
 
 Q_DECLARE_METATYPE(BuildInfo)
 
-#endif // CODER_DTO_BUILDINFO_H
+#endif  // CODER_DTO_BUILDINFO_H

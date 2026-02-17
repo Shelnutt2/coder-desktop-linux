@@ -9,7 +9,7 @@
 
 #define LOG_ERR(fmt, ...) fprintf(stderr, "coder-dlp: " fmt "\n", ##__VA_ARGS__)
 
-coder_dlp_compositor *coder_dlp_create(void *parent_wl_surface) {
+coder_dlp_compositor* coder_dlp_create(void* parent_wl_surface) {
     /* parent_wl_surface is reserved for future use with
      * wlr_wl_output_create_from_surface() for embedded rendering.
      * Currently the Wayland backend picks up WAYLAND_DISPLAY automatically. */
@@ -17,7 +17,7 @@ coder_dlp_compositor *coder_dlp_create(void *parent_wl_surface) {
 
     wlr_log_init(WLR_ERROR, NULL);
 
-    coder_dlp_compositor *comp = calloc(1, sizeof(*comp));
+    coder_dlp_compositor* comp = calloc(1, sizeof(*comp));
     if (!comp) {
         return NULL;
     }
@@ -54,22 +54,19 @@ coder_dlp_compositor *coder_dlp_create(void *parent_wl_surface) {
     }
 
     /* Wayland globals */
-    comp->wlr_compositor = wlr_compositor_create(comp->wl_display, 5,
-                                                  comp->renderer);
+    comp->wlr_compositor = wlr_compositor_create(comp->wl_display, 5, comp->renderer);
     comp->subcompositor = wlr_subcompositor_create(comp->wl_display);
     comp->data_device_mgr = wlr_data_device_manager_create(comp->wl_display);
 
     /* Output layout + scene graph */
     comp->output_layout = wlr_output_layout_create(comp->wl_display);
     comp->scene = wlr_scene_create();
-    comp->scene_layout = wlr_scene_attach_output_layout(comp->scene,
-                                                         comp->output_layout);
+    comp->scene_layout = wlr_scene_attach_output_layout(comp->scene, comp->output_layout);
 
     /* XDG shell (version 3) */
     comp->xdg_shell = wlr_xdg_shell_create(comp->wl_display, 3);
     comp->new_xdg_toplevel.notify = compositor_handle_new_xdg_toplevel;
-    wl_signal_add(&comp->xdg_shell->events.new_toplevel,
-                  &comp->new_xdg_toplevel);
+    wl_signal_add(&comp->xdg_shell->events.new_toplevel, &comp->new_xdg_toplevel);
     comp->new_xdg_popup.notify = compositor_handle_new_xdg_popup;
     wl_signal_add(&comp->xdg_shell->events.new_popup, &comp->new_xdg_popup);
 
@@ -108,7 +105,7 @@ err_free:
     return NULL;
 }
 
-void coder_dlp_destroy(coder_dlp_compositor *comp) {
+void coder_dlp_destroy(coder_dlp_compositor* comp) {
     if (!comp) {
         return;
     }
@@ -124,12 +121,9 @@ void coder_dlp_destroy(coder_dlp_compositor *comp) {
     free(comp);
 }
 
-bool coder_dlp_is_available(void) {
-    return getenv("WAYLAND_DISPLAY") != NULL;
-}
+bool coder_dlp_is_available(void) { return getenv("WAYLAND_DISPLAY") != NULL; }
 
-void coder_dlp_on_new_surface(coder_dlp_compositor *comp,
-                               coder_dlp_surface_cb cb, void *data) {
+void coder_dlp_on_new_surface(coder_dlp_compositor* comp, coder_dlp_surface_cb cb, void* data) {
     if (!comp) {
         return;
     }

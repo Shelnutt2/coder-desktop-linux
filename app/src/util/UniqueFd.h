@@ -17,7 +17,10 @@ public:
     UniqueFd& operator=(const UniqueFd&) = delete;
     UniqueFd(UniqueFd&& other) noexcept : m_fd(std::exchange(other.m_fd, -1)) {}
     UniqueFd& operator=(UniqueFd&& other) noexcept {
-        if (this != &other) { reset(); m_fd = std::exchange(other.m_fd, -1); }
+        if (this != &other) {
+            reset();
+            m_fd = std::exchange(other.m_fd, -1);
+        }
         return *this;
     }
 
@@ -38,4 +41,4 @@ private:
     int m_fd = -1;
 };
 
-#endif // UNIQUEFD_H
+#endif  // UNIQUEFD_H

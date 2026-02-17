@@ -14,24 +14,24 @@ class BuildLogWebSocket : public WebSocketBase {
     Q_OBJECT
 
 public:
-    explicit BuildLogWebSocket(QObject *parent = nullptr);
+    explicit BuildLogWebSocket(QObject* parent = nullptr);
 
     /// Connect to a build's log stream.
-    Q_INVOKABLE void connectToBuildLogs(const QString &buildId);
+    Q_INVOKABLE void connectToBuildLogs(const QString& buildId);
 
 signals:
     /// Emitted for each log line received from the server.
-    void logReceived(int id, const QString &output, const QString &level,
-                     const QString &stage, const QDateTime &createdAt);
+    void logReceived(int id, const QString& output, const QString& level, const QString& stage,
+                     const QDateTime& createdAt);
 
     /// Emitted when the build is complete (WebSocket closes normally).
     void buildComplete();
 
 protected:
-    void onTextMessage(const QString &message) override;
+    void onTextMessage(const QString& message) override;
 
 private:
     QString m_buildId;
 };
 
-#endif // BUILDLOGWEBSOCKET_H
+#endif  // BUILDLOGWEBSOCKET_H

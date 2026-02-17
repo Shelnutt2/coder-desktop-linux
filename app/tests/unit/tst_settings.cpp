@@ -19,25 +19,21 @@ class TestSettings : public QObject {
 
 private:
     /// Write a JSON policy file into @p dir and return the full path.
-    static QString writePolicyFile(const QTemporaryDir& dir,
-                                   const QJsonObject& settingsObj)
-    {
+    static QString writePolicyFile(const QTemporaryDir& dir, const QJsonObject& settingsObj) {
         QJsonObject root;
         root[QStringLiteral("version")] = 1;
         root[QStringLiteral("settings")] = settingsObj;
 
         const QString path = dir.filePath(QStringLiteral("policy.json"));
         QFile f(path);
-        if (!f.open(QIODevice::WriteOnly | QIODevice::Text | QIODevice::Truncate))
-            return {};
+        if (!f.open(QIODevice::WriteOnly | QIODevice::Text | QIODevice::Truncate)) return {};
         f.write(QJsonDocument(root).toJson(QJsonDocument::Compact));
         f.close();
         return path;
     }
 
     /// Return a user-settings path inside @p dir (file need not exist yet).
-    static QString userSettingsPath(const QTemporaryDir& dir)
-    {
+    static QString userSettingsPath(const QTemporaryDir& dir) {
         return dir.filePath(QStringLiteral("settings.ini"));
     }
 
@@ -46,15 +42,13 @@ private slots:
     // -----------------------------------------------------------------
     // 1. Default values when no MDM and no user prefs
     // -----------------------------------------------------------------
-    void testDefaults()
-    {
+    void testDefaults() {
         QTemporaryDir tmpDir;
         QVERIFY(tmpDir.isValid());
 
         // Point MDM at a non-existent file.
-        SettingsManager mgr(
-            tmpDir.filePath(QStringLiteral("no-such-policy.json")),
-            userSettingsPath(tmpDir));
+        SettingsManager mgr(tmpDir.filePath(QStringLiteral("no-such-policy.json")),
+                            userSettingsPath(tmpDir));
 
         QCOMPARE(mgr.deploymentUrl(), QString());
         QCOMPARE(mgr.allowedDeployments(), QStringList());
@@ -85,14 +79,12 @@ private slots:
     // -----------------------------------------------------------------
     // 2. User preferences override defaults
     // -----------------------------------------------------------------
-    void testUserPrefsOverrideDefaults()
-    {
+    void testUserPrefsOverrideDefaults() {
         QTemporaryDir tmpDir;
         QVERIFY(tmpDir.isValid());
 
-        SettingsManager mgr(
-            tmpDir.filePath(QStringLiteral("no-such-policy.json")),
-            userSettingsPath(tmpDir));
+        SettingsManager mgr(tmpDir.filePath(QStringLiteral("no-such-policy.json")),
+                            userSettingsPath(tmpDir));
 
         mgr.setUserPreference(QStringLiteral("theme"), QStringLiteral("dark"));
         QCOMPARE(mgr.theme(), QStringLiteral("dark"));
@@ -112,14 +104,13 @@ private slots:
     // -----------------------------------------------------------------
     // 3. MDM values override user preferences
     // -----------------------------------------------------------------
-    void testMdmOverridesUserPrefs()
-    {
+    void testMdmOverridesUserPrefs() {
         QTemporaryDir tmpDir;
         QVERIFY(tmpDir.isValid());
 
         // Write MDM policy that sets theme = "light" (locked).
         QJsonObject themeEntry;
-        themeEntry[QStringLiteral("value")]  = QStringLiteral("light");
+        themeEntry[QStringLiteral("value")] = QStringLiteral("light");
         themeEntry[QStringLiteral("locked")] = true;
 
         QJsonObject settings;
@@ -147,13 +138,12 @@ private slots:
     // -----------------------------------------------------------------
     // 4. MDM locked prevents setUserPreference from changing value
     // -----------------------------------------------------------------
-    void testMdmLockedPreventsUserChange()
-    {
+    void testMdmLockedPreventsUserChange() {
         QTemporaryDir tmpDir;
         QVERIFY(tmpDir.isValid());
 
         QJsonObject entry;
-        entry[QStringLiteral("value")]  = true;
+        entry[QStringLiteral("value")] = true;
         entry[QStringLiteral("locked")] = true;
 
         QJsonObject settings;
@@ -175,13 +165,12 @@ private slots:
     // -----------------------------------------------------------------
     // 5. MDM suggested (locked=false) allows user override
     // -----------------------------------------------------------------
-    void testMdmSuggestedAllowsOverride()
-    {
+    void testMdmSuggestedAllowsOverride() {
         QTemporaryDir tmpDir;
         QVERIFY(tmpDir.isValid());
 
         QJsonObject entry;
-        entry[QStringLiteral("value")]  = QStringLiteral("dark");
+        entry[QStringLiteral("value")] = QStringLiteral("dark");
         entry[QStringLiteral("locked")] = false;
 
         QJsonObject settings;
@@ -211,14 +200,12 @@ private slots:
     // -----------------------------------------------------------------
     // 6. settingsChanged signal emitted on preference change
     // -----------------------------------------------------------------
-    void testSettingsChangedSignal()
-    {
+    void testSettingsChangedSignal() {
         QTemporaryDir tmpDir;
         QVERIFY(tmpDir.isValid());
 
-        SettingsManager mgr(
-            tmpDir.filePath(QStringLiteral("no-such-policy.json")),
-            userSettingsPath(tmpDir));
+        SettingsManager mgr(tmpDir.filePath(QStringLiteral("no-such-policy.json")),
+                            userSettingsPath(tmpDir));
 
         QSignalSpy spy(&mgr, &SettingsManager::settingsChanged);
         QVERIFY(spy.isValid());
@@ -233,8 +220,7 @@ private slots:
     // -----------------------------------------------------------------
     // 7. externalBrowserAllowed computed property
     // -----------------------------------------------------------------
-    void testExternalBrowserAllowed()
-    {
+    void testExternalBrowserAllowed() {
         QTemporaryDir tmpDir;
         QVERIFY(tmpDir.isValid());
 
@@ -242,17 +228,13 @@ private slots:
 
         // Both false → allowed
         {
-            SettingsManager mgr(
-                tmpDir.filePath(QStringLiteral("no-such-policy.json")),
-                prefsPath);
+            SettingsManager mgr(tmpDir.filePath(QStringLiteral("no-such-policy.json")), prefsPath);
             QCOMPARE(mgr.externalBrowserAllowed(), true);
         }
 
         // dlpForceInAppBrowser=true, dlpDisableExternalBrowser=false → not allowed
         {
-            SettingsManager mgr(
-                tmpDir.filePath(QStringLiteral("no-such-policy.json")),
-                prefsPath);
+            SettingsManager mgr(tmpDir.filePath(QStringLiteral("no-such-policy.json")), prefsPath);
             mgr.setUserPreference(QStringLiteral("dlpForceInAppBrowser"), true);
             mgr.setUserPreference(QStringLiteral("dlpDisableExternalBrowser"), false);
             QCOMPARE(mgr.externalBrowserAllowed(), false);
@@ -260,9 +242,7 @@ private slots:
 
         // dlpForceInAppBrowser=false, dlpDisableExternalBrowser=true → not allowed
         {
-            SettingsManager mgr(
-                tmpDir.filePath(QStringLiteral("no-such-policy.json")),
-                prefsPath);
+            SettingsManager mgr(tmpDir.filePath(QStringLiteral("no-such-policy.json")), prefsPath);
             mgr.setUserPreference(QStringLiteral("dlpForceInAppBrowser"), false);
             mgr.setUserPreference(QStringLiteral("dlpDisableExternalBrowser"), true);
             QCOMPARE(mgr.externalBrowserAllowed(), false);
@@ -270,9 +250,7 @@ private slots:
 
         // Both true → not allowed
         {
-            SettingsManager mgr(
-                tmpDir.filePath(QStringLiteral("no-such-policy.json")),
-                prefsPath);
+            SettingsManager mgr(tmpDir.filePath(QStringLiteral("no-such-policy.json")), prefsPath);
             mgr.setUserPreference(QStringLiteral("dlpForceInAppBrowser"), true);
             mgr.setUserPreference(QStringLiteral("dlpDisableExternalBrowser"), true);
             QCOMPARE(mgr.externalBrowserAllowed(), false);
@@ -282,8 +260,7 @@ private slots:
     // -----------------------------------------------------------------
     // 8. Invalid / missing MDM JSON handled gracefully
     // -----------------------------------------------------------------
-    void testInvalidMdmJson()
-    {
+    void testInvalidMdmJson() {
         QTemporaryDir tmpDir;
         QVERIFY(tmpDir.isValid());
 
@@ -333,9 +310,8 @@ private slots:
 
         // d) Non-existent file — falls back to defaults gracefully.
         {
-            SettingsManager mgr(
-                tmpDir.filePath(QStringLiteral("does-not-exist.json")),
-                userSettingsPath(tmpDir));
+            SettingsManager mgr(tmpDir.filePath(QStringLiteral("does-not-exist.json")),
+                                userSettingsPath(tmpDir));
             QCOMPARE(mgr.mdmEnabled(), false);
             QCOMPARE(mgr.notificationsEnabled(), true);
         }
