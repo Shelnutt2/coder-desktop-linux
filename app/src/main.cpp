@@ -77,7 +77,8 @@ int main(int argc, char* argv[])
         qSetMessagePattern(QStringLiteral(
             "[%{time hh:mm:ss}] [%{type}] %{message}"));
     } else {
-        // "info" or unrecognized → default
+        // "info" or unrecognized → default: suppress debug messages
+        QLoggingCategory::setFilterRules(QStringLiteral("*.debug=false"));
         qSetMessagePattern(QStringLiteral(
             "[%{time hh:mm:ss}] [%{type}] %{message}"));
     }
