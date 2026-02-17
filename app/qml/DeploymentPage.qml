@@ -3,11 +3,15 @@ import QtQuick.Controls
 import QtQuick.Controls.Material
 import QtQuick.Layouts
 
-// Page for managing multiple Coder deployments.
+// Settings subpage for managing multiple Coder deployments.
 // Shows saved deployments with switch/remove actions and an inline form
 // for adding new deployments via sessionManager.login().
+// Can be loaded via Loader from SettingsPage ("Manage Deployments →").
 Item {
     id: deploymentsPage
+
+    // Signal emitted when user taps the back button
+    signal backRequested()
 
     // Refresh the deployment list whenever visibility changes or after
     // login/remove/switch actions.
@@ -28,22 +32,44 @@ Item {
         function onAuthStateChanged() { deploymentsPage.refreshDeployments() }
     }
 
+    Rectangle {
+        anchors.fill: parent
+        color: CoderTheme.background
+    }
+
     ColumnLayout {
         anchors.fill: parent
         anchors.margins: 16
         spacing: 12
 
-        // ---- Header ----
-        Label {
-            text: "Deployments"
-            font.pixelSize: 20
-            font.bold: true
+        // ---- Header with back button ----
+        RowLayout {
+            spacing: 8
+
+            Label {
+                text: "←"
+                font.pixelSize: 20
+                color: CoderTheme.primary
+
+                MouseArea {
+                    anchors.fill: parent
+                    cursorShape: Qt.PointingHandCursor
+                    onClicked: deploymentsPage.backRequested()
+                }
+            }
+
+            Label {
+                text: "Deployments"
+                font.pixelSize: 20
+                font.bold: true
+                color: CoderTheme.textPrimary
+            }
         }
 
         Label {
             text: "Manage your Coder deployment connections."
             font.pixelSize: 13
-            opacity: 0.6
+            color: CoderTheme.textSecondary
             Layout.fillWidth: true
             wrapMode: Text.WordWrap
         }
@@ -60,10 +86,10 @@ Item {
             delegate: Rectangle {
                 width: deploymentListView.width
                 height: delegateContent.implicitHeight + 24
-                radius: 8
-                color: Material.background
+                radius: CoderTheme.radius
+                color: CoderTheme.surface
                 border.color: modelData.isActive
-                    ? Material.accent : Material.dividerColor
+                    ? CoderTheme.primary : CoderTheme.border
                 border.width: modelData.isActive ? 2 : 1
 
                 RowLayout {
@@ -76,8 +102,8 @@ Item {
                     Rectangle {
                         width: 12; height: 12; radius: 6
                         color: modelData.isActive
-                            ? Material.color(Material.Green)
-                            : Material.color(Material.Grey)
+                            ? CoderTheme.primary
+                            : CoderTheme.textDisabled
                         Layout.alignment: Qt.AlignVCenter
 
                         ToolTip.visible: activeMouseArea.containsMouse
@@ -99,6 +125,7 @@ Item {
                             text: modelData.name || modelData.url
                             font.pixelSize: 15
                             font.bold: true
+                            color: CoderTheme.textPrimary
                             elide: Text.ElideRight
                             Layout.fillWidth: true
                         }
@@ -106,7 +133,7 @@ Item {
                         Label {
                             text: modelData.url
                             font.pixelSize: 12
-                            opacity: 0.6
+                            color: CoderTheme.textSecondary
                             elide: Text.ElideMiddle
                             Layout.fillWidth: true
                         }
@@ -116,13 +143,13 @@ Item {
                             Label {
                                 text: modelData.username || "—"
                                 font.pixelSize: 12
-                                opacity: 0.5
+                                color: CoderTheme.textDisabled
                             }
                             Label {
                                 visible: modelData.isActive
                                 text: "● Active"
                                 font.pixelSize: 11
-                                color: Material.color(Material.Green)
+                                color: CoderTheme.success
                             }
                         }
                     }
@@ -132,9 +159,9 @@ Item {
                         spacing: 4
                         Layout.alignment: Qt.AlignVCenter
 
-                        Button {
-                            flat: true
+                        CoderButton {
                             text: "Switch"
+                            variant: "outline"
                             enabled: !modelData.isActive
                             onClicked: {
                                 sessionManager.switchDeployment(modelData.url)
@@ -142,10 +169,9 @@ Item {
                             }
                         }
 
-                        Button {
-                            flat: true
+                        CoderButton {
                             text: "Remove"
-                            Material.foreground: Material.Red
+                            variant: "destructive"
                             onClicked: {
                                 removeDialog.deploymentUrl = modelData.url
                                 removeDialog.deploymentName =
@@ -163,7 +189,7 @@ Item {
                 visible: deploymentsPage.deploymentList.length === 0
                 text: "No deployments configured"
                 font.pixelSize: 16
-                opacity: 0.5
+                color: CoderTheme.textDisabled
             }
         }
 
@@ -171,14 +197,15 @@ Item {
         Rectangle {
             Layout.fillWidth: true
             height: 1
-            color: Material.dividerColor
+            color: CoderTheme.divider
         }
 
         // ---- Add New Deployment section ----
         Label {
-            text: "Add New Deployment"
-            font.pixelSize: 16
-            font.bold: true
+            text: "ADD NEW DEPLOYMENT"
+            font.pixelSize: 11
+            font.weight: Font.DemiBold
+            color: CoderTheme.textSecondary
         }
 
         ColumnLayout {
@@ -190,6 +217,13 @@ Item {
                 placeholderText: "Deployment URL (e.g. https://coder.example.com)"
                 Layout.fillWidth: true
                 selectByMouse: true
+                color: CoderTheme.textPrimary
+                background: Rectangle {
+                    radius: CoderTheme.radiusSm
+                    color: CoderTheme.surface
+                    border.color: newUrlField.activeFocus ? CoderTheme.primary : CoderTheme.border
+                    border.width: 1
+                }
             }
 
             TextField {
@@ -198,16 +232,23 @@ Item {
                 Layout.fillWidth: true
                 echoMode: TextInput.Password
                 selectByMouse: true
+                color: CoderTheme.textPrimary
+                background: Rectangle {
+                    radius: CoderTheme.radiusSm
+                    color: CoderTheme.surface
+                    border.color: newTokenField.activeFocus ? CoderTheme.primary : CoderTheme.border
+                    border.width: 1
+                }
             }
 
             RowLayout {
                 spacing: 8
 
-                Button {
+                CoderButton {
                     text: "Add"
+                    variant: "default"
                     enabled: newUrlField.text.length > 0
                              && newTokenField.text.length > 0
-                    highlighted: true
                     onClicked: {
                         sessionManager.login(
                             newUrlField.text.trim(),
@@ -218,9 +259,9 @@ Item {
                     }
                 }
 
-                Button {
+                CoderButton {
                     text: "Cancel"
-                    flat: true
+                    variant: "subtle"
                     onClicked: {
                         newUrlField.text = ""
                         newTokenField.text = ""
@@ -246,6 +287,7 @@ Item {
                   + "\"?\n\nThis will delete the saved credentials for this deployment."
             wrapMode: Text.WordWrap
             width: parent.width
+            color: CoderTheme.textPrimary
         }
 
         onAccepted: {
