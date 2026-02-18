@@ -25,7 +25,7 @@ A native Linux desktop application for managing [Coder](https://coder.com) remot
 | Linux | — | ✅ | x86_64 or aarch64 |
 | Qt | ≥ 6.5 | ✅ | Core, Gui, Quick, QuickControls2, Network, Widgets |
 | CMake | ≥ 3.21 | ✅ | Build system |
-| Go | ≥ 1.25 | ✅ | For building `libcodervpn.so` |
+| Go | ≥ 1.25 | ✅ | For building `coder-desktop-helper` (VPN helper binary) |
 | wlroots | ≥ 0.19 | DLP only | Wayland compositor for DLP sandbox |
 | wayland | — | DLP only | Client/server libraries |
 | libxkbcommon | — | DLP only | Keyboard handling in compositor |
@@ -108,38 +108,62 @@ cmake --build build -j$(nproc)
 ### Build individual targets
 
 ```bash
-cmake --build build --target codervpn_so      # Go VPN shared library
+# Go VPN helper binary (built separately)
+cd coder-vpn-linux && go build -o ../build/coder-desktop-helper ./cmd/coder-desktop-helper/
+
 cmake --build build --target coderdlp         # DLP compositor library
 cmake --build build --target coder-desktop    # Qt desktop application
 ```
 
 ## Architecture
 
-Coder Desktop is a monorepo producing three build targets that compose at runtime:
+Coder Desktop is a monorepo producing three build targets that compose at runtime. The Qt desktop application communicates with a privileged Go helper binary over the **D-Bus system bus** to manage the VPN tunnel — the helper runs as root and handles TUN device creation, DNS configuration, and routing.
+
+For the full architecture reference, see [`docs/architecture.md`](docs/architecture.md).
 
 ```mermaid
 graph TD
-    APP["coder-desktop<br/><i>Qt 6 / C++20</i>"]
-    VPN["libcodervpn.so<br/><i>Go c-shared</i>"]
+    APP["coder-desktop<br/><i>Qt 6 / C++20 — runs as user</i>"]
+    HELPER["coder-desktop-helper<br/><i>Go — runs as root</i>"]
     DLP["libcoderdlp.so<br/><i>C / wlroots</i>"]
     API["Coder Deployment<br/><i>REST API</i>"]
+    DBUS["D-Bus System Bus<br/><i>com.coder.Desktop.Helper1</i>"]
 
-    APP -->|dlopen| VPN
+    APP -->|"Start / Stop / GetStatus"| DBUS
+    DBUS -->|"method calls"| HELPER
+    HELPER -->|"StateChanged / PeerUpdated signals"| DBUS
+    DBUS -->|"signals"| APP
     APP -->|dlopen| DLP
     APP -->|HTTPS| API
-    VPN -->|WireGuard tunnel| API
+    HELPER -->|WireGuard tunnel| API
 
     style APP fill:#0969da,color:#fff
-    style VPN fill:#2ea043,color:#fff
+    style HELPER fill:#2ea043,color:#fff
     style DLP fill:#8250df,color:#fff
     style API fill:#656d76,color:#fff
+    style DBUS fill:#cf222e,color:#fff
 ```
 
 | Component | Language | Source | Description |
 |-----------|----------|--------|-------------|
 | `coder-desktop` | C++20 / QML | [`app/`](app/) | Qt 6 desktop app — UI, tray, settings, credential storage |
-| `libcodervpn.so` | Go | [`coder-vpn-linux/`](coder-vpn-linux/) | Coder VPN/tunnel SDK wrapper via C ABI |
+| `coder-desktop-helper` | Go | [`coder-vpn-linux/`](coder-vpn-linux/) | Privileged D-Bus system service — VPN tunnel, TUN, DNS, routing |
 | `libcoderdlp.so` | C | [`coder-dlp-compositor/`](coder-dlp-compositor/) | Nested Wayland compositor for DLP enforcement |
+
+### D-Bus Interface
+
+The helper exposes the `com.coder.Desktop.Helper1` interface on the system bus (see [`dbus/com.coder.Desktop.Helper1.xml`](dbus/com.coder.Desktop.Helper1.xml)):
+
+| Type | Name | Description |
+|------|------|-------------|
+| Method | `Start(coder_url, api_token)` | Start the VPN tunnel to a Coder deployment |
+| Method | `Stop()` | Stop the active VPN tunnel |
+| Method | `GetStatus() → (state, coder_url)` | Query current VPN state (`disconnected`, `connecting`, `connected`, `disconnecting`) |
+| Signal | `StateChanged(new_state, error_message)` | Emitted on VPN state transitions |
+| Signal | `PeerUpdated(workspace, agent, hostname, status, last_ping_ms, is_p2p)` | Emitted when a workspace peer changes |
+| Signal | `LogMessage(level, message)` | Forwarded log output from the helper |
+
+[Polkit](packaging/polkit/com.coder.Desktop.Helper.policy) authorizes VPN management so the unprivileged Qt app can control the tunnel without a password prompt for active local sessions.
 
 ### Directory Structure
 
@@ -150,13 +174,17 @@ coder-desktop-linux/
 │   ├── src/                    # C++ sources
 │   ├── qml/                    # QML UI files
 │   └── tests/                  # Unit tests
-├── coder-vpn-linux/            # Go → libcodervpn.so
-│   ├── bridge.go               # //export functions (C API)
-│   └── internal/               # Go internals (tunnel, auth, DNS)
+├── coder-vpn-linux/            # Go → coder-desktop-helper binary
+│   ├── cmd/coder-desktop-helper/  # Entry point
+│   └── internal/
+│       ├── dbusservice/        # D-Bus service implementation
+│       ├── dns/                # DNS configuration (resolvconf/resolvectl)
+│       └── sdutil/             # systemd notify wrapper
 ├── coder-dlp-compositor/       # C / wlroots → libcoderdlp.so
-│   ├── include/coderdlp.h      # Public C API
+│   ├── include/coder_dlp.h     # Public C API
 │   └── src/                    # Compositor implementation
-├── packaging/                  # deb, rpm, flatpak, AppImage configs
+├── dbus/                       # D-Bus interface XML, bus config, service files
+├── packaging/                  # deb, rpm, flatpak, AppImage, polkit, systemd
 ├── docs/                       # Architecture and design documents
 └── .github/workflows/          # CI pipelines
 ```
