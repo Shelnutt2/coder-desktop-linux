@@ -8,12 +8,12 @@
 #include <stdarg.h>
 #include <wlr/util/log.h>
 
+#include <wlr/backend/wayland.h>
 #include <wlr/types/wlr_cursor_shape_v1.h>
 #include <wlr/types/wlr_fractional_scale_v1.h>
 #include <wlr/types/wlr_linux_dmabuf_v1.h>
 #include <wlr/types/wlr_presentation_time.h>
 #include <wlr/types/wlr_primary_selection_v1.h>
-#include <wlr/backend/wayland.h>
 
 #include <wlr/types/wlr_single_pixel_buffer_v1.h>
 #include <wlr/types/wlr_viewporter.h>
@@ -89,7 +89,6 @@ void coder_dlp_set_output_title(coder_dlp_compositor* comp, const char* title) {
     }
     wlr_wl_output_set_title(comp->output, title);
 }
-
 
 /* ------------------------------------------------------------------------ */
 
