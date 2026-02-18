@@ -95,6 +95,14 @@ struct coder_dlp_compositor {
     struct wl_listener cursor_frame;
     struct wl_listener request_set_cursor;
 
+    /* Touch */
+    struct wlr_touch* touch;
+    struct wl_listener touch_down;
+    struct wl_listener touch_up;
+    struct wl_listener touch_motion;
+    struct wl_listener touch_cancel;
+    struct wl_listener touch_frame;
+
     /* Seat (keyboard/pointer/clipboard) */
     struct wlr_seat* seat;
 
@@ -126,6 +134,13 @@ void compositor_handle_new_output(struct wl_listener* listener, void* data);
 
 /* Input event handlers (input.c) */
 void compositor_handle_new_input(struct wl_listener* listener, void* data);
+
+/* Touch event handlers (input.c) */
+void handle_touch_down(struct wl_listener* listener, void* data);
+void handle_touch_up(struct wl_listener* listener, void* data);
+void handle_touch_motion(struct wl_listener* listener, void* data);
+void handle_touch_cancel(struct wl_listener* listener, void* data);
+void handle_touch_frame(struct wl_listener* listener, void* data);
 
 /* Cursor event handlers (input.c) */
 void handle_cursor_motion(struct wl_listener* listener, void* data);

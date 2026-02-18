@@ -26,7 +26,10 @@ typedef struct coder_dlp_sandbox_config {
     const char* network_namespace; /* network namespace name (or NULL) */
     bool isolate_pid;
     bool isolate_ipc;
-    bool isolate_filesystem; /* true: ro-bind / + tmpfs $HOME; false: full host fs access */
+    bool isolate_filesystem;       /* true: ro-bind / + tmpfs $HOME; false: full host fs access */
+    bool bind_home_rw;             /* bind $HOME rw even with fs isolation (instead of tmpfs) */
+    const char** extra_bind_paths; /* NULL-terminated array of extra rw bind paths */
+    int extra_bind_count;          /* number of entries in extra_bind_paths */
 } coder_dlp_sandbox_config;
 
 /* Log verbosity (maps to wlroots log levels internally) */

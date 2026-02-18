@@ -5,9 +5,11 @@
 #include <wlr/types/wlr_cursor.h>
 #include <wlr/types/wlr_input_device.h>
 #include <wlr/types/wlr_keyboard.h>
+#include <wlr/types/wlr_output.h>
 #include <wlr/types/wlr_pointer.h>
 #include <wlr/types/wlr_scene.h>
 #include <wlr/types/wlr_seat.h>
+#include <wlr/types/wlr_touch.h>
 #include <wlr/types/wlr_xcursor_manager.h>
 #include <wlr/util/log.h>
 #include <xkbcommon/xkbcommon.h>
@@ -171,6 +173,144 @@ static void setup_pointer(struct coder_dlp_compositor* comp, struct wlr_input_de
     wlr_log(WLR_INFO, "pointer configured");
 }
 
+/* --- Touch handling --- */
+
+/* Helper: convert absolute touch coordinates (0.0–1.0) to layout-space
+ * coordinates using the first output's dimensions. */
+static void touch_coords_to_layout(struct coder_dlp_compositor* comp, double touch_x,
+                                   double touch_y, double* lx, double* ly) {
+    if (comp->output) {
+        *lx = touch_x * comp->output->width;
+        *ly = touch_y * comp->output->height;
+    } else {
+        *lx = touch_x;
+        *ly = touch_y;
+    }
+}
+
+/* Focus a toplevel under the given layout coordinates (same logic as cursor
+ * button press). */
+static void touch_focus_at(struct coder_dlp_compositor* comp, double lx, double ly) {
+    double sx, sy;
+    struct wlr_scene_node* node = wlr_scene_node_at(&comp->scene->tree.node, lx, ly, &sx, &sy);
+    if (!node) {
+        return;
+    }
+    struct wlr_scene_tree* tree = node->parent;
+    while (tree && !tree->node.data) {
+        tree = tree->node.parent;
+    }
+    if (tree && tree->node.data) {
+        struct coder_dlp_toplevel* toplevel = tree->node.data;
+
+        /* Deactivate previously focused toplevel */
+        struct wlr_surface* prev_surface = comp->seat->keyboard_state.focused_surface;
+        if (prev_surface) {
+            struct wlr_xdg_toplevel* prev = wlr_xdg_toplevel_try_from_wlr_surface(prev_surface);
+            if (prev) {
+                wlr_xdg_toplevel_set_activated(prev, false);
+            }
+        }
+
+        wlr_scene_node_raise_to_top(&toplevel->scene_tree->node);
+        wlr_xdg_toplevel_set_activated(toplevel->xdg_toplevel, true);
+
+        struct wlr_keyboard* keyboard = wlr_seat_get_keyboard(comp->seat);
+        if (keyboard) {
+            wlr_seat_keyboard_notify_enter(comp->seat, toplevel->xdg_toplevel->base->surface,
+                                           keyboard->keycodes, keyboard->num_keycodes,
+                                           &keyboard->modifiers);
+        }
+    }
+}
+
+void handle_touch_down(struct wl_listener* listener, void* data) {
+    struct coder_dlp_compositor* comp = wl_container_of(listener, comp, touch_down);
+    struct wlr_touch_down_event* event = data;
+
+    double lx, ly;
+    touch_coords_to_layout(comp, event->x, event->y, &lx, &ly);
+
+    /* Click-to-focus */
+    touch_focus_at(comp, lx, ly);
+
+    /* Find surface under touch point */
+    double sx, sy;
+    struct wlr_scene_node* node = wlr_scene_node_at(&comp->scene->tree.node, lx, ly, &sx, &sy);
+    if (node && node->type == WLR_SCENE_NODE_BUFFER) {
+        struct wlr_scene_buffer* buffer = wlr_scene_buffer_from_node(node);
+        struct wlr_scene_surface* scene_surface = wlr_scene_surface_try_from_buffer(buffer);
+        if (scene_surface) {
+            wlr_seat_touch_notify_down(comp->seat, scene_surface->surface, event->time_msec,
+                                       event->touch_id, sx, sy);
+            return;
+        }
+    }
+}
+
+void handle_touch_up(struct wl_listener* listener, void* data) {
+    struct coder_dlp_compositor* comp = wl_container_of(listener, comp, touch_up);
+    struct wlr_touch_up_event* event = data;
+    wlr_seat_touch_notify_up(comp->seat, event->time_msec, event->touch_id);
+}
+
+void handle_touch_motion(struct wl_listener* listener, void* data) {
+    struct coder_dlp_compositor* comp = wl_container_of(listener, comp, touch_motion);
+    struct wlr_touch_motion_event* event = data;
+
+    double lx, ly;
+    touch_coords_to_layout(comp, event->x, event->y, &lx, &ly);
+
+    double sx, sy;
+    struct wlr_scene_node* node = wlr_scene_node_at(&comp->scene->tree.node, lx, ly, &sx, &sy);
+    if (node && node->type == WLR_SCENE_NODE_BUFFER) {
+        struct wlr_scene_buffer* buffer = wlr_scene_buffer_from_node(node);
+        struct wlr_scene_surface* scene_surface = wlr_scene_surface_try_from_buffer(buffer);
+        if (scene_surface) {
+            wlr_seat_touch_notify_motion(comp->seat, event->time_msec, event->touch_id, sx, sy);
+            return;
+        }
+    }
+}
+
+void handle_touch_cancel(struct wl_listener* listener, void* data) {
+    struct coder_dlp_compositor* comp = wl_container_of(listener, comp, touch_cancel);
+    (void)data;
+    wlr_seat_touch_notify_cancel(comp->seat, comp->seat->touch_state.focused_surface);
+}
+
+void handle_touch_frame(struct wl_listener* listener, void* data) {
+    struct coder_dlp_compositor* comp = wl_container_of(listener, comp, touch_frame);
+    (void)data;
+    wlr_seat_touch_notify_frame(comp->seat);
+}
+
+static void setup_touch(struct coder_dlp_compositor* comp, struct wlr_input_device* device) {
+    struct wlr_touch* touch = wlr_touch_from_input_device(device);
+    comp->touch = touch;
+
+    /* Attach touch device to cursor (aggregates all input devices) */
+    wlr_cursor_attach_input_device(comp->cursor, device);
+
+    /* Wire listeners through the compositor struct for wl_container_of */
+    comp->touch_down.notify = handle_touch_down;
+    wl_signal_add(&touch->events.down, &comp->touch_down);
+
+    comp->touch_up.notify = handle_touch_up;
+    wl_signal_add(&touch->events.up, &comp->touch_up);
+
+    comp->touch_motion.notify = handle_touch_motion;
+    wl_signal_add(&touch->events.motion, &comp->touch_motion);
+
+    comp->touch_cancel.notify = handle_touch_cancel;
+    wl_signal_add(&touch->events.cancel, &comp->touch_cancel);
+
+    comp->touch_frame.notify = handle_touch_frame;
+    wl_signal_add(&touch->events.frame, &comp->touch_frame);
+
+    wlr_log(WLR_INFO, "touch device configured");
+}
+
 /* --- Backend new_input handler --- */
 
 void compositor_handle_new_input(struct wl_listener* listener, void* data) {
@@ -183,6 +323,9 @@ void compositor_handle_new_input(struct wl_listener* listener, void* data) {
             break;
         case WLR_INPUT_DEVICE_POINTER:
             setup_pointer(comp, device);
+            break;
+        case WLR_INPUT_DEVICE_TOUCH:
+            setup_touch(comp, device);
             break;
         default:
             wlr_log(WLR_DEBUG, "unhandled input device type: %d", device->type);
@@ -197,6 +340,9 @@ void compositor_handle_new_input(struct wl_listener* listener, void* data) {
     }
     if (device->type == WLR_INPUT_DEVICE_POINTER) {
         caps |= WL_SEAT_CAPABILITY_POINTER;
+    }
+    if (device->type == WLR_INPUT_DEVICE_TOUCH) {
+        caps |= WL_SEAT_CAPABILITY_TOUCH;
     }
     wlr_seat_set_capabilities(comp->seat, caps);
 }
