@@ -53,27 +53,47 @@ char** dlp_build_bwrap_args(const coder_dlp_compositor* comp, const char* comman
 
     PUSH("bwrap");
 
-    /* Base filesystem: read-only bind of / */
-    PUSH("--ro-bind");
-    PUSH("/");
-    PUSH("/");
-    PUSH("--dev");
-    PUSH("/dev");
+    if (sandbox && sandbox->isolate_filesystem) {
+        /* Strict DLP: read-only root + ephemeral writable home */
+        PUSH("--ro-bind");
+        PUSH("/");
+        PUSH("/");
+        PUSH("--dev");
+        PUSH("/dev");
+        PUSH("--dev-bind");
+        PUSH("/dev/dri");
+        PUSH("/dev/dri");
+        PUSH("--bind");
+        PUSH("/dev/shm");
+        PUSH("/dev/shm");
+        PUSH("--proc");
+        PUSH("/proc");
+        PUSH("--tmpfs");
+        PUSH("/tmp");
 
-    /* GPU access for hardware-accelerated rendering (Electron, etc.) */
-    PUSH("--dev-bind");
-    PUSH("/dev/dri");
-    PUSH("/dev/dri");
-
-    /* Shared memory (needed by Electron/Chromium) */
-    PUSH("--bind");
-    PUSH("/dev/shm");
-    PUSH("/dev/shm");
-
-    PUSH("--proc");
-    PUSH("/proc");
-    PUSH("--tmpfs");
-    PUSH("/tmp");
+        /* Writable ephemeral home — data is lost on exit, preventing
+         * persistent exfiltration while letting apps write profiles,
+         * config, and shader caches. */
+        const char* home = getenv("HOME");
+        if (home) {
+            PUSH("--tmpfs");
+            PUSH(home);
+        }
+    } else {
+        /* Non-isolated: full host filesystem access (read-write).
+         * The sandbox still enforces Wayland isolation (no X11)
+         * and optional PID/IPC/network namespacing. */
+        PUSH("--bind");
+        PUSH("/");
+        PUSH("/");
+        PUSH("--dev");
+        PUSH("/dev");
+        PUSH("--dev-bind");
+        PUSH("/dev/dri");
+        PUSH("/dev/dri");
+        PUSH("--proc");
+        PUSH("/proc");
+    }
 
     /* XDG_RUNTIME_DIR — apps need a writable runtime directory to create
      * their own sockets, lock files, dconf databases, etc.  We overlay a
@@ -99,8 +119,9 @@ char** dlp_build_bwrap_args(const coder_dlp_compositor* comp, const char* comman
         }
     }
 
-    /* Workspace path: writable bind mount */
-    if (sandbox && sandbox->workspace_path) {
+    /* Workspace path: writable bind mount (only needed when filesystem is
+     * isolated, since the non-isolated mode already has full rw access). */
+    if (sandbox && sandbox->isolate_filesystem && sandbox->workspace_path) {
         PUSH("--bind");
         PUSH(sandbox->workspace_path);
         PUSH(sandbox->workspace_path);
@@ -155,10 +176,25 @@ char** dlp_build_bwrap_args(const coder_dlp_compositor* comp, const char* comman
     /* Chromium/Electron's internal sandbox conflicts with bwrap's user
      * namespace.  Disable it since bwrap already provides sandboxing. */
     PUSH("--setenv");
-    PUSH("CHROME_FLAGS");
-    PUSH("--no-sandbox");
-    PUSH("--setenv");
     PUSH("ELECTRON_NO_SANDBOX");
+    PUSH("1");
+
+    /* Force all GUI toolkits to use the Wayland backend.  Without these,
+     * apps try X11 first, find DISPLAY unset, and silently fail. */
+    PUSH("--setenv");
+    PUSH("GDK_BACKEND");
+    PUSH("wayland");
+    PUSH("--setenv");
+    PUSH("QT_QPA_PLATFORM");
+    PUSH("wayland");
+    PUSH("--setenv");
+    PUSH("SDL_VIDEODRIVER");
+    PUSH("wayland");
+    PUSH("--setenv");
+    PUSH("ELECTRON_OZONE_PLATFORM_HINT");
+    PUSH("wayland");
+    PUSH("--setenv");
+    PUSH("MOZ_ENABLE_WAYLAND");
     PUSH("1");
 
     PUSH("--die-with-parent");
@@ -215,7 +251,7 @@ int coder_dlp_launch_app(coder_dlp_compositor* comp, const char* command,
     if (pid == 0) {
         /* Redirect stdout+stderr to a log file for debugging.
          * The fd is inherited through bwrap to the child process. */
-        int log_fd = open("/tmp/coder-dlp-child.log", O_WRONLY | O_CREAT | O_TRUNC, 0644);
+        int log_fd = open("/tmp/coder-dlp-child.log", O_WRONLY | O_CREAT | O_APPEND, 0644);
         if (log_fd >= 0) {
             dup2(log_fd, STDOUT_FILENO);
             dup2(log_fd, STDERR_FILENO);

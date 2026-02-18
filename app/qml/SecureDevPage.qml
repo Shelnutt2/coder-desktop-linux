@@ -276,6 +276,12 @@ Page {
                             checked: false
                             Material.accent: CoderTheme.primary
                         }
+                        CheckBox {
+                            id: fsCheck
+                            text: "Isolate Filesystem"
+                            checked: false
+                            Material.accent: CoderTheme.primary
+                        }
                     }
 
                     CoderButton {
@@ -288,7 +294,8 @@ Page {
                                 workspacePathField.text,
                                 pidCheck.checked,
                                 ipcCheck.checked,
-                                netCheck.checked
+                                netCheck.checked,
+                                fsCheck.checked
                             );
                             commandField.text = "";
                         }
