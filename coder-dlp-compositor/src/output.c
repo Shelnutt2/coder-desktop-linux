@@ -4,7 +4,9 @@
 #include <time.h>
 
 #include <wlr/render/allocator.h>
+#include <wlr/types/wlr_cursor.h>
 #include <wlr/types/wlr_output.h>
+#include <wlr/types/wlr_xcursor_manager.h>
 #include <wlr/util/log.h>
 
 /* --- Output event handlers --- */
@@ -75,6 +77,9 @@ void compositor_handle_new_output(struct wl_listener* listener, void* data) {
 
     /* Add to the output layout */
     wlr_output_layout_add_auto(comp->output_layout, output);
+
+    /* Set initial cursor image so it's visible when hovering over the window */
+    wlr_cursor_set_xcursor(comp->cursor, comp->cursor_mgr, "default");
 
     /* Listen for output events */
     comp->output_frame.notify = handle_output_frame;

@@ -31,12 +31,13 @@ static void custom_wlr_log(enum wlr_log_importance importance, const char* fmt, 
         level = "INFO";
     }
 
-    fprintf(stderr, "[wlr %s] %s\n", level, buf);
-
     if (s_log_comp && s_log_comp->log_cb) {
         char full[1100];
         snprintf(full, sizeof(full), "[wlr %s] %s", level, buf);
         s_log_comp->log_cb(full, s_log_comp->log_cb_data);
+    } else {
+        /* Fallback: no Qt callback registered yet (during coder_dlp_create) */
+        fprintf(stderr, "[wlr %s] %s\n", level, buf);
     }
 }
 
@@ -114,6 +115,11 @@ coder_dlp_compositor* coder_dlp_create(void* parent_wl_surface, coder_dlp_log_le
     comp->scene = wlr_scene_create();
     comp->scene_layout = wlr_scene_attach_output_layout(comp->scene, comp->output_layout);
 
+    /* Cursor — manages the hardware/software cursor image */
+    comp->cursor = wlr_cursor_create();
+    wlr_cursor_attach_output_layout(comp->cursor, comp->output_layout);
+    comp->cursor_mgr = wlr_xcursor_manager_create(NULL, 24);
+
     /* XDG shell (version 3) */
     comp->xdg_shell = wlr_xdg_shell_create(comp->wl_display, 3);
     comp->new_xdg_toplevel.notify = compositor_handle_new_xdg_toplevel;
@@ -129,6 +135,20 @@ coder_dlp_compositor* coder_dlp_create(void* parent_wl_surface, coder_dlp_log_le
 
     /* Security context protocol */
     dlp_security_context_init(comp);
+
+    /* Cursor event listeners — cursor aggregates all pointer devices */
+    comp->cursor_motion.notify = handle_cursor_motion;
+    wl_signal_add(&comp->cursor->events.motion, &comp->cursor_motion);
+    comp->cursor_motion_absolute.notify = handle_cursor_motion_absolute;
+    wl_signal_add(&comp->cursor->events.motion_absolute, &comp->cursor_motion_absolute);
+    comp->cursor_button.notify = handle_cursor_button;
+    wl_signal_add(&comp->cursor->events.button, &comp->cursor_button);
+    comp->cursor_axis.notify = handle_cursor_axis;
+    wl_signal_add(&comp->cursor->events.axis, &comp->cursor_axis);
+    comp->cursor_frame.notify = handle_cursor_frame;
+    wl_signal_add(&comp->cursor->events.frame, &comp->cursor_frame);
+    comp->request_set_cursor.notify = handle_request_set_cursor;
+    wl_signal_add(&comp->seat->events.request_set_cursor, &comp->request_set_cursor);
 
     /* Listen for new outputs from the backend */
     comp->new_output.notify = compositor_handle_new_output;
@@ -192,12 +212,13 @@ void coder_dlp_destroy(coder_dlp_compositor* comp) {
         wl_list_remove(&comp->keyboard_key.link);
         wl_list_remove(&comp->keyboard_modifiers.link);
     }
-    if (comp->pointer_motion.notify) {
-        wl_list_remove(&comp->pointer_motion.link);
-        wl_list_remove(&comp->pointer_button.link);
-        wl_list_remove(&comp->pointer_axis.link);
-        wl_list_remove(&comp->pointer_frame.link);
-    }
+    /* Cursor listeners */
+    wl_list_remove(&comp->cursor_motion.link);
+    wl_list_remove(&comp->cursor_motion_absolute.link);
+    wl_list_remove(&comp->cursor_button.link);
+    wl_list_remove(&comp->cursor_axis.link);
+    wl_list_remove(&comp->cursor_frame.link);
+    wl_list_remove(&comp->request_set_cursor.link);
 
     /* Clean up any remaining toplevels — remove their listeners so wlroots
      * assertions don't fire during display teardown. */
@@ -218,6 +239,14 @@ void coder_dlp_destroy(coder_dlp_compositor* comp) {
     if (comp->scene) {
         wlr_scene_node_destroy(&comp->scene->tree.node);
         comp->scene = NULL;
+    }
+
+    /* Destroy cursor objects */
+    if (comp->cursor_mgr) {
+        wlr_xcursor_manager_destroy(comp->cursor_mgr);
+    }
+    if (comp->cursor) {
+        wlr_cursor_destroy(comp->cursor);
     }
 
     /* Destroy backend (triggers output destroy etc.) */

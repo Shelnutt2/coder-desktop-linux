@@ -2,11 +2,13 @@
 
 #include <stdlib.h>
 
+#include <wlr/types/wlr_cursor.h>
 #include <wlr/types/wlr_input_device.h>
 #include <wlr/types/wlr_keyboard.h>
 #include <wlr/types/wlr_pointer.h>
 #include <wlr/types/wlr_scene.h>
 #include <wlr/types/wlr_seat.h>
+#include <wlr/types/wlr_xcursor_manager.h>
 #include <wlr/util/log.h>
 #include <xkbcommon/xkbcommon.h>
 
@@ -66,56 +68,51 @@ static void setup_keyboard(struct coder_dlp_compositor* comp, struct wlr_input_d
     wlr_log(WLR_INFO, "keyboard configured");
 }
 
-/* --- Pointer handling --- */
+/* --- Pointer / cursor handling --- */
 
-static void handle_pointer_motion(struct wl_listener* listener, void* data) {
-    struct coder_dlp_compositor* comp = wl_container_of(listener, comp, pointer_motion);
-    struct wlr_pointer_motion_event* event = data;
-
-    /* Accumulate delta into absolute cursor position */
-    comp->cursor_x += event->delta_x;
-    comp->cursor_y += event->delta_y;
-
-    /* Clamp to output bounds */
-    if (comp->output) {
-        int width, height;
-        wlr_output_effective_resolution(comp->output, &width, &height);
-        if (comp->cursor_x < 0) comp->cursor_x = 0;
-        if (comp->cursor_y < 0) comp->cursor_y = 0;
-        if (comp->cursor_x >= width) comp->cursor_x = width - 1;
-        if (comp->cursor_y >= height) comp->cursor_y = height - 1;
-    }
-
-    /* Find the surface under the cursor via the scene graph */
+static void process_cursor_motion(struct coder_dlp_compositor* comp, uint32_t time) {
     double sx, sy;
     struct wlr_scene_node* node =
-        wlr_scene_node_at(&comp->scene->tree.node, comp->cursor_x, comp->cursor_y, &sx, &sy);
+        wlr_scene_node_at(&comp->scene->tree.node, comp->cursor->x, comp->cursor->y, &sx, &sy);
 
     if (node && node->type == WLR_SCENE_NODE_BUFFER) {
         struct wlr_scene_buffer* buffer = wlr_scene_buffer_from_node(node);
         struct wlr_scene_surface* scene_surface = wlr_scene_surface_try_from_buffer(buffer);
         if (scene_surface) {
             wlr_seat_pointer_notify_enter(comp->seat, scene_surface->surface, sx, sy);
-            wlr_seat_pointer_notify_motion(comp->seat, event->time_msec, sx, sy);
+            wlr_seat_pointer_notify_motion(comp->seat, time, sx, sy);
+            return;
         }
-    } else {
-        wlr_seat_pointer_clear_focus(comp->seat);
     }
+    wlr_cursor_set_xcursor(comp->cursor, comp->cursor_mgr, "default");
+    wlr_seat_pointer_clear_focus(comp->seat);
 }
 
-static void handle_pointer_button(struct wl_listener* listener, void* data) {
-    struct coder_dlp_compositor* comp = wl_container_of(listener, comp, pointer_button);
+void handle_cursor_motion(struct wl_listener* listener, void* data) {
+    struct coder_dlp_compositor* comp = wl_container_of(listener, comp, cursor_motion);
+    struct wlr_pointer_motion_event* event = data;
+    wlr_cursor_move(comp->cursor, &event->pointer->base, event->delta_x, event->delta_y);
+    process_cursor_motion(comp, event->time_msec);
+}
+
+void handle_cursor_motion_absolute(struct wl_listener* listener, void* data) {
+    struct coder_dlp_compositor* comp = wl_container_of(listener, comp, cursor_motion_absolute);
+    struct wlr_pointer_motion_absolute_event* event = data;
+    wlr_cursor_warp_absolute(comp->cursor, &event->pointer->base, event->x, event->y);
+    process_cursor_motion(comp, event->time_msec);
+}
+
+void handle_cursor_button(struct wl_listener* listener, void* data) {
+    struct coder_dlp_compositor* comp = wl_container_of(listener, comp, cursor_button);
     struct wlr_pointer_button_event* event = data;
 
     wlr_seat_pointer_notify_button(comp->seat, event->time_msec, event->button, event->state);
 
-    /* On click, focus the toplevel under the cursor */
     if (event->state == WL_POINTER_BUTTON_STATE_PRESSED) {
         double sx, sy;
         struct wlr_scene_node* node =
-            wlr_scene_node_at(&comp->scene->tree.node, comp->cursor_x, comp->cursor_y, &sx, &sy);
+            wlr_scene_node_at(&comp->scene->tree.node, comp->cursor->x, comp->cursor->y, &sx, &sy);
         if (node) {
-            /* Walk up the scene tree to find the toplevel */
             struct wlr_scene_tree* tree = node->parent;
             while (tree && !tree->node.data) {
                 tree = tree->node.parent;
@@ -134,37 +131,30 @@ static void handle_pointer_button(struct wl_listener* listener, void* data) {
     }
 }
 
-static void handle_pointer_axis(struct wl_listener* listener, void* data) {
-    struct coder_dlp_compositor* comp = wl_container_of(listener, comp, pointer_axis);
+void handle_cursor_axis(struct wl_listener* listener, void* data) {
+    struct coder_dlp_compositor* comp = wl_container_of(listener, comp, cursor_axis);
     struct wlr_pointer_axis_event* event = data;
-
     wlr_seat_pointer_notify_axis(comp->seat, event->time_msec, event->orientation, event->delta,
                                  event->delta_discrete, event->source, event->relative_direction);
 }
 
-static void handle_pointer_frame(struct wl_listener* listener, void* data) {
-    struct coder_dlp_compositor* comp = wl_container_of(listener, comp, pointer_frame);
+void handle_cursor_frame(struct wl_listener* listener, void* data) {
+    struct coder_dlp_compositor* comp = wl_container_of(listener, comp, cursor_frame);
     (void)data;
-
     wlr_seat_pointer_notify_frame(comp->seat);
 }
 
+void handle_request_set_cursor(struct wl_listener* listener, void* data) {
+    struct coder_dlp_compositor* comp = wl_container_of(listener, comp, request_set_cursor);
+    struct wlr_seat_pointer_request_set_cursor_event* event = data;
+    struct wlr_seat_client* focused = comp->seat->pointer_state.focused_client;
+    if (focused == event->seat_client) {
+        wlr_cursor_set_surface(comp->cursor, event->surface, event->hotspot_x, event->hotspot_y);
+    }
+}
+
 static void setup_pointer(struct coder_dlp_compositor* comp, struct wlr_input_device* device) {
-    struct wlr_pointer* pointer = wlr_pointer_from_input_device(device);
-
-    /* Wire pointer event listeners through the struct */
-    comp->pointer_motion.notify = handle_pointer_motion;
-    wl_signal_add(&pointer->events.motion, &comp->pointer_motion);
-
-    comp->pointer_button.notify = handle_pointer_button;
-    wl_signal_add(&pointer->events.button, &comp->pointer_button);
-
-    comp->pointer_axis.notify = handle_pointer_axis;
-    wl_signal_add(&pointer->events.axis, &comp->pointer_axis);
-
-    comp->pointer_frame.notify = handle_pointer_frame;
-    wl_signal_add(&pointer->events.frame, &comp->pointer_frame);
-
+    wlr_cursor_attach_input_device(comp->cursor, device);
     wlr_log(WLR_INFO, "pointer configured");
 }
 

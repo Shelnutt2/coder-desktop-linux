@@ -8,6 +8,7 @@
 #include <wlr/render/allocator.h>
 #include <wlr/render/wlr_renderer.h>
 #include <wlr/types/wlr_compositor.h>
+#include <wlr/types/wlr_cursor.h>
 #include <wlr/types/wlr_data_device.h>
 #include <wlr/types/wlr_output.h>
 #include <wlr/types/wlr_output_layout.h>
@@ -15,6 +16,7 @@
 #include <wlr/types/wlr_seat.h>
 #include <wlr/types/wlr_security_context_v1.h>
 #include <wlr/types/wlr_subcompositor.h>
+#include <wlr/types/wlr_xcursor_manager.h>
 #include <wlr/types/wlr_xdg_shell.h>
 
 struct coder_dlp_toplevel {
@@ -81,12 +83,15 @@ struct coder_dlp_compositor {
     struct wl_listener keyboard_key;
     struct wl_listener keyboard_modifiers;
 
-    /* Pointer */
-    struct wl_listener pointer_motion;
-    struct wl_listener pointer_button;
-    struct wl_listener pointer_axis;
-    struct wl_listener pointer_frame;
-    double cursor_x, cursor_y;
+    /* Cursor */
+    struct wlr_cursor* cursor;
+    struct wlr_xcursor_manager* cursor_mgr;
+    struct wl_listener cursor_motion;
+    struct wl_listener cursor_motion_absolute;
+    struct wl_listener cursor_button;
+    struct wl_listener cursor_axis;
+    struct wl_listener cursor_frame;
+    struct wl_listener request_set_cursor;
 
     /* Seat (keyboard/pointer/clipboard) */
     struct wlr_seat* seat;
@@ -119,6 +124,14 @@ void compositor_handle_new_output(struct wl_listener* listener, void* data);
 
 /* Input event handlers (input.c) */
 void compositor_handle_new_input(struct wl_listener* listener, void* data);
+
+/* Cursor event handlers (input.c) */
+void handle_cursor_motion(struct wl_listener* listener, void* data);
+void handle_cursor_motion_absolute(struct wl_listener* listener, void* data);
+void handle_cursor_button(struct wl_listener* listener, void* data);
+void handle_cursor_axis(struct wl_listener* listener, void* data);
+void handle_cursor_frame(struct wl_listener* listener, void* data);
+void handle_request_set_cursor(struct wl_listener* listener, void* data);
 
 /* Shell event handlers (shell.c) */
 void compositor_handle_new_xdg_toplevel(struct wl_listener* listener, void* data);
