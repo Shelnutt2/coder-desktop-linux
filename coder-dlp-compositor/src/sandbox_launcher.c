@@ -104,6 +104,13 @@ char** dlp_build_bwrap_args(const coder_dlp_compositor* comp, const char* comman
         PUSH("/dev/shm");
         PUSH("--proc");
         PUSH("/proc");
+
+        /* Overlay /tmp so sandboxed apps cannot see host IPC sockets.
+         * Without this, apps like VS Code and Firefox detect a running
+         * host instance (via /tmp/vscode-*.sock, lock files, etc.),
+         * send an IPC "open" message to it, and exit immediately. */
+        PUSH("--tmpfs");
+        PUSH("/tmp");
     }
 
     /* XDG_RUNTIME_DIR — apps need a writable runtime directory to create
