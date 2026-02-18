@@ -1,4 +1,5 @@
 #include "tray/SystemTrayIcon.h"
+#include "data/SessionManager.h"
 #include "vpn/VpnBridge.h"
 
 #include <QApplication>
@@ -18,8 +19,8 @@ static QIcon makeFallbackIcon() {
     return QIcon(pix);
 }
 
-SystemTrayIcon::SystemTrayIcon(VpnBridge* vpn, QObject* parent)
-    : QSystemTrayIcon(parent), m_vpn(vpn) {
+SystemTrayIcon::SystemTrayIcon(VpnBridge* vpn, SessionManager* session, QObject* parent)
+    : QSystemTrayIcon(parent), m_vpn(vpn), m_session(session) {
     // Use a themed icon; fall back to a simple branded icon.
     QIcon icon = QIcon::fromTheme(QStringLiteral("network-vpn"));
     if (icon.isNull()) icon = QIcon::fromTheme(QStringLiteral("network-wired"));
@@ -71,9 +72,12 @@ void SystemTrayIcon::onVpnStateChanged() {
 }
 
 void SystemTrayIcon::onConnectClicked() {
-    // Phase 1: no credentials UI yet — this is a placeholder.
-    // Phase 2 will show a login dialog or read stored credentials.
-    m_vpn->start(QStringLiteral("https://coder.example.com"), QStringLiteral("placeholder-token"));
+    if (!m_session || !m_session->isAuthenticated()) {
+        // No active session — open the main window so the user can log in.
+        emit showWindowRequested();
+        return;
+    }
+    m_vpn->start(m_session->currentUrl(), m_session->sessionToken());
 }
 
 void SystemTrayIcon::onDisconnectClicked() {

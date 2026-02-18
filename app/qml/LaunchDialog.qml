@@ -55,7 +55,6 @@ Dialog {
     }
 
     onAboutToShow: {
-        console.log("LaunchDialog onAboutToShow");
         setDefaults();
     }
 

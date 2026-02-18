@@ -18,6 +18,8 @@ Item {
         return session.toLowerCase().indexOf("wayland") >= 0
     }
 
+    signal navigateToConnect()
+
     // Whether to show the deployment subpage
     property bool showDeployments: false
 
@@ -201,9 +203,8 @@ Item {
                 }
 
                 HoverHandler { id: vpnLinkHover }
-                // Navigation to Connect tab handled by parent via signal
-                signal navigateToConnect()
-                TapHandler { onTapped: parent.navigateToConnect() }
+                // Navigation to Connect tab handled by page-level signal
+                TapHandler { onTapped: settingsPage.navigateToConnect() }
             }
 
             // Auto-connect on launch toggle
@@ -552,10 +553,9 @@ Item {
                         color: CoderTheme.textSecondary
                     }
                     Label {
-                        text: "Qt " + qtVersion
+                        text: "Qt " + qtRuntimeVersion
                         font.pixelSize: 12
                         color: CoderTheme.textSecondary
-                        property string qtVersion: "6.x"
                     }
 
                     // View on GitHub →

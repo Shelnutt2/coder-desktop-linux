@@ -25,6 +25,7 @@ Item {
     ListModel { id: appsModel }
 
     property bool detailLoading: false
+    property string errorMessage: ""
 
     // -- In-app browser state ------------------------------------------------
     property string selectedAppSlug: ""
@@ -51,6 +52,7 @@ Item {
 
         function onWorkspaceDetailReceived(workspace) {
             detailLoading = false
+            workspaceDetailPage.errorMessage = ""
             agentsModel.clear()
             appsModel.clear()
 
@@ -105,6 +107,12 @@ Item {
             // Refresh detail after start/stop
             loadDetail()
         }
+
+        function onRequestFailed(endpoint, statusCode, errorMsg) {
+            if (endpoint.indexOf("workspace") >= 0) {
+                workspaceDetailPage.errorMessage = errorMsg
+            }
+        }
     }
 
     // -- Background fill ----------------------------------------------------
@@ -147,6 +155,27 @@ Item {
                     elide: Text.ElideRight
                     Layout.fillWidth: true
                 }
+            }
+        }
+
+        // ---- Error banner ----
+        Rectangle {
+            Layout.fillWidth: true
+            height: detailErrorLabel.implicitHeight + 16
+            radius: CoderTheme.radiusSm
+            color: CoderTheme.errorSurface
+            border.color: CoderTheme.error
+            border.width: 1
+            visible: workspaceDetailPage.errorMessage.length > 0
+
+            Label {
+                id: detailErrorLabel
+                anchors.fill: parent
+                anchors.margins: 8
+                text: workspaceDetailPage.errorMessage
+                color: CoderTheme.error
+                wrapMode: Text.WordWrap
+                font.pixelSize: 13
             }
         }
 
