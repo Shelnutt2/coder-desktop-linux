@@ -9,7 +9,7 @@ class QNetworkReply;
 
 #ifdef HAS_WEBENGINE
 class QWebEngineCookieStore;
-class QWebEngineProfile;
+#include <QWebEngineProfile>
 #endif
 
 class SessionManager;
@@ -30,6 +30,10 @@ class LoginFlowController : public QObject {
     Q_PROPERTY(bool flowActive READ isFlowActive NOTIFY flowActiveChanged)
     Q_PROPERTY(bool probing READ isProbing NOTIFY probingChanged)
     Q_PROPERTY(QString loginUrl READ loginUrl NOTIFY loginUrlChanged)
+
+#ifdef HAS_WEBENGINE
+    Q_PROPERTY(QObject* webEngineProfile READ webEngineProfileQml CONSTANT)
+#endif
 
 public:
     explicit LoginFlowController(SessionManager& sessionManager, QObject* parent = nullptr);
@@ -58,6 +62,7 @@ public:
     /// Returns the off-the-record WebEngine profile for QML to use.
     /// Null when WebEngine is unavailable or flow is not active.
     [[nodiscard]] QWebEngineProfile* webEngineProfile() const { return m_profile; }
+    [[nodiscard]] QObject* webEngineProfileQml() const { return m_profile; }
 #endif
 
 signals:
