@@ -189,6 +189,22 @@ if(BUILD_TESTING)
     target_include_directories(tst_settings PRIVATE src)
     target_link_libraries(tst_settings PRIVATE Qt6::Core Qt6::Test)
     add_test(NAME SettingsTest COMMAND tst_settings)
+
+    add_executable(tst_runningappmodel
+        tests/unit/tst_runningappmodel.cpp
+        src/apps/RunningAppModel.cpp
+    )
+    target_include_directories(tst_runningappmodel PRIVATE src)
+    target_link_libraries(tst_runningappmodel PRIVATE Qt6::Core Qt6::Test)
+    add_test(NAME RunningAppModelTest COMMAND tst_runningappmodel)
+
+    add_executable(tst_applaunchprofile
+        tests/unit/tst_applaunchprofile.cpp
+        src/apps/AppLaunchProfile.cpp
+    )
+    target_include_directories(tst_applaunchprofile PRIVATE src)
+    target_link_libraries(tst_applaunchprofile PRIVATE Qt6::Core Qt6::Test)
+    add_test(NAME AppLaunchProfileTest COMMAND tst_applaunchprofile)
 endif()
 
 # ---------------------------------------------------------------------------

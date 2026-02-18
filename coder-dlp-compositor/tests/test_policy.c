@@ -172,6 +172,128 @@ static void test_bwrap_args_no_fs_isolation(void) {
     printf("test_bwrap_args_no_fs_isolation: PASSED\n");
 }
 
+static void test_bwrap_args_bind_home_rw(void) {
+    /* Verify bind_home_rw controls whether $HOME is bound rw or tmpfs'd. */
+    setenv("HOME", "/home/testuser", 1);
+
+    coder_dlp_compositor* comp = calloc(1, sizeof(*comp));
+    assert(comp != NULL);
+    comp->socket = "wayland-test";
+
+    /* Case 1: isolate_filesystem=true, bind_home_rw=false → tmpfs $HOME */
+    {
+        coder_dlp_sandbox_config sandbox;
+        memset(&sandbox, 0, sizeof(sandbox));
+        sandbox.isolate_filesystem = true;
+        sandbox.bind_home_rw = false;
+
+        char** argv = dlp_build_bwrap_args(comp, "echo hi", &sandbox);
+        assert(argv != NULL);
+
+        int found_ro_bind_root = 0, found_tmpfs_home = 0, found_bind_home = 0;
+        for (int i = 0; argv[i]; i++) {
+            if (strcmp(argv[i], "--ro-bind") == 0 && argv[i + 1] && strcmp(argv[i + 1], "/") == 0)
+                found_ro_bind_root = 1;
+            if (strcmp(argv[i], "--tmpfs") == 0 && argv[i + 1] &&
+                strcmp(argv[i + 1], "/home/testuser") == 0)
+                found_tmpfs_home = 1;
+            if (strcmp(argv[i], "--bind") == 0 && argv[i + 1] &&
+                strcmp(argv[i + 1], "/home/testuser") == 0)
+                found_bind_home = 1;
+        }
+        assert(found_ro_bind_root);
+        assert(found_tmpfs_home);
+        assert(!found_bind_home);
+
+        dlp_free_bwrap_args(argv);
+    }
+
+    /* Case 2: isolate_filesystem=true, bind_home_rw=true → --bind $HOME $HOME */
+    {
+        coder_dlp_sandbox_config sandbox;
+        memset(&sandbox, 0, sizeof(sandbox));
+        sandbox.isolate_filesystem = true;
+        sandbox.bind_home_rw = true;
+
+        char** argv = dlp_build_bwrap_args(comp, "echo hi", &sandbox);
+        assert(argv != NULL);
+
+        int found_ro_bind_root = 0, found_tmpfs_home = 0, found_bind_home = 0;
+        for (int i = 0; argv[i]; i++) {
+            if (strcmp(argv[i], "--ro-bind") == 0 && argv[i + 1] && strcmp(argv[i + 1], "/") == 0)
+                found_ro_bind_root = 1;
+            if (strcmp(argv[i], "--tmpfs") == 0 && argv[i + 1] &&
+                strcmp(argv[i + 1], "/home/testuser") == 0)
+                found_tmpfs_home = 1;
+            if (strcmp(argv[i], "--bind") == 0 && argv[i + 1] &&
+                strcmp(argv[i + 1], "/home/testuser") == 0)
+                found_bind_home = 1;
+        }
+        assert(found_ro_bind_root);
+        assert(!found_tmpfs_home);
+        assert(found_bind_home);
+
+        dlp_free_bwrap_args(argv);
+    }
+
+    free(comp);
+    printf("test_bwrap_args_bind_home_rw: PASSED\n");
+}
+
+static void test_bwrap_args_extra_bind_paths(void) {
+    /* Verify extra_bind_paths appear as --bind pairs in argv. */
+    coder_dlp_compositor* comp = calloc(1, sizeof(*comp));
+    assert(comp != NULL);
+    comp->socket = "wayland-test";
+
+    const char* extra_paths[] = {"/opt/tools", "/data/project"};
+
+    coder_dlp_sandbox_config sandbox;
+    memset(&sandbox, 0, sizeof(sandbox));
+    sandbox.extra_bind_paths = extra_paths;
+    sandbox.extra_bind_count = 2;
+
+    char** argv = dlp_build_bwrap_args(comp, "ls", &sandbox);
+    assert(argv != NULL);
+
+    int found_opt = 0, found_data = 0;
+    for (int i = 0; argv[i]; i++) {
+        if (strcmp(argv[i], "--bind") == 0 && argv[i + 1] && strcmp(argv[i + 1], "/opt/tools") == 0)
+            found_opt = 1;
+        if (strcmp(argv[i], "--bind") == 0 && argv[i + 1] &&
+            strcmp(argv[i + 1], "/data/project") == 0)
+            found_data = 1;
+    }
+    assert(found_opt);
+    assert(found_data);
+
+    dlp_free_bwrap_args(argv);
+    free(comp);
+    printf("test_bwrap_args_extra_bind_paths: PASSED\n");
+}
+
+static void test_bwrap_args_extra_bind_paths_null(void) {
+    /* NULL extra_bind_paths with count=0 must not crash. */
+    coder_dlp_compositor* comp = calloc(1, sizeof(*comp));
+    assert(comp != NULL);
+    comp->socket = "wayland-test";
+
+    coder_dlp_sandbox_config sandbox;
+    memset(&sandbox, 0, sizeof(sandbox));
+    sandbox.extra_bind_paths = NULL;
+    sandbox.extra_bind_count = 0;
+
+    char** argv = dlp_build_bwrap_args(comp, "ls", &sandbox);
+    assert(argv != NULL);
+
+    /* Must contain at least "bwrap" and the command */
+    assert(strcmp(argv[0], "bwrap") == 0);
+
+    dlp_free_bwrap_args(argv);
+    free(comp);
+    printf("test_bwrap_args_extra_bind_paths_null: PASSED\n");
+}
+
 static void test_bwrap_args_null_returns_null(void) {
     /* NULL comp or command must return NULL. */
     assert(dlp_build_bwrap_args(NULL, "echo", NULL) == NULL);
@@ -194,6 +316,9 @@ int main(void) {
     test_bwrap_args_basic();
     test_bwrap_args_sandbox_options();
     test_bwrap_args_no_fs_isolation();
+    test_bwrap_args_bind_home_rw();
+    test_bwrap_args_extra_bind_paths();
+    test_bwrap_args_extra_bind_paths_null();
     test_bwrap_args_null_returns_null();
     printf("All tests passed.\n");
     return 0;
