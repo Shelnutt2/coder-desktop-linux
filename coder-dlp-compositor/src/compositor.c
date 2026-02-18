@@ -12,6 +12,7 @@
 #include <wlr/types/wlr_fractional_scale_v1.h>
 #include <wlr/types/wlr_linux_dmabuf_v1.h>
 #include <wlr/types/wlr_presentation_time.h>
+#include <wlr/types/wlr_primary_selection_v1.h>
 #include <wlr/types/wlr_single_pixel_buffer_v1.h>
 #include <wlr/types/wlr_viewporter.h>
 #include <wlr/types/wlr_xdg_decoration_v1.h>
@@ -136,6 +137,9 @@ coder_dlp_compositor* coder_dlp_create(void* parent_wl_surface, coder_dlp_log_le
     /* Seat (needed for keyboard/pointer/clipboard) */
     comp->seat = wlr_seat_create(comp->wl_display, "seat0");
 
+    /* Primary selection protocol — required by GTK3+ for middle-click paste */
+    wlr_primary_selection_v1_device_manager_create(comp->wl_display);
+
     /* DLP clipboard mediation */
     dlp_clipboard_init(comp);
 
@@ -217,6 +221,14 @@ void coder_dlp_destroy(coder_dlp_compositor* comp) {
     if (comp->keyboard) {
         wl_list_remove(&comp->keyboard_key.link);
         wl_list_remove(&comp->keyboard_modifiers.link);
+    }
+    /* Touch listeners */
+    if (comp->touch) {
+        wl_list_remove(&comp->touch_down.link);
+        wl_list_remove(&comp->touch_up.link);
+        wl_list_remove(&comp->touch_motion.link);
+        wl_list_remove(&comp->touch_cancel.link);
+        wl_list_remove(&comp->touch_frame.link);
     }
     /* Cursor listeners */
     wl_list_remove(&comp->cursor_motion.link);

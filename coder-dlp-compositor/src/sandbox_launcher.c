@@ -71,13 +71,21 @@ char** dlp_build_bwrap_args(const coder_dlp_compositor* comp, const char* comman
         PUSH("--tmpfs");
         PUSH("/tmp");
 
-        /* Writable ephemeral home — data is lost on exit, preventing
+        /* Home directory: if bind_home_rw is set, bind the real $HOME
+         * read-write (for app-specific profiles that need persistence).
+         * Otherwise use a tmpfs overlay — data is lost on exit, preventing
          * persistent exfiltration while letting apps write profiles,
          * config, and shader caches. */
         const char* home = getenv("HOME");
         if (home) {
-            PUSH("--tmpfs");
-            PUSH(home);
+            if (sandbox->bind_home_rw) {
+                PUSH("--bind");
+                PUSH(home);
+                PUSH(home);
+            } else {
+                PUSH("--tmpfs");
+                PUSH(home);
+            }
         }
     } else {
         /* Non-isolated: full host filesystem access (read-write).
@@ -125,6 +133,17 @@ char** dlp_build_bwrap_args(const coder_dlp_compositor* comp, const char* comman
         PUSH("--bind");
         PUSH(sandbox->workspace_path);
         PUSH(sandbox->workspace_path);
+    }
+
+    /* Extra bind paths: additional rw bind mounts for app-specific profiles */
+    if (sandbox && sandbox->extra_bind_paths) {
+        for (int i = 0; i < sandbox->extra_bind_count; i++) {
+            if (sandbox->extra_bind_paths[i]) {
+                PUSH("--bind");
+                PUSH(sandbox->extra_bind_paths[i]);
+                PUSH(sandbox->extra_bind_paths[i]);
+            }
+        }
     }
 
     /* PID namespace isolation */
