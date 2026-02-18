@@ -70,11 +70,6 @@ void compositor_handle_new_output(struct wl_listener* listener, void* data) {
     wlr_output_commit_state(output, &state);
     wlr_output_state_finish(&state);
 
-    /* Advertise the output to Wayland clients.  Without this call clients
-     * (e.g. Electron/Chromium) see no wl_output global and will never
-     * create an xdg_toplevel window. */
-    wlr_output_create_global(output, comp->wl_display);
-
     /* Add to the output layout and connect the scene graph */
     struct wlr_output_layout_output* l_output =
         wlr_output_layout_add_auto(comp->output_layout, output);
