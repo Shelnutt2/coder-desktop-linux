@@ -55,8 +55,17 @@ add_executable(coder-desktop
     src/webview/AppBrowserWidget.h
     src/webview/AppBrowserWidget.cpp
     src/util/UniqueFd.h
-    src/dlp/DlpCompositorWidget.h
-    src/dlp/DlpCompositorWidget.cpp
+    src/dlp/DlpCompositorManager.h
+    src/dlp/DlpCompositorManager.cpp
+    src/apps/AppEntry.h
+    src/apps/AppDiscovery.h
+    src/apps/AppDiscovery.cpp
+    src/apps/AppModel.h
+    src/apps/AppModel.cpp
+    src/apps/AppLaunchProfile.h
+    src/apps/AppLaunchProfile.cpp
+    src/apps/RunningAppModel.h
+    src/apps/RunningAppModel.cpp
     src/updater/AutoUpdater.h
     src/updater/AutoUpdater.cpp
     src/auth/LoginFlowController.h
@@ -85,6 +94,10 @@ qt_add_qml_module(coder-desktop
         qml/TaskDetailPage.qml
         qml/WorkspaceDetailPage.qml
         qml/SecureDevPage.qml
+        qml/AppTile.qml
+        qml/CategoryFilterBar.qml
+        qml/LaunchDialog.qml
+        qml/RunningAppsPanel.qml
         qml/TerminalPage.qml
         qml/CoderTheme.qml
         qml/StatusChip.qml
@@ -112,7 +125,7 @@ target_compile_definitions(coder-desktop PRIVATE
     APP_VERSION="${PROJECT_VERSION}"
 )
 target_link_libraries(coder-desktop PRIVATE
-    Qt6::Core Qt6::Gui Qt6::Quick Qt6::QuickControls2
+    Qt6::Core Qt6::Gui Qt6::Quick Qt6::QuickControls2 Qt6::Concurrent
     Qt6::Network Qt6::Widgets Qt6::DBus
     coderdlp
 )
