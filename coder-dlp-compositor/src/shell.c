@@ -59,8 +59,8 @@ static void handle_toplevel_commit(struct wl_listener* listener, void* data) {
          * the client to fill the available space. */
         struct coder_dlp_compositor* comp = toplevel->compositor;
         if (comp->output) {
-            wlr_xdg_toplevel_set_size(toplevel->xdg_toplevel,
-                                      comp->output->width, comp->output->height);
+            wlr_xdg_toplevel_set_size(toplevel->xdg_toplevel, comp->output->width,
+                                      comp->output->height);
             wlr_xdg_toplevel_set_maximized(toplevel->xdg_toplevel, true);
         } else {
             wlr_xdg_toplevel_set_size(toplevel->xdg_toplevel, 0, 0);

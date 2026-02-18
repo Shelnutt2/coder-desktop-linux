@@ -53,7 +53,6 @@ int coder_dlp_get_client_count(const coder_dlp_compositor* comp);
  * compositor's window list / title bar). */
 void coder_dlp_set_output_title(coder_dlp_compositor* comp, const char* title);
 
-
 /* Policy */
 void coder_dlp_set_policy(coder_dlp_compositor* comp, const coder_dlp_policy* policy);
 
