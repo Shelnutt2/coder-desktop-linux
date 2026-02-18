@@ -46,6 +46,9 @@ int coder_dlp_get_fd(coder_dlp_compositor* comp);
 void coder_dlp_dispatch(coder_dlp_compositor* comp);
 bool coder_dlp_is_available(void); /* returns true if WAYLAND_DISPLAY is set */
 
+/* Client tracking */
+int coder_dlp_get_client_count(const coder_dlp_compositor* comp);
+
 /* Policy */
 void coder_dlp_set_policy(coder_dlp_compositor* comp, const coder_dlp_policy* policy);
 

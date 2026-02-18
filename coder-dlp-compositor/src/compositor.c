@@ -45,6 +45,45 @@ static void custom_wlr_log(enum wlr_log_importance importance, const char* fmt, 
     }
 }
 
+/* --- Wayland client tracking -------------------------------------------- */
+
+struct client_destroy_wrapper {
+    struct wl_listener destroy;
+    struct coder_dlp_compositor* comp;
+};
+
+static void handle_client_destroyed(struct wl_listener* listener, void* data) {
+    (void)data;
+    struct client_destroy_wrapper* wrapper = wl_container_of(listener, wrapper, destroy);
+    wrapper->comp->client_count--;
+    wlr_log(WLR_DEBUG, "client disconnected (count=%d)", wrapper->comp->client_count);
+    wl_list_remove(&wrapper->destroy.link);
+    free(wrapper);
+}
+
+static void handle_client_created(struct wl_listener* listener, void* data) {
+    struct coder_dlp_compositor* comp = wl_container_of(listener, comp, client_created);
+    struct wl_client* client = data;
+
+    comp->client_count++;
+    wlr_log(WLR_DEBUG, "client connected (count=%d)", comp->client_count);
+
+    struct client_destroy_wrapper* wrapper = calloc(1, sizeof(*wrapper));
+    if (!wrapper) {
+        wlr_log(WLR_ERROR, "failed to allocate client destroy wrapper");
+        return;
+    }
+    wrapper->comp = comp;
+    wrapper->destroy.notify = handle_client_destroyed;
+    wl_client_add_destroy_listener(client, &wrapper->destroy);
+}
+
+int coder_dlp_get_client_count(const coder_dlp_compositor* comp) {
+    return comp ? comp->client_count : 0;
+}
+
+/* ------------------------------------------------------------------------ */
+
 coder_dlp_compositor* coder_dlp_create(void* parent_wl_surface, coder_dlp_log_level log_level) {
     /* parent_wl_surface is reserved for future use with
      * wlr_wl_output_create_from_surface() for embedded rendering.
@@ -80,6 +119,11 @@ coder_dlp_compositor* coder_dlp_create(void* parent_wl_surface, coder_dlp_log_le
         goto err_free;
     }
     comp->wl_event_loop = wl_display_get_event_loop(comp->wl_display);
+
+    /* Track connected Wayland clients */
+    comp->client_count = 0;
+    comp->client_created.notify = handle_client_created;
+    wl_display_add_client_created_listener(comp->wl_display, &comp->client_created);
 
     /* Backend — auto-detects Wayland backend when WAYLAND_DISPLAY is set */
     comp->backend = wlr_backend_autocreate(comp->wl_event_loop, NULL);
@@ -209,6 +253,7 @@ void coder_dlp_destroy(coder_dlp_compositor* comp) {
     wl_list_remove(&comp->request_set_selection.link);
     wl_list_remove(&comp->request_set_primary_selection.link);
     wl_list_remove(&comp->security_context_commit.link);
+    wl_list_remove(&comp->client_created.link);
 
     /* Output listeners (wired in compositor_handle_new_output) */
     if (comp->output) {

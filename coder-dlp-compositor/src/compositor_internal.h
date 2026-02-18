@@ -114,6 +114,10 @@ struct coder_dlp_compositor {
     struct wlr_security_context_manager_v1* security_context_mgr;
     struct wl_listener security_context_commit;
 
+    /* Wayland client tracking */
+    int client_count;
+    struct wl_listener client_created;
+
     /* Socket name for client connections */
     const char* socket;
 };
