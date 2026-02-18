@@ -28,7 +28,7 @@ Dialog {
         workspaceField.text = "";
         // Browsers and Electron IDEs: relaxed
         if (appCategory === "Browser" ||
-            ["code", "code-insiders", "cursor", "codium"].indexOf(appId) >= 0) {
+            ["code", "code-insiders", "cursor", "codium", "vscode"].indexOf(appId) >= 0) {
             pidCheck.checked = false;
             ipcCheck.checked = false;
             netCheck.checked = false;

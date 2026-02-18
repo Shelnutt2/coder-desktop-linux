@@ -53,9 +53,18 @@ static void handle_toplevel_commit(struct wl_listener* listener, void* data) {
     struct coder_dlp_toplevel* toplevel = wl_container_of(listener, toplevel, commit);
 
     if (toplevel->xdg_toplevel->base->initial_commit) {
-        /* Send initial configure — size 0,0 lets the client choose its size.
-         * The client will not map until it receives this configure event. */
-        wlr_xdg_toplevel_set_size(toplevel->xdg_toplevel, 0, 0);
+        /* Maximize the toplevel to fill the compositor output.  This is a
+         * DLP compositor — every app should use the full window area.
+         * Setting size to the output dimensions + maximized state tells
+         * the client to fill the available space. */
+        struct coder_dlp_compositor* comp = toplevel->compositor;
+        if (comp->output) {
+            wlr_xdg_toplevel_set_size(toplevel->xdg_toplevel,
+                                      comp->output->width, comp->output->height);
+            wlr_xdg_toplevel_set_maximized(toplevel->xdg_toplevel, true);
+        } else {
+            wlr_xdg_toplevel_set_size(toplevel->xdg_toplevel, 0, 0);
+        }
     }
 }
 
