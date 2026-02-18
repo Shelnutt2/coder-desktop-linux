@@ -4,6 +4,7 @@
 #include <stdlib.h>
 
 #include <wlr/types/wlr_keyboard.h>
+#include <wlr/types/wlr_output.h>
 #include <wlr/types/wlr_seat.h>
 #include <wlr/util/log.h>
 
@@ -27,6 +28,11 @@ static void handle_toplevel_map(struct wl_listener* listener, void* data) {
                                        toplevel->xdg_toplevel->base->surface, keyboard->keycodes,
                                        keyboard->num_keycodes, &keyboard->modifiers);
     }
+
+    /* Schedule a frame so the newly mapped surface is rendered */
+    if (toplevel->compositor->output) {
+        wlr_output_schedule_frame(toplevel->compositor->output);
+    }
 }
 
 static void handle_toplevel_unmap(struct wl_listener* listener, void* data) {
@@ -39,8 +45,13 @@ static void handle_toplevel_unmap(struct wl_listener* listener, void* data) {
 
 static void handle_toplevel_commit(struct wl_listener* listener, void* data) {
     (void)data;
-    (void)listener;
-    /* Surface commits are handled automatically by the scene graph */
+    struct coder_dlp_toplevel* toplevel = wl_container_of(listener, toplevel, commit);
+    /* The scene graph tracks damage internally, but we must schedule a
+     * new output frame so wlr_scene_output_commit() is called to
+     * actually render the updated content. */
+    if (toplevel->compositor->output) {
+        wlr_output_schedule_frame(toplevel->compositor->output);
+    }
 }
 
 static void handle_toplevel_destroy(struct wl_listener* listener, void* data) {
