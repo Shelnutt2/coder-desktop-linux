@@ -276,7 +276,16 @@ void handle_touch_motion(struct wl_listener* listener, void* data) {
 void handle_touch_cancel(struct wl_listener* listener, void* data) {
     struct coder_dlp_compositor* comp = wl_container_of(listener, comp, touch_cancel);
     (void)data;
-    wlr_seat_touch_notify_cancel(comp->seat, comp->seat->touch_state.focused_surface);
+
+    /* Cancel all active touch points.  Iterate the touch point list and
+     * notify each unique client.  wlr_seat_touch_notify_cancel() takes a
+     * seat_client (not a surface) in wlroots 0.19. */
+    struct wlr_touch_point* point;
+    wl_list_for_each(point, &comp->seat->touch_state.touch_points, link) {
+        if (point->client) {
+            wlr_seat_touch_notify_cancel(comp->seat, point->client);
+        }
+    }
 }
 
 void handle_touch_frame(struct wl_listener* listener, void* data) {

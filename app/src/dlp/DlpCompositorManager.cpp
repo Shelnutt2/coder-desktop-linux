@@ -98,7 +98,8 @@ int DlpCompositorManager::launchApp(const QString& command, const QString& appNa
     sandbox.isolate_ipc = isolateIpc;
     sandbox.isolate_filesystem = isolateFilesystem;
     sandbox.bind_home_rw = bindHomeRw;
-    sandbox.extra_bind_paths = bindPathPtrs.isEmpty() ? nullptr : bindPathPtrs.constData();
+    sandbox.extra_bind_paths =
+        bindPathPtrs.isEmpty() ? nullptr : const_cast<const char**>(bindPathPtrs.data());
     sandbox.extra_bind_count = bindPathPtrs.size();
 
     const int pid = coder_dlp_launch_app(comp, cmdUtf8.constData(), &sandbox);
