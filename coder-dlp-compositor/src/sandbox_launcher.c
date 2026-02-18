@@ -221,6 +221,13 @@ char** dlp_build_bwrap_args(const coder_dlp_compositor* comp, const char* comman
 
     PUSH("--die-with-parent");
 
+    /* Create a new terminal session so bwrap waits for ALL descendant
+     * processes, not just the direct child.  Many apps (VS Code, Firefox,
+     * Electron-based IDEs) fork the real process and exit the wrapper
+     * immediately — without --new-session, bwrap would exit too and we'd
+     * destroy the compositor while the app is still running. */
+    PUSH("--new-session");
+
     /* Command */
     PUSH("--");
     PUSH("/bin/sh");
