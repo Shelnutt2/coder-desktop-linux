@@ -79,22 +79,34 @@ Item {
             }
         }
 
-        // ---- Error banner ----
+        // ---- Error banner with retry ----
         Rectangle {
             Layout.fillWidth: true
-            height: taskErrorLabel.implicitHeight + 16
+            height: taskErrorRow.implicitHeight + 16
             radius: CoderTheme.radiusSm
             color: CoderTheme.errorSurface
             visible: taskModel.errorMessage.length > 0
 
-            Label {
-                id: taskErrorLabel
+            RowLayout {
+                id: taskErrorRow
                 anchors.fill: parent
                 anchors.margins: 8
-                text: taskModel.errorMessage
-                color: CoderTheme.error
-                wrapMode: Text.WordWrap
-                font.pixelSize: 13
+                spacing: 8
+
+                Label {
+                    id: taskErrorLabel
+                    text: taskModel.errorMessage
+                    color: CoderTheme.error
+                    wrapMode: Text.WordWrap
+                    font.pixelSize: 13
+                    Layout.fillWidth: true
+                }
+
+                CoderButton {
+                    text: "Retry"
+                    variant: "outline"
+                    onClicked: pollingController.refreshNow()
+                }
             }
         }
 
@@ -260,12 +272,25 @@ Item {
             }
 
             // ---- Empty state ----
-            Label {
+            ColumnLayout {
                 anchors.centerIn: parent
+                spacing: 8
                 visible: taskModel.count === 0 && !taskModel.loading
-                text: "No AI tasks found"
-                font.pixelSize: 16
-                color: CoderTheme.textSecondary
+                opacity: 0.5
+
+                Label {
+                    text: "No tasks yet"
+                    font.pixelSize: 16
+                    color: CoderTheme.textSecondary
+                    Layout.alignment: Qt.AlignHCenter
+                }
+
+                Label {
+                    text: "AI tasks will appear here once created"
+                    font.pixelSize: 13
+                    color: CoderTheme.textDisabled
+                    Layout.alignment: Qt.AlignHCenter
+                }
             }
         }
     }

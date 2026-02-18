@@ -114,24 +114,36 @@ Item {
             }
         }
 
-        // ---- Error banner ----
+        // ---- Error banner with retry ----
         Rectangle {
             Layout.fillWidth: true
-            height: wsErrorLabel.implicitHeight + 16
+            height: wsErrorRow.implicitHeight + 16
             radius: CoderTheme.radiusSm
             color: CoderTheme.errorSurface
             border.color: CoderTheme.error
             border.width: 1
             visible: workspaceModel.errorMessage.length > 0
 
-            Label {
-                id: wsErrorLabel
+            RowLayout {
+                id: wsErrorRow
                 anchors.fill: parent
                 anchors.margins: 8
-                text: workspaceModel.errorMessage
-                color: CoderTheme.error
-                wrapMode: Text.WordWrap
-                font.pixelSize: 13
+                spacing: 8
+
+                Label {
+                    id: wsErrorLabel
+                    text: workspaceModel.errorMessage
+                    color: CoderTheme.error
+                    wrapMode: Text.WordWrap
+                    font.pixelSize: 13
+                    Layout.fillWidth: true
+                }
+
+                CoderButton {
+                    text: "Retry"
+                    variant: "outline"
+                    onClicked: pollingController.refreshNow()
+                }
             }
         }
 
@@ -163,7 +175,7 @@ Item {
                 radius: CoderTheme.radius
                 color: delegateMouseArea.containsMouse ? CoderTheme.hoverBg : CoderTheme.surface
                 border.color: CoderTheme.border
-                border.width: 1
+                clip: true
 
                 // Tap area to open detail — outside the layout to avoid
                 // "anchors on an item managed by a layout" warnings.
@@ -340,9 +352,12 @@ Item {
                     }
                 }
 
-                // Hide the whole delegate when filtered out
+                // Collapse the delegate completely when filtered out.
+                // Setting height: 0 + clip hides content; border.width: 0
+                // avoids a 1px line for collapsed delegates.
                 height: delegateLayout.visible ? delegateLayout.implicitHeight + 24 : 0
                 visible: delegateLayout.visible
+                border.width: delegateLayout.visible ? 1 : 0
             }
 
             // ---- Empty state ----
@@ -350,11 +365,19 @@ Item {
                 anchors.centerIn: parent
                 spacing: 12
                 visible: workspaceModel.count === 0 && !workspaceModel.loading
+                opacity: 0.5
 
                 Label {
-                    text: "No workspaces found"
+                    text: "No workspaces"
                     font.pixelSize: 16
                     color: CoderTheme.textSecondary
+                    Layout.alignment: Qt.AlignHCenter
+                }
+
+                Label {
+                    text: "Create a workspace to get started"
+                    font.pixelSize: 13
+                    color: CoderTheme.textDisabled
                     Layout.alignment: Qt.AlignHCenter
                 }
 
@@ -362,6 +385,7 @@ Item {
                     text: "Create Workspace"
                     variant: "default"
                     Layout.alignment: Qt.AlignHCenter
+                    opacity: 1.0 / 0.5  // counteract parent opacity for button
                     onClicked: {
                         var base = sessionManager.currentUrl.replace(/\/+$/, "")
                         Qt.openUrlExternally(base + "/workspaces")
