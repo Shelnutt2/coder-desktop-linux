@@ -8,11 +8,14 @@
 #include <stdarg.h>
 #include <wlr/util/log.h>
 
+#include <wlr/types/wlr_cursor_shape_v1.h>
 #include <wlr/types/wlr_fractional_scale_v1.h>
 #include <wlr/types/wlr_linux_dmabuf_v1.h>
 #include <wlr/types/wlr_presentation_time.h>
+#include <wlr/types/wlr_single_pixel_buffer_v1.h>
 #include <wlr/types/wlr_viewporter.h>
 #include <wlr/types/wlr_xdg_decoration_v1.h>
+#include <wlr/types/wlr_xdg_output_v1.h>
 
 #define LOG_ERR(fmt, ...) fprintf(stderr, "coder-dlp: " fmt "\n", ##__VA_ARGS__)
 
@@ -109,9 +112,12 @@ coder_dlp_compositor* coder_dlp_create(void* parent_wl_surface, coder_dlp_log_le
     wlr_xdg_decoration_manager_v1_create(comp->wl_display);
     wlr_fractional_scale_manager_v1_create(comp->wl_display, 1);
     wlr_presentation_create(comp->wl_display, comp->backend, 1);
+    wlr_cursor_shape_manager_v1_create(comp->wl_display, 1);
+    wlr_single_pixel_buffer_manager_v1_create(comp->wl_display);
 
     /* Output layout + scene graph */
     comp->output_layout = wlr_output_layout_create(comp->wl_display);
+    wlr_xdg_output_manager_v1_create(comp->wl_display, comp->output_layout);
     comp->scene = wlr_scene_create();
     comp->scene_layout = wlr_scene_attach_output_layout(comp->scene, comp->output_layout);
 

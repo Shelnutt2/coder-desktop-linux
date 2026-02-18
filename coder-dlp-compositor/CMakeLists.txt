@@ -18,6 +18,17 @@ add_custom_command(
 )
 add_custom_target(xdg_shell_protocol DEPENDS "${XDG_SHELL_HEADER}")
 
+# Generate cursor-shape-v1 protocol header (required by wlroots cursor_shape_v1.h)
+set(CURSOR_SHAPE_XML "${WAYLAND_PROTOCOLS_DIR}/staging/cursor-shape/cursor-shape-v1.xml")
+set(CURSOR_SHAPE_HEADER "${CMAKE_CURRENT_BINARY_DIR}/cursor-shape-v1-protocol.h")
+add_custom_command(
+    OUTPUT "${CURSOR_SHAPE_HEADER}"
+    COMMAND "${WAYLAND_SCANNER_BIN}" server-header "${CURSOR_SHAPE_XML}" "${CURSOR_SHAPE_HEADER}"
+    DEPENDS "${CURSOR_SHAPE_XML}"
+    COMMENT "Generating cursor-shape-v1-protocol.h"
+)
+add_custom_target(cursor_shape_protocol DEPENDS "${CURSOR_SHAPE_HEADER}")
+
 add_library(coderdlp SHARED
     src/compositor.c
     src/shell.c
@@ -28,7 +39,7 @@ add_library(coderdlp SHARED
     src/output.c
     src/input.c
 )
-add_dependencies(coderdlp xdg_shell_protocol)
+add_dependencies(coderdlp xdg_shell_protocol cursor_shape_protocol)
 target_include_directories(coderdlp
     PUBLIC include
     PRIVATE ${WLROOTS_INCLUDE_DIRS} ${WAYLAND_INCLUDE_DIRS} ${XKBCOMMON_INCLUDE_DIRS}
