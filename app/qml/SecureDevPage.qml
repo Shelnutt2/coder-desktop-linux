@@ -7,6 +7,8 @@ import CoderDesktop
 Page {
     id: secureDevPage
 
+    property bool dlpSectionVisible: dlpCompositor.available && settingsManager.dlpEnabled
+
     header: Label {
         text: "Secure Development"
         font.pixelSize: 20
@@ -58,56 +60,30 @@ Page {
                 }
             }
 
-            // ---- Compositor status & controls (only when available + enabled) ----
+            // ---- Not enabled message ----
             Rectangle {
                 Layout.fillWidth: true
-                Layout.leftMargin: 16
-                Layout.rightMargin: 16
+                Layout.margins: 16
+                height: notEnabledCol.implicitHeight + 24
                 radius: CoderTheme.radius
-                color: CoderTheme.surface
-                border.color: CoderTheme.border
-                border.width: 1
-                implicitHeight: compositorCol.implicitHeight + 24
-                visible: dlpCompositor.available && settingsManager.dlpEnabled
+                color: CoderTheme.warningSurface
+                visible: dlpCompositor.available && !settingsManager.dlpEnabled
 
                 ColumnLayout {
-                    id: compositorCol
+                    id: notEnabledCol
                     anchors.fill: parent
                     anchors.margins: 12
-                    spacing: 8
+                    spacing: 4
 
                     Label {
-                        text: "COMPOSITOR"
-                        font.pixelSize: 11
-                        font.weight: Font.DemiBold
-                        color: CoderTheme.textSecondary
+                        text: "Secure Development is not enabled"
+                        font.bold: true
+                        color: CoderTheme.warning
                     }
-
-                    RowLayout {
-                        Label {
-                            text: "Status:"
-                            color: CoderTheme.textPrimary
-                        }
-                        Label {
-                            text: dlpCompositor.running ? "Running" : "Stopped"
-                            color: dlpCompositor.running ? CoderTheme.success : CoderTheme.error
-                            font.bold: true
-                        }
-                        Item { Layout.fillWidth: true }
-                        CoderButton {
-                            text: dlpCompositor.running ? "Stop" : "Start"
-                            variant: dlpCompositor.running ? "destructive" : "default"
-                            onClicked: {
-                                if (dlpCompositor.running)
-                                    dlpCompositor.stop();
-                                else
-                                    dlpCompositor.start();
-                            }
-                        }
-                    }
-
                     Label {
-                        text: "Launched apps: " + dlpCompositor.launchedAppCount
+                        text: "Enable Data Loss Prevention in Settings to use the secure compositor."
+                        wrapMode: Text.WordWrap
+                        Layout.fillWidth: true
                         color: CoderTheme.textSecondary
                     }
                 }
@@ -123,7 +99,7 @@ Page {
                 border.color: CoderTheme.border
                 border.width: 1
                 implicitHeight: policyCol.implicitHeight + 24
-                visible: dlpCompositor.available && settingsManager.dlpEnabled
+                visible: dlpSectionVisible
 
                 ColumnLayout {
                     id: policyCol
@@ -187,7 +163,6 @@ Page {
                         }
                     }
 
-                    // Configure in Settings →
                     Label {
                         text: "Configure in Settings →"
                         font.pixelSize: 13
@@ -203,7 +178,7 @@ Page {
                 }
             }
 
-            // ---- Launch App in Sandbox section ----
+            // ---- App Launcher section ----
             Rectangle {
                 Layout.fillWidth: true
                 Layout.leftMargin: 16
@@ -212,18 +187,313 @@ Page {
                 color: CoderTheme.surface
                 border.color: CoderTheme.border
                 border.width: 1
-                implicitHeight: launchCol.implicitHeight + 24
-                visible: dlpCompositor.available && settingsManager.dlpEnabled
-                         && dlpCompositor.running
+                implicitHeight: appLauncherCol.implicitHeight + 24
+                visible: dlpSectionVisible
 
                 ColumnLayout {
-                    id: launchCol
-                    anchors.fill: parent
+                    id: appLauncherCol
+                    anchors.left: parent.left
+                    anchors.right: parent.right
+                    anchors.top: parent.top
+                    anchors.margins: 12
+                    spacing: 10
+
+                    Label {
+                        text: "APP LAUNCHER"
+                        font.pixelSize: 11
+                        font.weight: Font.DemiBold
+                        color: CoderTheme.textSecondary
+                    }
+
+                    // Search bar and view toggle
+                    RowLayout {
+                        Layout.fillWidth: true
+                        spacing: 8
+
+                        TextField {
+                            id: searchField
+                            placeholderText: "Search apps…"
+                            Layout.fillWidth: true
+                            color: CoderTheme.textPrimary
+                            onTextChanged: appModel.searchQuery = text
+                            background: Rectangle {
+                                radius: CoderTheme.radiusSm
+                                color: CoderTheme.background
+                                border.color: searchField.activeFocus ? CoderTheme.primary : CoderTheme.border
+                                border.width: 1
+                            }
+                        }
+
+                        Rectangle {
+                            width: viewToggleRow.implicitWidth + 8
+                            height: 36
+                            radius: CoderTheme.radiusSm
+                            color: CoderTheme.surfaceSecondary
+
+                            RowLayout {
+                                id: viewToggleRow
+                                anchors.centerIn: parent
+                                spacing: 2
+
+                                Rectangle {
+                                    width: 28; height: 28
+                                    radius: CoderTheme.radiusSm
+                                    color: !listViewMode ? CoderTheme.primary : "transparent"
+
+                                    Label {
+                                        anchors.centerIn: parent
+                                        text: "▦"
+                                        font.pixelSize: 14
+                                        color: !listViewMode ? CoderTheme.textInvert : CoderTheme.textSecondary
+                                    }
+                                    MouseArea {
+                                        anchors.fill: parent
+                                        cursorShape: Qt.PointingHandCursor
+                                        onClicked: listViewMode = false
+                                    }
+                                }
+
+                                Rectangle {
+                                    width: 28; height: 28
+                                    radius: CoderTheme.radiusSm
+                                    color: listViewMode ? CoderTheme.primary : "transparent"
+
+                                    Label {
+                                        anchors.centerIn: parent
+                                        text: "☰"
+                                        font.pixelSize: 14
+                                        color: listViewMode ? CoderTheme.textInvert : CoderTheme.textSecondary
+                                    }
+                                    MouseArea {
+                                        anchors.fill: parent
+                                        cursorShape: Qt.PointingHandCursor
+                                        onClicked: listViewMode = true
+                                    }
+                                }
+                            }
+                        }
+
+                        CoderButton {
+                            text: "↻"
+                            variant: "outline"
+                            onClicked: appModel.refresh()
+                            ToolTip.visible: hovered
+                            ToolTip.text: "Refresh apps"
+                        }
+                    }
+
+                    // Category filter
+                    CategoryFilterBar {
+                        id: categoryFilter
+                        Layout.fillWidth: true
+                        onCategorySelected: function(category) {
+                            appModel.categoryFilter = category;
+                        }
+                    }
+
+                    // Loading indicator
+                    BusyIndicator {
+                        Layout.alignment: Qt.AlignHCenter
+                        running: appModel.loading
+                        visible: appModel.loading
+                        Material.accent: CoderTheme.primary
+                    }
+
+                    // Grid view (default)
+                    GridView {
+                        id: appGridView
+                        Layout.fillWidth: true
+                        Layout.preferredHeight: contentHeight
+                        visible: !listViewMode && !appModel.loading
+                        interactive: false
+                        cellWidth: 130
+                        cellHeight: 140
+
+                        model: appModel
+
+                        delegate: AppTile {
+                            width: appGridView.cellWidth - 10
+                            height: appGridView.cellHeight - 10
+                            appName: model.name
+                            appExec: model.exec
+                            appId: model.id
+                            appCategory: model.category
+                            appIconName: model.iconName
+                            appIconPath: model.iconPath
+
+                            onLaunched: {
+                                launchDialog.appName = model.name;
+                                launchDialog.appExec = model.exec;
+                                launchDialog.appId = model.id;
+                                launchDialog.appCategory = model.category;
+                                launchDialog.appIconName = model.iconName;
+                                launchDialog.open();
+                            }
+                        }
+                    }
+
+                    // List view (alternate)
+                    ListView {
+                        id: appListView
+                        Layout.fillWidth: true
+                        Layout.preferredHeight: contentHeight
+                        visible: listViewMode && !appModel.loading
+                        interactive: false
+                        spacing: 4
+
+                        model: appModel
+
+                        delegate: Rectangle {
+                            width: appListView.width
+                            height: 48
+                            radius: CoderTheme.radiusSm
+                            color: listItemMouse.containsMouse ? CoderTheme.hoverBg : "transparent"
+
+                            MouseArea {
+                                id: listItemMouse
+                                anchors.fill: parent
+                                hoverEnabled: true
+                                cursorShape: Qt.PointingHandCursor
+                                onClicked: {
+                                    launchDialog.appName = model.name;
+                                    launchDialog.appExec = model.exec;
+                                    launchDialog.appId = model.id;
+                                    launchDialog.appCategory = model.category;
+                                    launchDialog.appIconName = model.iconName;
+                                    launchDialog.open();
+                                }
+                            }
+
+                            RowLayout {
+                                anchors.fill: parent
+                                anchors.margins: 8
+                                spacing: 12
+
+                                // Icon or emoji fallback
+                                Item {
+                                    width: 32; height: 32
+
+                                    Image {
+                                        anchors.centerIn: parent
+                                        width: 32; height: 32
+                                        sourceSize: Qt.size(32, 32)
+                                        source: model.iconPath !== "" ? model.iconPath : ""
+                                        visible: model.iconPath !== "" && status === Image.Ready
+                                        fillMode: Image.PreserveAspectFit
+                                    }
+                                    Label {
+                                        anchors.centerIn: parent
+                                        font.pixelSize: 20
+                                        visible: model.iconPath === "" || parent.children[0].status !== Image.Ready
+                                        text: {
+                                            switch (model.category) {
+                                                case "IDE":      return "🖥️";
+                                                case "Browser":  return "🌐";
+                                                case "Editor":   return "📝";
+                                                case "AI Tool":  return "🤖";
+                                                case "Terminal": return "⌨️";
+                                                default:         return "📦";
+                                            }
+                                        }
+                                    }
+                                }
+
+                                Label {
+                                    text: model.name
+                                    font.pixelSize: 13
+                                    font.weight: Font.Medium
+                                    color: CoderTheme.textPrimary
+                                    elide: Text.ElideRight
+                                    Layout.fillWidth: true
+                                }
+
+                                Rectangle {
+                                    width: listCatLabel.implicitWidth + 12
+                                    height: listCatLabel.implicitHeight + 4
+                                    radius: CoderTheme.radiusSm
+                                    color: CoderTheme.surfaceSecondary
+                                    visible: model.category !== ""
+
+                                    Label {
+                                        id: listCatLabel
+                                        anchors.centerIn: parent
+                                        text: model.category
+                                        font.pixelSize: 10
+                                        color: CoderTheme.textSecondary
+                                    }
+                                }
+                            }
+                        }
+                    }
+
+                    // Empty state
+                    ColumnLayout {
+                        Layout.fillWidth: true
+                        Layout.topMargin: 16
+                        Layout.bottomMargin: 16
+                        spacing: 8
+                        visible: appModel.totalCount === 0 && !appModel.loading
+
+                        Label {
+                            text: "📦"
+                            font.pixelSize: 40
+                            Layout.alignment: Qt.AlignHCenter
+                        }
+                        Label {
+                            text: "No apps detected"
+                            font.pixelSize: 14
+                            font.weight: Font.Medium
+                            color: CoderTheme.textSecondary
+                            Layout.alignment: Qt.AlignHCenter
+                        }
+                        Label {
+                            text: "Install desktop applications or use the custom command below."
+                            font.pixelSize: 12
+                            color: CoderTheme.textDisabled
+                            Layout.alignment: Qt.AlignHCenter
+                            wrapMode: Text.WordWrap
+                            Layout.fillWidth: true
+                            horizontalAlignment: Text.AlignHCenter
+                        }
+                    }
+                }
+            }
+
+            // ---- Running Apps section ----
+            RunningAppsPanel {
+                Layout.fillWidth: true
+                Layout.leftMargin: 16
+                Layout.rightMargin: 16
+                visible: dlpSectionVisible && dlpCompositor.launchedAppCount > 0
+                model: dlpCompositor.runningApps
+                onStopRequested: function(pid) {
+                    dlpCompositor.stopApp(pid);
+                }
+                onStopAllRequested: dlpCompositor.stopAll()
+            }
+
+            // ---- Custom Command section ----
+            Rectangle {
+                Layout.fillWidth: true
+                Layout.leftMargin: 16
+                Layout.rightMargin: 16
+                radius: CoderTheme.radius
+                color: CoderTheme.surface
+                border.color: CoderTheme.border
+                border.width: 1
+                implicitHeight: customCmdCol.implicitHeight + 24
+                visible: dlpSectionVisible
+
+                ColumnLayout {
+                    id: customCmdCol
+                    anchors.left: parent.left
+                    anchors.right: parent.right
+                    anchors.top: parent.top
                     anchors.margins: 12
                     spacing: 8
 
                     Label {
-                        text: "LAUNCH APP IN SANDBOX"
+                        text: "CUSTOM COMMAND"
                         font.pixelSize: 11
                         font.weight: Font.DemiBold
                         color: CoderTheme.textSecondary
@@ -255,29 +525,62 @@ Page {
                         }
                     }
 
+                    // Collapsible sandbox options
+                    Rectangle {
+                        Layout.fillWidth: true
+                        height: sandboxToggleLabel.implicitHeight + 16
+                        radius: CoderTheme.radiusSm
+                        color: sandboxToggleMouse.containsMouse ? CoderTheme.hoverBg : "transparent"
+
+                        RowLayout {
+                            id: sandboxToggleLabel
+                            anchors.left: parent.left
+                            anchors.right: parent.right
+                            anchors.verticalCenter: parent.verticalCenter
+                            anchors.margins: 4
+
+                            Label {
+                                text: customSandboxExpanded ? "▾ Sandbox Options" : "▸ Sandbox Options"
+                                font.pixelSize: 12
+                                font.weight: Font.Medium
+                                color: CoderTheme.textSecondary
+                            }
+                            Item { Layout.fillWidth: true }
+                        }
+
+                        MouseArea {
+                            id: sandboxToggleMouse
+                            anchors.fill: parent
+                            hoverEnabled: true
+                            cursorShape: Qt.PointingHandCursor
+                            onClicked: customSandboxExpanded = !customSandboxExpanded
+                        }
+                    }
+
                     RowLayout {
                         spacing: 16
+                        visible: customSandboxExpanded
 
                         CheckBox {
-                            id: pidCheck
+                            id: customPidCheck
                             text: "Isolate PID"
                             checked: true
                             Material.accent: CoderTheme.primary
                         }
                         CheckBox {
-                            id: ipcCheck
+                            id: customIpcCheck
                             text: "Isolate IPC"
                             checked: true
                             Material.accent: CoderTheme.primary
                         }
                         CheckBox {
-                            id: netCheck
+                            id: customNetCheck
                             text: "Isolate Network"
                             checked: false
                             Material.accent: CoderTheme.primary
                         }
                         CheckBox {
-                            id: fsCheck
+                            id: customFsCheck
                             text: "Isolate Filesystem"
                             checked: false
                             Material.accent: CoderTheme.primary
@@ -291,11 +594,14 @@ Page {
                         onClicked: {
                             dlpCompositor.launchApp(
                                 commandField.text,
+                                "",
                                 workspacePathField.text,
-                                pidCheck.checked,
-                                ipcCheck.checked,
-                                netCheck.checked,
-                                fsCheck.checked
+                                customPidCheck.checked,
+                                customIpcCheck.checked,
+                                customNetCheck.checked,
+                                customFsCheck.checked,
+                                false,
+                                []
                             );
                             commandField.text = "";
                         }
@@ -303,37 +609,20 @@ Page {
                 }
             }
 
-            // ---- Not enabled message ----
-            Rectangle {
-                Layout.fillWidth: true
-                Layout.margins: 16
-                height: notEnabledCol.implicitHeight + 24
-                radius: CoderTheme.radius
-                color: CoderTheme.warningSurface
-                visible: dlpCompositor.available && !settingsManager.dlpEnabled
-
-                ColumnLayout {
-                    id: notEnabledCol
-                    anchors.fill: parent
-                    anchors.margins: 12
-                    spacing: 4
-
-                    Label {
-                        text: "Secure Development is not enabled"
-                        font.bold: true
-                        color: CoderTheme.warning
-                    }
-                    Label {
-                        text: "Enable Data Loss Prevention in Settings to use the secure compositor."
-                        wrapMode: Text.WordWrap
-                        Layout.fillWidth: true
-                        color: CoderTheme.textSecondary
-                    }
-                }
-            }
-
             // ---- Spacer ----
             Item { Layout.fillHeight: true }
+        }
+    }
+
+    // ---- Local state ----
+    property bool listViewMode: false
+    property bool customSandboxExpanded: false
+
+    // ---- Launch Dialog ----
+    LaunchDialog {
+        id: launchDialog
+        onLaunchRequested: function(command, appName, workspacePath, pid, ipc, net, fs, homeRw) {
+            dlpCompositor.launchApp(command, appName, workspacePath, pid, ipc, net, fs, homeRw, []);
         }
     }
 
