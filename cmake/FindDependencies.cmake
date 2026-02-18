@@ -19,7 +19,7 @@ find_package(PkgConfig REQUIRED)
 
 # ── Qt 6 (required) ──────────────────────────────────────────────────────
 find_package(Qt6 6.4 REQUIRED COMPONENTS
-    Core Gui Quick QuickControls2 Network Widgets DBus Test)
+    Core Gui Quick QuickControls2 Network Widgets DBus Concurrent Test)
 
 # Optional Qt components — available on some distros/configurations.
 find_package(Qt6 COMPONENTS WebSockets QUIET)

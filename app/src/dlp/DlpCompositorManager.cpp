@@ -71,7 +71,8 @@ int DlpCompositorManager::launchApp(const QString& command, const QString& appNa
     coder_dlp_set_policy(comp, &m_currentPolicy);
 
     // Set the compositor window title so it's identifiable in the taskbar.
-    const QString title = QStringLiteral("Coder Secure - %1").arg(appName.isEmpty() ? command : appName);
+    const QString title =
+        QStringLiteral("Coder Secure - %1").arg(appName.isEmpty() ? command : appName);
     coder_dlp_set_output_title(comp, title.toUtf8().constData());
 
     // Integrate the wlroots event loop with Qt via QSocketNotifier.
