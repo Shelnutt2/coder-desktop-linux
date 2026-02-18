@@ -50,7 +50,7 @@ static void test_sandbox_launch_null_safety(void) {
     assert(coder_dlp_launch_app(NULL, "echo hello", NULL) == -1);
 
     /* Non-NULL comp but NULL command */
-    coder_dlp_compositor *comp = calloc(1, sizeof(*comp));
+    coder_dlp_compositor* comp = calloc(1, sizeof(*comp));
     assert(comp != NULL);
     assert(coder_dlp_launch_app(comp, NULL, NULL) == -1);
     free(comp);
@@ -61,34 +61,34 @@ static void test_sandbox_launch_null_safety(void) {
 static void test_bwrap_args_basic(void) {
     /* Verify the argv array built by dlp_build_bwrap_args contains the
      * expected entries for a minimal configuration. */
-    coder_dlp_compositor *comp = calloc(1, sizeof(*comp));
+    coder_dlp_compositor* comp = calloc(1, sizeof(*comp));
     assert(comp != NULL);
     comp->socket = "wayland-test";
 
-    char **argv = dlp_build_bwrap_args(comp, "echo hello", NULL);
+    char** argv = dlp_build_bwrap_args(comp, "echo hello", NULL);
     assert(argv != NULL);
 
     /* First arg must be "bwrap" */
     assert(strcmp(argv[0], "bwrap") == 0);
 
-    /* Must contain --ro-bind / / */
-    int found_ro_bind = 0;
+    /* Must contain --bind / / (non-isolated mode, sandbox=NULL) */
+    int found_bind_root = 0;
     int found_wayland = 0;
     int found_unsetenv_display = 0;
     int found_command = 0;
     for (int i = 0; argv[i]; i++) {
-        if (strcmp(argv[i], "--ro-bind") == 0) found_ro_bind = 1;
+        if (strcmp(argv[i], "--bind") == 0 && argv[i + 1] && strcmp(argv[i + 1], "/") == 0)
+            found_bind_root = 1;
         if (strcmp(argv[i], "WAYLAND_DISPLAY") == 0 && i > 0 &&
             strcmp(argv[i - 1], "--setenv") == 0) {
             assert(strcmp(argv[i + 1], "wayland-test") == 0);
             found_wayland = 1;
         }
-        if (strcmp(argv[i], "DISPLAY") == 0 && i > 0 &&
-            strcmp(argv[i - 1], "--unsetenv") == 0)
+        if (strcmp(argv[i], "DISPLAY") == 0 && i > 0 && strcmp(argv[i - 1], "--unsetenv") == 0)
             found_unsetenv_display = 1;
         if (strcmp(argv[i], "echo hello") == 0) found_command = 1;
     }
-    assert(found_ro_bind);
+    assert(found_bind_root);
     assert(found_wayland);
     assert(found_unsetenv_display);
     assert(found_command);
@@ -100,18 +100,19 @@ static void test_bwrap_args_basic(void) {
 
 static void test_bwrap_args_sandbox_options(void) {
     /* Verify sandbox config options appear in argv. */
-    coder_dlp_compositor *comp = calloc(1, sizeof(*comp));
+    coder_dlp_compositor* comp = calloc(1, sizeof(*comp));
     assert(comp != NULL);
     comp->socket = "wayland-test";
 
     coder_dlp_sandbox_config sandbox;
     memset(&sandbox, 0, sizeof(sandbox));
     sandbox.workspace_path = "/home/user/workspace";
+    sandbox.isolate_filesystem = true;
     sandbox.isolate_pid = true;
     sandbox.isolate_ipc = true;
     sandbox.network_namespace = "vpn0";
 
-    char **argv = dlp_build_bwrap_args(comp, "ls", &sandbox);
+    char** argv = dlp_build_bwrap_args(comp, "ls", &sandbox);
     assert(argv != NULL);
 
     int found_bind_ws = 0, found_pid = 0, found_ipc = 0, found_net = 0;
@@ -133,11 +134,49 @@ static void test_bwrap_args_sandbox_options(void) {
     printf("test_bwrap_args_sandbox_options: PASSED\n");
 }
 
+static void test_bwrap_args_no_fs_isolation(void) {
+    /* When isolate_filesystem is false, the sandbox should use --bind / /
+     * (read-write) and NOT include workspace_path bind (already accessible). */
+    coder_dlp_compositor* comp = calloc(1, sizeof(*comp));
+    assert(comp != NULL);
+    comp->socket = "wayland-test";
+
+    coder_dlp_sandbox_config sandbox;
+    memset(&sandbox, 0, sizeof(sandbox));
+    sandbox.workspace_path = "/home/user/workspace";
+    sandbox.isolate_filesystem = false;
+
+    char** argv = dlp_build_bwrap_args(comp, "ls", &sandbox);
+    assert(argv != NULL);
+
+    int found_rw_bind_root = 0;
+    int found_ro_bind_root = 0;
+    int found_bind_ws = 0;
+    for (int i = 0; argv[i]; i++) {
+        if (strcmp(argv[i], "--bind") == 0 && argv[i + 1] && strcmp(argv[i + 1], "/") == 0)
+            found_rw_bind_root = 1;
+        if (strcmp(argv[i], "--ro-bind") == 0 && argv[i + 1] && strcmp(argv[i + 1], "/") == 0)
+            found_ro_bind_root = 1;
+        if (strcmp(argv[i], "--bind") == 0 && argv[i + 1] &&
+            strcmp(argv[i + 1], "/home/user/workspace") == 0)
+            found_bind_ws = 1;
+    }
+    /* Non-isolated: should have rw bind, not ro bind */
+    assert(found_rw_bind_root);
+    assert(!found_ro_bind_root);
+    /* workspace_path bind is unnecessary when fs is not isolated */
+    assert(!found_bind_ws);
+
+    dlp_free_bwrap_args(argv);
+    free(comp);
+    printf("test_bwrap_args_no_fs_isolation: PASSED\n");
+}
+
 static void test_bwrap_args_null_returns_null(void) {
     /* NULL comp or command must return NULL. */
     assert(dlp_build_bwrap_args(NULL, "echo", NULL) == NULL);
 
-    coder_dlp_compositor *comp = calloc(1, sizeof(*comp));
+    coder_dlp_compositor* comp = calloc(1, sizeof(*comp));
     assert(comp != NULL);
     assert(dlp_build_bwrap_args(comp, NULL, NULL) == NULL);
     free(comp);
@@ -154,6 +193,7 @@ int main(void) {
     test_sandbox_launch_null_safety();
     test_bwrap_args_basic();
     test_bwrap_args_sandbox_options();
+    test_bwrap_args_no_fs_isolation();
     test_bwrap_args_null_returns_null();
     printf("All tests passed.\n");
     return 0;
