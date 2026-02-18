@@ -19,8 +19,8 @@ Dialog {
     title: "Launch " + appName
     modal: true
     standardButtons: Dialog.NoButton
-    anchors.centerIn: parent ? parent : undefined
-    width: Math.min(parent ? parent.width - 64 : 420, 420)
+    anchors.centerIn: Overlay.overlay ?? undefined
+    width: 420
 
     Material.background: CoderTheme.surface
 

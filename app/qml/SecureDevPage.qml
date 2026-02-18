@@ -4,23 +4,37 @@ import QtQuick.Controls.Material
 import QtQuick.Layouts
 import CoderDesktop
 
-Page {
+Item {
     id: secureDevPage
 
     property bool dlpSectionVisible: dlpCompositor.available && settingsManager.dlpEnabled
 
-    header: Label {
+    // Clip content to this item's bounds so nothing bleeds into other tabs
+    // when using visibility-based page switching in Main.qml.
+    clip: true
+
+    Rectangle {
+        anchors.fill: parent
+        color: CoderTheme.background
+    }
+
+    Label {
+        id: pageHeader
         text: "Secure Development"
         font.pixelSize: 20
         font.bold: true
         color: CoderTheme.textPrimary
         padding: 16
+        anchors.top: parent.top
+        anchors.left: parent.left
+        anchors.right: parent.right
     }
 
-    background: Rectangle { color: CoderTheme.background }
-
     ScrollView {
-        anchors.fill: parent
+        anchors.top: pageHeader.bottom
+        anchors.left: parent.left
+        anchors.right: parent.right
+        anchors.bottom: parent.bottom
         contentWidth: availableWidth
 
         ColumnLayout {
@@ -374,17 +388,24 @@ Page {
                                     width: 32; height: 32
 
                                     Image {
+                                        id: listItemIcon
                                         anchors.centerIn: parent
                                         width: 32; height: 32
                                         sourceSize: Qt.size(32, 32)
-                                        source: model.iconPath !== "" ? model.iconPath : ""
-                                        visible: model.iconPath !== "" && status === Image.Ready
+                                        source: {
+                                            if (model.iconPath !== "")
+                                                return "file://" + model.iconPath;
+                                            if (model.iconName !== "")
+                                                return "image://icon-theme/" + model.iconName;
+                                            return "";
+                                        }
+                                        visible: status === Image.Ready
                                         fillMode: Image.PreserveAspectFit
                                     }
                                     Label {
                                         anchors.centerIn: parent
                                         font.pixelSize: 20
-                                        visible: model.iconPath === "" || parent.children[0].status !== Image.Ready
+                                        visible: !listItemIcon.visible
                                         text: {
                                             switch (model.category) {
                                                 case "IDE":      return "🖥️";
@@ -619,8 +640,11 @@ Page {
     property bool customSandboxExpanded: false
 
     // ---- Launch Dialog ----
+    // Parent to the application window's contentItem so the dialog overlay
+    // renders above all pages (not clipped to this page's bounds).
     LaunchDialog {
         id: launchDialog
+        parent: Overlay.overlay ?? secureDevPage
         onLaunchRequested: function(command, appName, workspacePath, pid, ipc, net, fs, homeRw) {
             dlpCompositor.launchApp(command, appName, workspacePath, pid, ipc, net, fs, homeRw, []);
         }
