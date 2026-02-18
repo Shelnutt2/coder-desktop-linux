@@ -13,6 +13,8 @@
 #include <wlr/types/wlr_linux_dmabuf_v1.h>
 #include <wlr/types/wlr_presentation_time.h>
 #include <wlr/types/wlr_primary_selection_v1.h>
+#include <wlr/backend/wayland.h>
+
 #include <wlr/types/wlr_single_pixel_buffer_v1.h>
 #include <wlr/types/wlr_viewporter.h>
 #include <wlr/types/wlr_xdg_decoration_v1.h>
@@ -81,6 +83,13 @@ static void handle_client_created(struct wl_listener* listener, void* data) {
 int coder_dlp_get_client_count(const coder_dlp_compositor* comp) {
     return comp ? comp->client_count : 0;
 }
+void coder_dlp_set_output_title(coder_dlp_compositor* comp, const char* title) {
+    if (!comp || !comp->output || !title) {
+        return;
+    }
+    wlr_wl_output_set_title(comp->output, title);
+}
+
 
 /* ------------------------------------------------------------------------ */
 
