@@ -119,7 +119,20 @@ void handle_cursor_button(struct wl_listener* listener, void* data) {
             }
             if (tree && tree->node.data) {
                 struct coder_dlp_toplevel* toplevel = tree->node.data;
+
+                /* Deactivate previously focused toplevel */
+                struct wlr_surface* prev_surface = comp->seat->keyboard_state.focused_surface;
+                if (prev_surface) {
+                    struct wlr_xdg_toplevel* prev =
+                        wlr_xdg_toplevel_try_from_wlr_surface(prev_surface);
+                    if (prev) {
+                        wlr_xdg_toplevel_set_activated(prev, false);
+                    }
+                }
+
                 wlr_scene_node_raise_to_top(&toplevel->scene_tree->node);
+                wlr_xdg_toplevel_set_activated(toplevel->xdg_toplevel, true);
+
                 struct wlr_keyboard* keyboard = wlr_seat_get_keyboard(comp->seat);
                 if (keyboard) {
                     wlr_seat_keyboard_notify_enter(

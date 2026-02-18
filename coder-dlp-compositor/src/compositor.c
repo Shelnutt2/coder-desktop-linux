@@ -237,6 +237,8 @@ void coder_dlp_destroy(coder_dlp_compositor* comp) {
         wl_list_remove(&toplevel->destroy.link);
         wl_list_remove(&toplevel->request_move.link);
         wl_list_remove(&toplevel->request_resize.link);
+        wl_list_remove(&toplevel->request_maximize.link);
+        wl_list_remove(&toplevel->request_fullscreen.link);
         wl_list_remove(&toplevel->link);
         free(toplevel);
     }

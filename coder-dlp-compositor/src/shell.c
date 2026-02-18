@@ -72,6 +72,8 @@ static void handle_toplevel_destroy(struct wl_listener* listener, void* data) {
     wl_list_remove(&toplevel->destroy.link);
     wl_list_remove(&toplevel->request_move.link);
     wl_list_remove(&toplevel->request_resize.link);
+    wl_list_remove(&toplevel->request_maximize.link);
+    wl_list_remove(&toplevel->request_fullscreen.link);
     wl_list_remove(&toplevel->link);
     free(toplevel);
 }
@@ -87,6 +89,24 @@ static void handle_toplevel_request_resize(struct wl_listener* listener, void* d
     (void)listener;
     (void)data;
     /* Interactive resize is not supported in the nested compositor. */
+}
+
+static void handle_toplevel_request_maximize(struct wl_listener* listener, void* data) {
+    (void)data;
+    struct coder_dlp_toplevel* toplevel = wl_container_of(listener, toplevel, request_maximize);
+    /* The DLP compositor doesn't support maximize, but the xdg-shell protocol
+     * requires a configure in response. Only send it after initial commit. */
+    if (toplevel->xdg_toplevel->base->initialized) {
+        wlr_xdg_surface_schedule_configure(toplevel->xdg_toplevel->base);
+    }
+}
+
+static void handle_toplevel_request_fullscreen(struct wl_listener* listener, void* data) {
+    (void)data;
+    struct coder_dlp_toplevel* toplevel = wl_container_of(listener, toplevel, request_fullscreen);
+    if (toplevel->xdg_toplevel->base->initialized) {
+        wlr_xdg_surface_schedule_configure(toplevel->xdg_toplevel->base);
+    }
 }
 
 /* --- XDG shell handlers (called from compositor.c signal setup) --- */
@@ -131,6 +151,12 @@ void compositor_handle_new_xdg_toplevel(struct wl_listener* listener, void* data
 
     toplevel->request_resize.notify = handle_toplevel_request_resize;
     wl_signal_add(&xdg_toplevel->events.request_resize, &toplevel->request_resize);
+
+    toplevel->request_maximize.notify = handle_toplevel_request_maximize;
+    wl_signal_add(&xdg_toplevel->events.request_maximize, &toplevel->request_maximize);
+
+    toplevel->request_fullscreen.notify = handle_toplevel_request_fullscreen;
+    wl_signal_add(&xdg_toplevel->events.request_fullscreen, &toplevel->request_fullscreen);
 
     wl_list_insert(&comp->toplevels, &toplevel->link);
 
