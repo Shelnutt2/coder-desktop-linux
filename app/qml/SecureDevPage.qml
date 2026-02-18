@@ -330,7 +330,7 @@ Item {
                             height: appGridView.cellHeight - 10
                             appName: model.name
                             appExec: model.exec
-                            appId: model.id
+                            appId: model.appId
                             appCategory: model.category
                             appIconName: model.iconName
                             appIconPath: model.iconPath
@@ -339,7 +339,7 @@ Item {
                                 console.log("LaunchDialog opening for: " + model.name);
                                 launchDialog.appName = model.name;
                                 launchDialog.appExec = model.exec;
-                                launchDialog.appId = model.id;
+                                launchDialog.appId = model.appId;
                                 launchDialog.appCategory = model.category;
                                 launchDialog.appIconName = model.iconName;
                                 launchDialog.open();
@@ -373,7 +373,7 @@ Item {
                                     console.log("LaunchDialog opening for: " + model.name);
                                     launchDialog.appName = model.name;
                                     launchDialog.appExec = model.exec;
-                                    launchDialog.appId = model.id;
+                                    launchDialog.appId = model.appId;
                                     launchDialog.appCategory = model.category;
                                     launchDialog.appIconName = model.iconName;
                                     launchDialog.open();
