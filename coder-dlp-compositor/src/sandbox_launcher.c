@@ -99,6 +99,9 @@ char** dlp_build_bwrap_args(const coder_dlp_compositor* comp, const char* comman
         PUSH("--dev-bind");
         PUSH("/dev/dri");
         PUSH("/dev/dri");
+        PUSH("--bind");
+        PUSH("/dev/shm");
+        PUSH("/dev/shm");
         PUSH("--proc");
         PUSH("/proc");
     }
