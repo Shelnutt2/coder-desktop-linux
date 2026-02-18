@@ -49,8 +49,14 @@ Rectangle {
                 width: 48
                 height: 48
                 sourceSize: Qt.size(48, 48)
-                source: tile.appIconPath !== "" ? tile.appIconPath : ""
-                visible: tile.appIconPath !== "" && status === Image.Ready
+                source: {
+                    if (tile.appIconPath !== "")
+                        return "file://" + tile.appIconPath;
+                    if (tile.appIconName !== "")
+                        return "image://icon-theme/" + tile.appIconName;
+                    return "";
+                }
+                visible: status === Image.Ready
                 fillMode: Image.PreserveAspectFit
                 smooth: true
             }
