@@ -336,6 +336,7 @@ Item {
                             appIconPath: model.iconPath
 
                             onLaunched: {
+                                console.log("LaunchDialog opening for: " + model.name);
                                 launchDialog.appName = model.name;
                                 launchDialog.appExec = model.exec;
                                 launchDialog.appId = model.id;
@@ -369,6 +370,7 @@ Item {
                                 hoverEnabled: true
                                 cursorShape: Qt.PointingHandCursor
                                 onClicked: {
+                                    console.log("LaunchDialog opening for: " + model.name);
                                     launchDialog.appName = model.name;
                                     launchDialog.appExec = model.exec;
                                     launchDialog.appId = model.id;
@@ -640,11 +642,8 @@ Item {
     property bool customSandboxExpanded: false
 
     // ---- Launch Dialog ----
-    // Parent to the application window's contentItem so the dialog overlay
-    // renders above all pages (not clipped to this page's bounds).
     LaunchDialog {
         id: launchDialog
-        parent: Overlay.overlay ?? secureDevPage
         onLaunchRequested: function(command, appName, workspacePath, pid, ipc, net, fs, homeRw) {
             dlpCompositor.launchApp(command, appName, workspacePath, pid, ipc, net, fs, homeRw, []);
         }
