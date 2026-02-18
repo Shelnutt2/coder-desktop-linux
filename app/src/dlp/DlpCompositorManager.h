@@ -19,6 +19,7 @@ struct RunningApp {
     QString command;
     coder_dlp_compositor* compositor = nullptr;  // owned; freed via coder_dlp_destroy
     std::unique_ptr<QSocketNotifier> notifier;
+    bool bwrapExited = false;
 };
 
 /// Manages per-app DLP compositor instances for isolation.

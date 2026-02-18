@@ -191,14 +191,19 @@ void DlpCompositorManager::checkChildProcesses() {
         int status = 0;
         const pid_t result = waitpid(m_apps[i]->pid, &status, WNOHANG);
         if (result > 0) {
-            // Log exit status before cleaning up.
+            // Log exit status.  Don't remove yet — Wayland clients may still be connected.
             if (WIFEXITED(status)) {
-                qCInfo(lcDlpMgr) << "Child pid" << result
-                                 << "exited with status" << WEXITSTATUS(status);
+                qCInfo(lcDlpMgr) << "Child pid" << result << "exited with status"
+                                 << WEXITSTATUS(status);
             } else if (WIFSIGNALED(status)) {
-                qCInfo(lcDlpMgr) << "Child pid" << result
-                                 << "killed by signal" << WTERMSIG(status);
+                qCInfo(lcDlpMgr) << "Child pid" << result << "killed by signal" << WTERMSIG(status);
             }
+            m_apps[i]->bwrapExited = true;
+        }
+
+        // Clean up only when bwrap has exited AND no Wayland clients remain.
+        if (m_apps[i]->bwrapExited && coder_dlp_get_client_count(m_apps[i]->compositor) == 0) {
+            qCInfo(lcDlpMgr) << "Compositor has no clients, cleaning up pid" << m_apps[i]->pid;
             removeApp(i);
         }
     }
