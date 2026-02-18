@@ -64,6 +64,31 @@ Item {
             spacing: 0
 
             // ================================================================
+            // MDM STATUS BANNER
+            // ================================================================
+            Rectangle {
+                Layout.fillWidth: true
+                Layout.leftMargin: 16
+                Layout.rightMargin: 16
+                Layout.topMargin: 16
+                Layout.bottomMargin: 8
+                height: mdmBannerLabel.implicitHeight + 16
+                radius: CoderTheme.radiusSm
+                color: "#e8f0fe"
+                visible: settingsManager.mdmEnabled
+
+                Label {
+                    id: mdmBannerLabel
+                    anchors.fill: parent
+                    anchors.margins: 8
+                    text: "ℹ Some settings are managed by your organization."
+                    font.pixelSize: 13
+                    color: "#1a56db"
+                    wrapMode: Text.WordWrap
+                }
+            }
+
+            // ================================================================
             // ACCOUNT
             // ================================================================
             Label {
@@ -274,6 +299,14 @@ Item {
                 locked: settingsManager.autoConnectVpnLocked
             }
 
+            // Require VPN toggle
+            SettingToggle {
+                label: "Require VPN connection"
+                settingKey: "requireVpn"
+                checked: settingsManager.requireVpn
+                locked: settingsManager.requireVpnLocked
+            }
+
             // ---- section divider ----
             Rectangle { Layout.fillWidth: true; height: 1; color: CoderTheme.divider }
 
@@ -360,6 +393,20 @@ Item {
                 settingKey: "dlpDisableExternalBrowser"
                 checked: settingsManager.dlpDisableExternalBrowser
                 locked: settingsManager.dlpDisableExternalBrowserLocked
+            }
+
+            SettingToggle {
+                label: "Block file uploads"
+                settingKey: "disableFileUpload"
+                checked: settingsManager.disableFileUpload
+                locked: settingsManager.disableFileUploadLocked
+            }
+
+            SettingToggle {
+                label: "Block file downloads"
+                settingKey: "disableFileDownload"
+                checked: settingsManager.disableFileDownload
+                locked: settingsManager.disableFileDownloadLocked
             }
 
             // ---- section divider ----
@@ -563,6 +610,64 @@ Item {
                 }
             }
 
+            // Log level selector
+            Rectangle {
+                Layout.fillWidth: true
+                color: "transparent"
+                implicitHeight: 56
+
+                RowLayout {
+                    anchors.fill: parent
+                    anchors.leftMargin: 16
+                    anchors.rightMargin: 16
+                    spacing: 12
+
+                    ColumnLayout {
+                        Layout.fillWidth: true
+                        spacing: 2
+
+                        RowLayout {
+                            spacing: 6
+                            Label {
+                                text: "Log level"
+                                font.pixelSize: 14
+                                color: CoderTheme.textPrimary
+                            }
+                            Label {
+                                text: "🔒"
+                                font.pixelSize: 12
+                                color: CoderTheme.textSecondary
+                                visible: settingsManager.logLevelLocked
+                            }
+                        }
+                        Label {
+                            text: settingsManager.logLevelLocked
+                                ? "Managed by your organization"
+                                : "Set application logging verbosity"
+                            font.pixelSize: 11
+                            color: CoderTheme.textSecondary
+                        }
+                    }
+
+                    ComboBox {
+                        Layout.alignment: Qt.AlignRight | Qt.AlignVCenter
+                        model: ["Debug", "Info", "Warning", "Error"]
+                        currentIndex: {
+                            var l = settingsManager.logLevel.toLowerCase()
+                            if (l === "debug") return 0
+                            if (l === "warning") return 2
+                            if (l === "error") return 3
+                            return 1  // default: Info
+                        }
+                        enabled: !settingsManager.logLevelLocked
+                        onActivated: function(index) {
+                            var values = ["debug", "info", "warning", "error"]
+                            settingsManager.setUserPreference("logLevel", values[index])
+                        }
+                    }
+                }
+            }
+
             // ---- section divider ----
             Rectangle { Layout.fillWidth: true; height: 1; color: CoderTheme.divider }
 
@@ -631,6 +736,52 @@ Item {
                         }
                     }
                 }
+            }
+
+            // Check for updates toggle
+            SettingToggle {
+                label: "Check for updates"
+                settingKey: "checkForUpdates"
+                checked: settingsManager.checkForUpdates
+                locked: settingsManager.checkForUpdatesLocked
+            }
+
+            // ---- section divider ----
+            Rectangle { Layout.fillWidth: true; height: 1; color: CoderTheme.divider }
+
+            // ================================================================
+            // RESET
+            // ================================================================
+            Rectangle {
+                Layout.fillWidth: true
+                Layout.topMargin: 24
+                Layout.bottomMargin: 8
+                Layout.leftMargin: 16
+                Layout.rightMargin: 16
+                implicitHeight: 48
+                color: "transparent"
+
+                CoderButton {
+                    anchors.centerIn: parent
+                    text: "Reset to Defaults"
+                    variant: "destructive"
+                    onClicked: resetConfirmDialog.open()
+                }
+            }
+
+            Dialog {
+                id: resetConfirmDialog
+                title: "Reset to Defaults"
+                modal: true
+                anchors.centerIn: parent
+                standardButtons: Dialog.Ok | Dialog.Cancel
+
+                Label {
+                    text: "Reset all non-managed settings to their defaults?\nThis cannot be undone."
+                    wrapMode: Text.WordWrap
+                }
+
+                onAccepted: settingsManager.resetToDefaults()
             }
 
             // Bottom spacer

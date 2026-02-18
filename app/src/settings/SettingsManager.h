@@ -101,6 +101,10 @@ public:
     Q_PROPERTY(bool checkForUpdates READ checkForUpdates NOTIFY settingsChanged)
     Q_PROPERTY(bool checkForUpdatesLocked READ checkForUpdatesLocked NOTIFY settingsChanged)
 
+    // Logging
+    Q_PROPERTY(QString logLevel READ logLevel NOTIFY settingsChanged)
+    Q_PROPERTY(bool logLevelLocked READ logLevelLocked NOTIFY settingsChanged)
+
     // MDM meta
     Q_PROPERTY(bool mdmEnabled READ mdmEnabled NOTIFY settingsChanged)
 
@@ -164,6 +168,7 @@ public:
     [[nodiscard]] bool checkForUpdatesLocked() const;
     [[nodiscard]] bool refreshIntervalSecLocked() const;
     [[nodiscard]] bool disableDataCacheLocked() const;
+    [[nodiscard]] bool logLevelLocked() const;
 
     // -- Invokables -------------------------------------------------------
 
@@ -175,6 +180,9 @@ public:
 
     /// Returns the Source enum (as int) for QML consumption.
     [[nodiscard]] Q_INVOKABLE int settingSource(const QString& key) const;
+
+    /// Reset all non-MDM-locked settings to their compiled defaults.
+    Q_INVOKABLE void resetToDefaults();
 
 signals:
     void settingsChanged();
