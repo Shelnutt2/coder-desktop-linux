@@ -19,7 +19,7 @@ Dialog {
     title: "Launch " + appName
     modal: true
     standardButtons: Dialog.NoButton
-    anchors.centerIn: Overlay.overlay ?? undefined
+    anchors.centerIn: parent
     width: 420
 
     Material.background: CoderTheme.surface
@@ -54,7 +54,10 @@ Dialog {
         }
     }
 
-    onAboutToShow: setDefaults()
+    onAboutToShow: {
+        console.log("LaunchDialog onAboutToShow");
+        setDefaults();
+    }
 
     contentItem: ColumnLayout {
         spacing: 12
