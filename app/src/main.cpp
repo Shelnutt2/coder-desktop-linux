@@ -10,6 +10,7 @@
 
 #include <cstdio>
 
+#include "apps/IconThemeProvider.h"
 #include "tray/SystemTrayIcon.h"
 #include "vpn/VpnBridge.h"
 
@@ -241,6 +242,7 @@ int main(int argc, char* argv[]) {
     // (where it finds build/app/CoderDesktop/qmldir) but fails when installed
     // because only the binary is deployed.  Adding "qrc:/" lets "import
     // CoderDesktop" resolve the embedded qmldir and its singleton declarations.
+    engine.addImageProvider(QStringLiteral("icon-theme"), new IconThemeProvider);
     engine.addImportPath(QStringLiteral("qrc:/"));
 
     engine.rootContext()->setContextProperty(QStringLiteral("vpnBridge"), &vpnBridge);

@@ -64,6 +64,8 @@ add_executable(coder-desktop
     src/apps/AppModel.cpp
     src/apps/AppLaunchProfile.h
     src/apps/AppLaunchProfile.cpp
+    src/apps/IconThemeProvider.h
+    src/apps/IconThemeProvider.cpp
     src/apps/RunningAppModel.h
     src/apps/RunningAppModel.cpp
     src/updater/AutoUpdater.h
