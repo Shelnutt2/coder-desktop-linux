@@ -33,7 +33,7 @@ Dialog {
             ipcCheck.checked = false;
             netCheck.checked = false;
             fsCheck.checked = false;
-            homeCheck.checked = true;
+            homeCheck.checked = false;
         }
         // JetBrains IDEs
         else if (["idea", "goland", "pycharm", "webstorm", "clion",
