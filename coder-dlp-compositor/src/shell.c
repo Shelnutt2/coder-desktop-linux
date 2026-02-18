@@ -4,7 +4,6 @@
 #include <stdlib.h>
 
 #include <wlr/types/wlr_keyboard.h>
-#include <wlr/types/wlr_output.h>
 #include <wlr/types/wlr_seat.h>
 #include <wlr/util/log.h>
 
@@ -21,17 +20,23 @@ static void handle_toplevel_map(struct wl_listener* listener, void* data) {
     /* Focus the newly mapped surface by raising it in the scene graph */
     wlr_scene_node_raise_to_top(&toplevel->scene_tree->node);
 
+    /* Deactivate the previously focused toplevel, if any */
+    struct wlr_surface* prev_surface = toplevel->compositor->seat->keyboard_state.focused_surface;
+    if (prev_surface) {
+        struct wlr_xdg_toplevel* prev_toplevel =
+            wlr_xdg_toplevel_try_from_wlr_surface(prev_surface);
+        if (prev_toplevel) {
+            wlr_xdg_toplevel_set_activated(prev_toplevel, false);
+        }
+    }
+    wlr_xdg_toplevel_set_activated(toplevel->xdg_toplevel, true);
+
     /* Grant keyboard focus to the newly mapped surface */
     struct wlr_keyboard* keyboard = wlr_seat_get_keyboard(toplevel->compositor->seat);
     if (keyboard) {
         wlr_seat_keyboard_notify_enter(toplevel->compositor->seat,
                                        toplevel->xdg_toplevel->base->surface, keyboard->keycodes,
                                        keyboard->num_keycodes, &keyboard->modifiers);
-    }
-
-    /* Schedule a frame so the newly mapped surface is rendered */
-    if (toplevel->compositor->output) {
-        wlr_output_schedule_frame(toplevel->compositor->output);
     }
 }
 
@@ -46,11 +51,11 @@ static void handle_toplevel_unmap(struct wl_listener* listener, void* data) {
 static void handle_toplevel_commit(struct wl_listener* listener, void* data) {
     (void)data;
     struct coder_dlp_toplevel* toplevel = wl_container_of(listener, toplevel, commit);
-    /* The scene graph tracks damage internally, but we must schedule a
-     * new output frame so wlr_scene_output_commit() is called to
-     * actually render the updated content. */
-    if (toplevel->compositor->output) {
-        wlr_output_schedule_frame(toplevel->compositor->output);
+
+    if (toplevel->xdg_toplevel->base->initial_commit) {
+        /* Send initial configure — size 0,0 lets the client choose its size.
+         * The client will not map until it receives this configure event. */
+        wlr_xdg_toplevel_set_size(toplevel->xdg_toplevel, 0, 0);
     }
 }
 
@@ -135,12 +140,34 @@ void compositor_handle_new_xdg_toplevel(struct wl_listener* listener, void* data
     }
 }
 
+struct coder_dlp_popup {
+    struct wlr_xdg_popup* xdg_popup;
+    struct wl_listener commit;
+    struct wl_listener destroy;
+};
+
+static void handle_popup_commit(struct wl_listener* listener, void* data) {
+    (void)data;
+    struct coder_dlp_popup* popup = wl_container_of(listener, popup, commit);
+    if (popup->xdg_popup->base->initial_commit) {
+        wlr_xdg_surface_schedule_configure(popup->xdg_popup->base);
+    }
+}
+
+static void handle_popup_destroy(struct wl_listener* listener, void* data) {
+    (void)data;
+    struct coder_dlp_popup* popup = wl_container_of(listener, popup, destroy);
+    wl_list_remove(&popup->commit.link);
+    wl_list_remove(&popup->destroy.link);
+    free(popup);
+}
+
 void compositor_handle_new_xdg_popup(struct wl_listener* listener, void* data) {
     (void)listener;
-    struct wlr_xdg_popup* popup = data;
+    struct wlr_xdg_popup* xdg_popup = data;
 
     /* Find the parent scene tree to attach the popup */
-    struct wlr_xdg_surface* parent = wlr_xdg_surface_try_from_wlr_surface(popup->parent);
+    struct wlr_xdg_surface* parent = wlr_xdg_surface_try_from_wlr_surface(xdg_popup->parent);
     if (!parent) {
         return;
     }
@@ -151,5 +178,18 @@ void compositor_handle_new_xdg_popup(struct wl_listener* listener, void* data) {
     }
 
     /* Create the popup in the scene graph — wlroots handles positioning */
-    wlr_scene_xdg_surface_create(parent_tree, popup->base);
+    struct wlr_scene_tree* popup_tree = wlr_scene_xdg_surface_create(parent_tree, xdg_popup->base);
+
+    struct coder_dlp_popup* popup = calloc(1, sizeof(*popup));
+    if (!popup) {
+        return;
+    }
+    popup->xdg_popup = xdg_popup;
+    xdg_popup->base->data = popup_tree;
+
+    popup->commit.notify = handle_popup_commit;
+    wl_signal_add(&xdg_popup->base->surface->events.commit, &popup->commit);
+
+    popup->destroy.notify = handle_popup_destroy;
+    wl_signal_add(&xdg_popup->events.destroy, &popup->destroy);
 }

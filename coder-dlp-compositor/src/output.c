@@ -75,8 +75,11 @@ void compositor_handle_new_output(struct wl_listener* listener, void* data) {
      * create an xdg_toplevel window. */
     wlr_output_create_global(output, comp->wl_display);
 
-    /* Add to the output layout */
-    wlr_output_layout_add_auto(comp->output_layout, output);
+    /* Add to the output layout and connect the scene graph */
+    struct wlr_output_layout_output* l_output =
+        wlr_output_layout_add_auto(comp->output_layout, output);
+    struct wlr_scene_output* scene_output = wlr_scene_output_create(comp->scene, output);
+    wlr_scene_output_layout_add_output(comp->scene_layout, l_output, scene_output);
 
     /* Set initial cursor image so it's visible when hovering over the window */
     wlr_cursor_set_xcursor(comp->cursor, comp->cursor_mgr, "default");
