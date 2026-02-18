@@ -23,6 +23,24 @@ Item {
     // Whether to show the deployment subpage
     property bool showDeployments: false
 
+    // ---- Sign Out confirmation dialog ----
+    Dialog {
+        id: signOutConfirmDialog
+        title: "Sign out?"
+        anchors.centerIn: Overlay.overlay
+        modal: true
+        standardButtons: Dialog.Ok | Dialog.Cancel
+        Material.accent: CoderTheme.primary
+
+        Label {
+            text: "Are you sure you want to sign out? Your session credentials will be removed."
+            wrapMode: Text.WordWrap
+            width: parent.width
+        }
+
+        onAccepted: sessionManager.logout()
+    }
+
     // When showDeployments is true, load DeploymentPage on top
     Loader {
         id: deploymentLoader
@@ -59,31 +77,72 @@ Item {
                 Layout.bottomMargin: 8
             }
 
-            // Deployment URL (read-only)
+            // Deployment URL (read-only) with copy button
             Rectangle {
                 Layout.fillWidth: true
                 color: "transparent"
-                implicitHeight: deployUrlCol.implicitHeight + 24
+                implicitHeight: deployUrlRow.implicitHeight + 24
 
-                ColumnLayout {
-                    id: deployUrlCol
+                RowLayout {
+                    id: deployUrlRow
                     anchors.left: parent.left
                     anchors.right: parent.right
                     anchors.margins: 16
                     anchors.verticalCenter: parent.verticalCenter
-                    spacing: 2
+                    spacing: 8
 
-                    Label {
-                        text: "Deployment URL"
-                        font.pixelSize: 14
-                        color: CoderTheme.textPrimary
-                    }
-                    Label {
-                        text: sessionManager.currentUrl || "Not connected"
-                        font.pixelSize: 13
-                        color: CoderTheme.textSecondary
-                        elide: Text.ElideMiddle
+                    ColumnLayout {
                         Layout.fillWidth: true
+                        spacing: 2
+
+                        Label {
+                            text: "Deployment URL"
+                            font.pixelSize: 14
+                            color: CoderTheme.textPrimary
+                        }
+                        Label {
+                            id: deployUrlLabel
+                            text: sessionManager.currentUrl || "Not connected"
+                            font.pixelSize: 13
+                            color: CoderTheme.textSecondary
+                            elide: Text.ElideMiddle
+                            Layout.fillWidth: true
+                        }
+                    }
+
+                    Button {
+                        flat: true
+                        visible: (sessionManager.currentUrl || "").length > 0
+                        contentItem: Label {
+                            text: copyUrlTimer.running ? "✓" : "📋"
+                            font.pixelSize: 14
+                            horizontalAlignment: Text.AlignHCenter
+                            verticalAlignment: Text.AlignVCenter
+                        }
+                        background: Rectangle {
+                            implicitWidth: 36; implicitHeight: 36
+                            radius: CoderTheme.radius
+                            color: parent.hovered ? CoderTheme.hoverBg : "transparent"
+                        }
+                        onClicked: {
+                            clipboardHelper.text = sessionManager.currentUrl
+                            clipboardHelper.selectAll()
+                            clipboardHelper.copy()
+                            copyUrlTimer.restart()
+                        }
+                        ToolTip.visible: hovered
+                        ToolTip.text: "Copy URL to clipboard"
+                    }
+
+                    // Hidden TextEdit for clipboard access
+                    TextEdit {
+                        id: clipboardHelper
+                        visible: false
+                    }
+
+                    Timer {
+                        id: copyUrlTimer
+                        interval: 1500
                     }
                 }
             }
@@ -157,7 +216,7 @@ Item {
                     anchors.verticalCenter: parent.verticalCenter
                     text: "Sign Out"
                     variant: "destructive"
-                    onClicked: sessionManager.logout()
+                    onClicked: signOutConfirmDialog.open()
                 }
             }
 

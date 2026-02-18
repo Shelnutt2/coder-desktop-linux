@@ -264,6 +264,23 @@ Item {
                     }
                 }
 
+                // ---- Stop confirmation dialog ----
+                Dialog {
+                    id: stopConfirmDialog
+                    title: "Stop workspace?"
+                    anchors.centerIn: Overlay.overlay
+                    modal: true
+                    standardButtons: Dialog.Ok | Dialog.Cancel
+                    Material.accent: CoderTheme.primary
+
+                    Label {
+                        text: "Are you sure you want to stop \"" + workspaceDetailPage.workspaceName + "\"?"
+                        wrapMode: Text.WordWrap
+                    }
+
+                    onAccepted: apiClient.stopWorkspace(workspaceDetailPage.workspaceId)
+                }
+
                 // ---- Actions row ----
                 RowLayout {
                     Layout.fillWidth: true
@@ -278,10 +295,13 @@ Item {
                                  || workspaceDetailPage.workspaceStatus === "Stopped"
                         onClicked: {
                             if (workspaceDetailPage.workspaceStatus === "Running")
-                                apiClient.stopWorkspace(workspaceDetailPage.workspaceId)
+                                stopConfirmDialog.open()
                             else
                                 apiClient.startWorkspace(workspaceDetailPage.workspaceId)
                         }
+                        ToolTip.visible: hovered
+                        ToolTip.text: workspaceDetailPage.workspaceStatus === "Running"
+                                      ? "Stop workspace" : "Start workspace"
                     }
 
                     CoderButton {
@@ -289,6 +309,8 @@ Item {
                         variant: "default"
                         visible: workspaceDetailPage.workspaceOutdated
                         onClicked: apiClient.updateWorkspace(workspaceDetailPage.workspaceId)
+                        ToolTip.visible: hovered
+                        ToolTip.text: "Update to latest template version"
                     }
 
                     BusyIndicator {
@@ -309,6 +331,8 @@ Item {
                                 base + "/@" + workspaceDetailPage.workspaceOwner
                                 + "/" + workspaceDetailPage.workspaceName)
                         }
+                        ToolTip.visible: hovered
+                        ToolTip.text: "Open workspace in web browser"
                     }
                 }
 

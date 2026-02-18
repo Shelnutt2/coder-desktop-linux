@@ -24,6 +24,20 @@ ApplicationWindow {
         CoderTheme.mode = Qt.binding(function() { return settingsManager.theme })
     }
 
+    // ---- Keyboard shortcuts ----
+    Shortcut { sequence: "Ctrl+1"; onActivated: tabBar.currentIndex = 0 }
+    Shortcut { sequence: "Ctrl+2"; onActivated: tabBar.currentIndex = 1 }
+    Shortcut { sequence: "Ctrl+3"; onActivated: tabBar.currentIndex = 2 }
+    Shortcut { sequence: "Ctrl+4"; onActivated: tabBar.currentIndex = 3 }
+    Shortcut { sequence: "Ctrl+5"; onActivated: tabBar.currentIndex = 4 }
+    Shortcut {
+        sequence: "Ctrl+R"
+        onActivated: {
+            if (typeof pollingController !== "undefined")
+                pollingController.refreshNow()
+        }
+    }
+
     StackLayout {
         anchors.fill: parent
         currentIndex: sessionManager.authenticated ? 1 : 0
