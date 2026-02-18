@@ -5,6 +5,7 @@
 #include <QMenu>
 #include <QSystemTrayIcon>
 
+class SessionManager;
 class VpnBridge;
 
 /// System tray icon with VPN connect/disconnect, workspace submenu,
@@ -13,7 +14,7 @@ class SystemTrayIcon : public QSystemTrayIcon {
     Q_OBJECT
 
 public:
-    explicit SystemTrayIcon(VpnBridge* vpn, QObject* parent = nullptr);
+    explicit SystemTrayIcon(VpnBridge* vpn, SessionManager* session, QObject* parent = nullptr);
 
     /// Expose the underlying QSystemTrayIcon* so that NotificationManager
     /// (and other components) can use showMessage().
@@ -33,7 +34,8 @@ private slots:
 private:
     void buildMenu();
 
-    VpnBridge* m_vpn = nullptr;  // non-owning
+    VpnBridge* m_vpn = nullptr;           // non-owning
+    SessionManager* m_session = nullptr;  // non-owning
     QMenu m_menu;
     QMenu* m_workspacesMenu = nullptr;      // Qt parent-owned (m_menu)
     QAction* m_connectAction = nullptr;     // Qt parent-owned (m_menu)

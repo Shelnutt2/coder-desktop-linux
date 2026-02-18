@@ -262,6 +262,8 @@ int main(int argc, char* argv[]) {
                                              &loginFlowController);
     engine.rootContext()->setContextProperty(QStringLiteral("pollingController"),
                                              &pollingController);
+    engine.rootContext()->setContextProperty(QStringLiteral("qtRuntimeVersion"),
+                                             QString::fromLatin1(qVersion()));
 
     // Load Main.qml from compiled-in Qt resources.  Each QML file has an
     // explicit "import CoderDesktop" so the module's qmldir is processed and
@@ -285,7 +287,7 @@ int main(int argc, char* argv[]) {
     engine.load(mainQml);
 
     // ---- System tray ----
-    SystemTrayIcon tray(&vpnBridge);
+    SystemTrayIcon tray(&vpnBridge, &sessionManager);
     notificationManager.setTrayIcon(tray.trayIcon());
 
     QObject::connect(&tray, &SystemTrayIcon::showWindowRequested, &engine, [&engine]() {

@@ -336,7 +336,6 @@ Item {
                             appIconPath: model.iconPath
 
                             onLaunched: {
-                                console.log("LaunchDialog opening for: " + model.name);
                                 launchDialog.appName = model.name;
                                 launchDialog.appExec = model.exec;
                                 launchDialog.appId = model.appId;
@@ -370,7 +369,6 @@ Item {
                                 hoverEnabled: true
                                 cursorShape: Qt.PointingHandCursor
                                 onClicked: {
-                                    console.log("LaunchDialog opening for: " + model.name);
                                     launchDialog.appName = model.name;
                                     launchDialog.appExec = model.exec;
                                     launchDialog.appId = model.appId;

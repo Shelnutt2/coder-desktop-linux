@@ -64,9 +64,9 @@ ApplicationWindow {
                         width: 10; height: 10; radius: 5
                         color: {
                             var s = vpnBridge.state
-                            if (s === "Connected") return CoderTheme.success
-                            if (s === "Connecting" || s === "Disconnecting") return CoderTheme.warning
-                            if (s === "Error") return CoderTheme.error
+                            if (s === "connected") return CoderTheme.success
+                            if (s === "connecting" || s === "disconnecting") return CoderTheme.warning
+                            if (s === "error") return CoderTheme.error
                             return CoderTheme.textDisabled
                         }
                         ToolTip.visible: vpnDotMa.containsMouse
@@ -104,7 +104,12 @@ ApplicationWindow {
                 TasksPage      { anchors.fill: parent; visible: tabBar.currentIndex === 1 }
                 VpnPage        { anchors.fill: parent; visible: tabBar.currentIndex === 2 }
                 SecureDevPage  { anchors.fill: parent; visible: tabBar.currentIndex === 3 }
-                SettingsPage   { anchors.fill: parent; visible: tabBar.currentIndex === 4 }
+                SettingsPage   {
+                    id: settingsPageInstance
+                    anchors.fill: parent
+                    visible: tabBar.currentIndex === 4
+                    onNavigateToConnect: tabBar.currentIndex = 2
+                }
             }
 
             // ---- Bottom divider above tab bar ----
