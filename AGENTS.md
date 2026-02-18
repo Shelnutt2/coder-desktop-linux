@@ -66,6 +66,14 @@ cmake --build build --target coderdlp
 cmake --build build --target coder-desktop
 ```
 
+### Disable DLP compositor
+
+```bash
+cmake -B build -DCMAKE_BUILD_TYPE=Debug -DENABLE_DLP=OFF
+```
+
+Skips wlroots/wayland dependencies and hides the Secure Dev tab in the UI.
+
 ### Go helper standalone (without CMake)
 
 ```bash

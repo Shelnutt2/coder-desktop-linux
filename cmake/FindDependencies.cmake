@@ -29,15 +29,19 @@ find_package(Qt6 COMPONENTS WebChannel QUIET)
 cmake_print_variables(Qt6_VERSION Qt6WebSockets_FOUND Qt6WebEngineQuick_FOUND Qt6WebChannel_FOUND)
 
 # ── wlroots + Wayland (required for DLP compositor) ──────────────────────
-pkg_check_modules(WLROOTS REQUIRED wlroots-0.19)
-pkg_check_modules(WAYLAND REQUIRED wayland-server)
-pkg_check_modules(WAYLAND_PROTOCOLS REQUIRED wayland-protocols)
-pkg_get_variable(WAYLAND_PROTOCOLS_DIR wayland-protocols pkgdatadir)
-pkg_get_variable(WAYLAND_SCANNER_BIN wayland-scanner wayland_scanner)
+if(ENABLE_DLP)
+    pkg_check_modules(WLROOTS REQUIRED wlroots-0.19)
+    pkg_check_modules(WAYLAND REQUIRED wayland-server)
+    pkg_check_modules(WAYLAND_PROTOCOLS REQUIRED wayland-protocols)
+    pkg_get_variable(WAYLAND_PROTOCOLS_DIR wayland-protocols pkgdatadir)
+    pkg_get_variable(WAYLAND_SCANNER_BIN wayland-scanner wayland_scanner)
 
-message(STATUS "wlroots: ${WLROOTS_VERSION}")
-message(STATUS "Wayland protocols dir: ${WAYLAND_PROTOCOLS_DIR}")
-message(STATUS "wayland-scanner: ${WAYLAND_SCANNER_BIN}")
+    message(STATUS "wlroots: ${WLROOTS_VERSION}")
+    message(STATUS "Wayland protocols dir: ${WAYLAND_PROTOCOLS_DIR}")
+    message(STATUS "wayland-scanner: ${WAYLAND_SCANNER_BIN}")
+else()
+    message(STATUS "DLP compositor disabled (ENABLE_DLP=OFF)")
+endif()
 
 # ── libsecret (optional — credential storage) ────────────────────────────
 pkg_check_modules(LIBSECRET libsecret-1)
