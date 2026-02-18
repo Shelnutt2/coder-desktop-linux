@@ -230,6 +230,9 @@ bool SettingsManager::refreshIntervalSecLocked() const {
 bool SettingsManager::disableDataCacheLocked() const {
     return m_mdm->isLocked(QStringLiteral("disableDataCache"));
 }
+bool SettingsManager::logLevelLocked() const {
+    return m_mdm->isLocked(QStringLiteral("logLevel"));
+}
 
 // ---------------------------------------------------------------------------
 // Invokables
@@ -258,4 +261,20 @@ int SettingsManager::settingSource(const QString& key) const {
     if (m_userSettings->contains(key)) return static_cast<int>(Source::User);
 
     return static_cast<int>(Source::Default);
+}
+
+void SettingsManager::resetToDefaults() {
+    bool changed = false;
+    for (const auto& d : kDefaults) {
+        const QString key = QLatin1String(d.key);
+        if (m_mdm->isLocked(key)) continue;  // skip MDM-locked settings
+        if (m_userSettings->contains(key)) {
+            m_userSettings->remove(key);
+            changed = true;
+        }
+    }
+    if (changed) {
+        m_userSettings->sync();
+        emit settingsChanged();
+    }
 }
