@@ -49,6 +49,11 @@ bool coder_dlp_is_available(void); /* returns true if WAYLAND_DISPLAY is set */
 /* Client tracking */
 int coder_dlp_get_client_count(const coder_dlp_compositor* comp);
 
+/* Set the title of the compositor's output window (visible in the parent
+ * compositor's window list / title bar). */
+void coder_dlp_set_output_title(coder_dlp_compositor* comp, const char* title);
+
+
 /* Policy */
 void coder_dlp_set_policy(coder_dlp_compositor* comp, const coder_dlp_policy* policy);
 
