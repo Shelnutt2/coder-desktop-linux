@@ -105,14 +105,14 @@ int main(int argc, char* argv[]) {
     } else if (logLevel == QStringLiteral("error")) {
         QLoggingCategory::setFilterRules(
             QStringLiteral("*.debug=false\n*.info=false\n*.warning=false"));
-        qSetMessagePattern(QStringLiteral("[%{time hh:mm:ss}] [%{type}] %{message}"));
+        qSetMessagePattern(QStringLiteral("[%{time hh:mm:ss}] [%{type}] %{category}: %{message}"));
     } else if (logLevel == QStringLiteral("warn")) {
         QLoggingCategory::setFilterRules(QStringLiteral("*.debug=false\n*.info=false"));
-        qSetMessagePattern(QStringLiteral("[%{time hh:mm:ss}] [%{type}] %{message}"));
+        qSetMessagePattern(QStringLiteral("[%{time hh:mm:ss}] [%{type}] %{category}: %{message}"));
     } else {
         // "info" or unrecognized → default: suppress debug messages
         QLoggingCategory::setFilterRules(QStringLiteral("*.debug=false"));
-        qSetMessagePattern(QStringLiteral("[%{time hh:mm:ss}] [%{type}] %{message}"));
+        qSetMessagePattern(QStringLiteral("[%{time hh:mm:ss}] [%{type}] %{category}: %{message}"));
     }
 
     // ---- Log file support ----

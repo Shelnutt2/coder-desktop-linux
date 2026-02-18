@@ -1,7 +1,9 @@
 #include "dlp/DlpCompositorWidget.h"
 
 #include <QByteArray>
-#include <QDebug>
+#include <QLoggingCategory>
+
+Q_LOGGING_CATEGORY(lcDlp, "coder.dlp")
 
 DlpCompositorWidget::DlpCompositorWidget(QObject* parent) : QObject(parent) {}
 
@@ -144,6 +146,14 @@ void DlpCompositorWidget::onNewSurface(coder_dlp_compositor* /*comp*/, void* /*s
 // static
 void DlpCompositorWidget::onCompositorLog(const char* message, void* /*data*/) {
     // Forward through the Qt message handler so compositor logs appear in the
-    // log file alongside Qt messages.
-    qDebug().noquote() << message;
+    // log file alongside Qt messages.  Map wlr severity to the appropriate Qt
+    // level so that messages respect the active QLoggingCategory filter rules.
+    QByteArray msg(message);
+    if (msg.startsWith("[wlr ERROR]")) {
+        qCCritical(lcDlp).noquote() << msg.mid(12);
+    } else if (msg.startsWith("[wlr INFO]")) {
+        qCInfo(lcDlp).noquote() << msg.mid(11);
+    } else {
+        qCDebug(lcDlp).noquote() << msg.mid(12);
+    }
 }
