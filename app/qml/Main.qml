@@ -13,6 +13,7 @@ ApplicationWindow {
         : "Coder Desktop"
     visible: true
     color: CoderTheme.background
+    readonly property bool dlpAvailable: typeof hasDlp !== "undefined" && hasDlp
 
     Material.theme: CoderTheme.isDark ? Material.Dark : Material.Light
     Material.accent: CoderTheme.primary
@@ -117,7 +118,12 @@ ApplicationWindow {
                 WorkspacesPage { anchors.fill: parent; visible: tabBar.currentIndex === 0 }
                 TasksPage      { anchors.fill: parent; visible: tabBar.currentIndex === 1 }
                 VpnPage        { anchors.fill: parent; visible: tabBar.currentIndex === 2 }
-                SecureDevPage  { anchors.fill: parent; visible: tabBar.currentIndex === 3 }
+                Loader {
+                    anchors.fill: parent
+                    active: root.dlpAvailable
+                    visible: active && tabBar.currentIndex === 3
+                    source: "SecureDevPage.qml"
+                }
                 SettingsPage   {
                     id: settingsPageInstance
                     anchors.fill: parent
@@ -171,6 +177,8 @@ ApplicationWindow {
                     display: AbstractButton.TextUnderIcon
                     font.pixelSize: 10
                     font.capitalization: Font.MixedCase
+                    visible: root.dlpAvailable
+                    width: root.dlpAvailable ? implicitWidth : 0
                 }
                 TabButton {
                     text: "Settings"

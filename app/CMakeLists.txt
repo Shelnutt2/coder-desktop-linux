@@ -55,8 +55,6 @@ add_executable(coder-desktop
     src/webview/AppBrowserWidget.h
     src/webview/AppBrowserWidget.cpp
     src/util/UniqueFd.h
-    src/dlp/DlpCompositorManager.h
-    src/dlp/DlpCompositorManager.cpp
     src/apps/AppEntry.h
     src/apps/AppDiscovery.h
     src/apps/AppDiscovery.cpp
@@ -77,6 +75,12 @@ add_executable(coder-desktop
     src/terminal/TerminalBridge.h
     src/terminal/TerminalBridge.cpp
 )
+if(ENABLE_DLP)
+    target_sources(coder-desktop PRIVATE
+        src/dlp/DlpCompositorManager.h
+        src/dlp/DlpCompositorManager.cpp
+    )
+endif()
 
 set_source_files_properties(qml/CoderTheme.qml PROPERTIES QT_QML_SINGLETON_TYPE TRUE)
 
@@ -95,7 +99,6 @@ qt_add_qml_module(coder-desktop
         qml/TasksPage.qml
         qml/TaskDetailPage.qml
         qml/WorkspaceDetailPage.qml
-        qml/SecureDevPage.qml
         qml/AppTile.qml
         qml/CategoryFilterBar.qml
         qml/LaunchDialog.qml
@@ -105,6 +108,9 @@ qt_add_qml_module(coder-desktop
         qml/StatusChip.qml
         qml/CoderButton.qml
 )
+if(ENABLE_DLP)
+    qt_target_qml_sources(coder-desktop QML_FILES qml/SecureDevPage.qml)
+endif()
 
 qt_add_resources(coder-desktop "terminal_assets"
     PREFIX "/CoderDesktop"
@@ -129,8 +135,11 @@ target_compile_definitions(coder-desktop PRIVATE
 target_link_libraries(coder-desktop PRIVATE
     Qt6::Core Qt6::Gui Qt6::Quick Qt6::QuickControls2 Qt6::Concurrent
     Qt6::Network Qt6::Widgets Qt6::DBus
-    coderdlp
 )
+if(ENABLE_DLP)
+    target_link_libraries(coder-desktop PRIVATE coderdlp)
+    target_compile_definitions(coder-desktop PRIVATE HAS_DLP)
+endif()
 
 if(Qt6WebSockets_FOUND)
     target_link_libraries(coder-desktop PRIVATE Qt6::WebSockets)

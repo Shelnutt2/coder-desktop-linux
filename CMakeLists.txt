@@ -13,6 +13,7 @@ endif()
 include(GNUInstallDirs)
 
 option(BUILD_TESTING "Build unit tests" ON)
+option(ENABLE_DLP "Build the DLP compositor (requires wlroots-0.19)" ON)
 
 # Private library directory for bundled .so files
 set(CODER_LIB_DIR "${CMAKE_INSTALL_LIBDIR}/coder-desktop" CACHE PATH
@@ -49,7 +50,9 @@ add_custom_target(helper ALL DEPENDS ${CMAKE_BINARY_DIR}/coder-desktop-helper)
 # ---------------------------------------------------------------------------
 # Target 2: libcoderdlp.so (C / wlroots)
 # ---------------------------------------------------------------------------
-add_subdirectory(coder-dlp-compositor)
+if(ENABLE_DLP)
+    add_subdirectory(coder-dlp-compositor)
+endif()
 
 # ---------------------------------------------------------------------------
 # Target 3: coder-desktop (Qt / C++)
@@ -149,8 +152,10 @@ if(DPKG_PROG)
     set(CPACK_DEBIAN_PACKAGE_SECTION "devel")
     set(CPACK_DEBIAN_PACKAGE_DEPENDS
         "libqt6core6 (>= 6.5), libqt6gui6 (>= 6.5), libqt6quick6 (>= 6.5), libqt6network6 (>= 6.5), libqt6widgets6 (>= 6.5), libsecret-1-0")
-    set(CPACK_DEBIAN_PACKAGE_RECOMMENDS
-        "libwlroots12 (>= 0.19) | libwlroots-0.19-0")
+    if(ENABLE_DLP)
+        set(CPACK_DEBIAN_PACKAGE_RECOMMENDS
+            "libwlroots12 (>= 0.19) | libwlroots-0.19-0")
+    endif()
 endif()
 
 # RPM (if rpmbuild is available)
@@ -161,7 +166,9 @@ if(RPMBUILD_PROG)
     set(CPACK_RPM_PACKAGE_GROUP "Development/Tools")
     set(CPACK_RPM_PACKAGE_REQUIRES
         "qt6-qtbase >= 6.5, qt6-qtdeclarative >= 6.5, libsecret")
-    set(CPACK_RPM_PACKAGE_RECOMMENDS "wlroots >= 0.19")
+    if(ENABLE_DLP)
+        set(CPACK_RPM_PACKAGE_RECOMMENDS "wlroots >= 0.19")
+    endif()
 endif()
 
 include(CPack)

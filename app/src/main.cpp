@@ -22,7 +22,9 @@
 #include "auth/LoginFlowController.h"
 #include "data/SecureStorage.h"
 #include "data/SessionManager.h"
+#ifdef HAS_DLP
 #include "dlp/DlpCompositorManager.h"
+#endif
 #include "models/PeerModel.h"
 #include "models/TaskModel.h"
 #include "models/WorkspaceModel.h"
@@ -212,6 +214,7 @@ int main(int argc, char* argv[]) {
     AppModel appModel;
     appModel.refresh();  // Start async app discovery
 
+#ifdef HAS_DLP
     // ---- DLP compositor manager (per-app isolation) ----
     DlpCompositorManager dlpCompositor;
     dlpCompositor.setLogLevel(logLevel);
@@ -226,6 +229,7 @@ int main(int argc, char* argv[]) {
                                        settingsManager.dlpNetworkSandbox());
         }
     });
+#endif
 
     // ---- QML engine ----
     // All context properties must be set BEFORE loadFromModule() so they
@@ -256,7 +260,9 @@ int main(int argc, char* argv[]) {
                                              &notificationManager);
     engine.rootContext()->setContextProperty(QStringLiteral("taskModel"), &taskModel);
     engine.rootContext()->setContextProperty(QStringLiteral("appBrowser"), &appBrowser);
+#ifdef HAS_DLP
     engine.rootContext()->setContextProperty(QStringLiteral("dlpCompositor"), &dlpCompositor);
+#endif
     engine.rootContext()->setContextProperty(QStringLiteral("appModel"), &appModel);
     engine.rootContext()->setContextProperty(QStringLiteral("loginFlowController"),
                                              &loginFlowController);
@@ -272,6 +278,12 @@ int main(int argc, char* argv[]) {
     //
     // We use engine.load(qrc:…) instead of engine.loadFromModule() for Qt 6.4
     // compatibility (loadFromModule was added in Qt 6.5).
+#ifdef HAS_DLP
+    engine.rootContext()->setContextProperty(QStringLiteral("hasDlp"), true);
+#else
+    engine.rootContext()->setContextProperty(QStringLiteral("hasDlp"), false);
+#endif
+
     const QUrl mainQml(QStringLiteral("qrc:/CoderDesktop/qml/Main.qml"));
 
     QObject::connect(
