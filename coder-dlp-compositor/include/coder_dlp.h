@@ -26,6 +26,7 @@ typedef struct coder_dlp_sandbox_config {
     const char* network_namespace; /* network namespace name (or NULL) */
     bool isolate_pid;
     bool isolate_ipc;
+    bool isolate_filesystem; /* true: ro-bind / + tmpfs $HOME; false: full host fs access */
 } coder_dlp_sandbox_config;
 
 /* Log verbosity (maps to wlroots log levels internally) */

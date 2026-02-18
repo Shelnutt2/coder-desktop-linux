@@ -91,7 +91,8 @@ void DlpCompositorWidget::stop() {
 }
 
 int DlpCompositorWidget::launchApp(const QString& command, const QString& workspacePath,
-                                   bool isolatePid, bool isolateIpc, bool isolateNetwork) {
+                                   bool isolatePid, bool isolateIpc, bool isolateNetwork,
+                                   bool isolateFilesystem) {
     if (!m_compositor) {
         emit errorOccurred(QStringLiteral("DLP compositor is not running"));
         return -1;
@@ -105,6 +106,7 @@ int DlpCompositorWidget::launchApp(const QString& command, const QString& worksp
     sandbox.network_namespace = isolateNetwork ? "dlp_net" : nullptr;
     sandbox.isolate_pid = isolatePid;
     sandbox.isolate_ipc = isolateIpc;
+    sandbox.isolate_filesystem = isolateFilesystem;
 
     const int pid = coder_dlp_launch_app(m_compositor, cmdUtf8.constData(), &sandbox);
     if (pid < 0) {

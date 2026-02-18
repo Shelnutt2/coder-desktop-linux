@@ -48,7 +48,7 @@ public:
     /// @return PID of the launched process, or -1 on error.
     Q_INVOKABLE int launchApp(const QString& command, const QString& workspacePath = QString(),
                               bool isolatePid = true, bool isolateIpc = true,
-                              bool isolateNetwork = false);
+                              bool isolateNetwork = false, bool isolateFilesystem = false);
 
     /// Update the DLP policy from current settings.
     Q_INVOKABLE void updatePolicy(bool clipboardBlockOutgoing, bool clipboardBlockIncoming,
