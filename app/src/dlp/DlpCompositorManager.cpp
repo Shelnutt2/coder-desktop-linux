@@ -191,7 +191,14 @@ void DlpCompositorManager::checkChildProcesses() {
         int status = 0;
         const pid_t result = waitpid(m_apps[i]->pid, &status, WNOHANG);
         if (result > 0) {
-            // Child exited — clean up its compositor.
+            // Log exit status before cleaning up.
+            if (WIFEXITED(status)) {
+                qCInfo(lcDlpMgr) << "Child pid" << result
+                                 << "exited with status" << WEXITSTATUS(status);
+            } else if (WIFSIGNALED(status)) {
+                qCInfo(lcDlpMgr) << "Child pid" << result
+                                 << "killed by signal" << WTERMSIG(status);
+            }
             removeApp(i);
         }
     }
