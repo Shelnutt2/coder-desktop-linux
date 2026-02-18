@@ -17,10 +17,11 @@
 #include "api/PollingController.h"
 #include "api/dto/Task.h"
 #include "api/dto/Workspace.h"
+#include "apps/AppModel.h"
 #include "auth/LoginFlowController.h"
 #include "data/SecureStorage.h"
 #include "data/SessionManager.h"
-#include "dlp/DlpCompositorWidget.h"
+#include "dlp/DlpCompositorManager.h"
 #include "models/PeerModel.h"
 #include "models/TaskModel.h"
 #include "models/WorkspaceModel.h"
@@ -206,8 +207,12 @@ int main(int argc, char* argv[]) {
     // ---- Phase 3 components ----
     AppBrowserWidget appBrowser;
 
-    // ---- DLP compositor ----
-    DlpCompositorWidget dlpCompositor;
+    // ---- App model (discovered desktop apps) ----
+    AppModel appModel;
+    appModel.refresh();  // Start async app discovery
+
+    // ---- DLP compositor manager (per-app isolation) ----
+    DlpCompositorManager dlpCompositor;
     dlpCompositor.setLogLevel(logLevel);
 
     // Wire DLP settings changes to the compositor policy.
@@ -250,6 +255,7 @@ int main(int argc, char* argv[]) {
     engine.rootContext()->setContextProperty(QStringLiteral("taskModel"), &taskModel);
     engine.rootContext()->setContextProperty(QStringLiteral("appBrowser"), &appBrowser);
     engine.rootContext()->setContextProperty(QStringLiteral("dlpCompositor"), &dlpCompositor);
+    engine.rootContext()->setContextProperty(QStringLiteral("appModel"), &appModel);
     engine.rootContext()->setContextProperty(QStringLiteral("loginFlowController"),
                                              &loginFlowController);
     engine.rootContext()->setContextProperty(QStringLiteral("pollingController"),
