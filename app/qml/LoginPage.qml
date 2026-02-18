@@ -260,6 +260,7 @@ Item {
                             'import QtWebEngine; ' +
                             'WebEngineView { ' +
                             '    anchors.fill: parent; ' +
+                            '    profile: loginFlowController.webEngineProfile; ' +
                             '    url: "' + loginUrl + '"; ' +
                             '    onLoadingChanged: function(loadReq) { ' +
                             '        parent.loading = loading; ' +
@@ -324,10 +325,32 @@ Item {
         }
 
         Label {
-            text: "Paste your session token"
+            text: "Sign in to your Coder deployment in the browser, then\ncopy the session token shown on the page and paste it below."
             font.pixelSize: 14
             color: CoderTheme.textSecondary
             Layout.alignment: Qt.AlignHCenter
+            horizontalAlignment: Text.AlignHCenter
+            wrapMode: Text.WordWrap
+            Layout.fillWidth: true
+        }
+
+        Label {
+            text: tokenUrlField.text.trim().length > 0
+                  ? "<a href='" + tokenUrlField.text.trim().replace(/\/$/, '') + "/cli-auth'>"
+                    + tokenUrlField.text.trim().replace(/\/$/, '') + "/cli-auth</a>"
+                  : ""
+            font.pixelSize: 12
+            color: CoderTheme.primary
+            linkColor: CoderTheme.primary
+            Layout.alignment: Qt.AlignHCenter
+            visible: tokenUrlField.text.trim().length > 0
+            onLinkActivated: function(link) { Qt.openUrlExternally(link) }
+            MouseArea {
+                anchors.fill: parent
+                cursorShape: Qt.PointingHandCursor
+                onClicked: parent.linkActivated(
+                    parent.text.match(/href='([^']+)'/)[1])
+            }
         }
 
         Item { Layout.preferredHeight: 4 }
