@@ -19,6 +19,7 @@ if(FETCH_MUTAGEN)
     set(_mutagen_url "https://github.com/mutagen-io/mutagen/releases/download/v${MUTAGEN_VERSION}/mutagen_linux_${_mutagen_arch}_v${MUTAGEN_VERSION}.tar.gz")
     set(_mutagen_archive "${CMAKE_BINARY_DIR}/mutagen-${MUTAGEN_VERSION}.tar.gz")
     set(MUTAGEN_BINARY "${CMAKE_BINARY_DIR}/mutagen")
+    set(MUTAGEN_AGENTS "${CMAKE_BINARY_DIR}/mutagen-agents.tar.gz")
 
     if(NOT EXISTS "${MUTAGEN_BINARY}")
         message(STATUS "Downloading Mutagen v${MUTAGEN_VERSION} for ${_mutagen_arch}...")
@@ -32,27 +33,36 @@ if(FETCH_MUTAGEN)
             message(FATAL_ERROR "Failed to download Mutagen: ${_dl_msg}")
         endif()
 
-        # Extract just the 'mutagen' binary from the tarball
+        # Extract the mutagen binary AND the agents bundle from the tarball.
+        # The agents bundle (mutagen-agents.tar.gz) must be installed alongside
+        # the mutagen binary so that mutagen can deploy agents to remote hosts
+        # during `mutagen sync create`.
         execute_process(
-            COMMAND ${CMAKE_COMMAND} -E tar xzf "${_mutagen_archive}" mutagen
+            COMMAND ${CMAKE_COMMAND} -E tar xzf "${_mutagen_archive}"
             WORKING_DIRECTORY "${CMAKE_BINARY_DIR}"
             RESULT_VARIABLE _extract_result
         )
         if(NOT _extract_result EQUAL 0)
-            message(FATAL_ERROR "Failed to extract Mutagen binary")
+            message(FATAL_ERROR "Failed to extract Mutagen archive")
         endif()
 
-        # Make executable
+        # Make binary executable
         file(CHMOD "${MUTAGEN_BINARY}" PERMISSIONS
             OWNER_READ OWNER_WRITE OWNER_EXECUTE
             GROUP_READ GROUP_EXECUTE
             WORLD_READ WORLD_EXECUTE
         )
         message(STATUS "Mutagen binary: ${MUTAGEN_BINARY}")
+        message(STATUS "Mutagen agents: ${MUTAGEN_AGENTS}")
     endif()
 
-    # Install to lib directory (MutagenDaemon searches ../lib/coder-desktop/)
+    # Install to lib directory (MutagenDaemon searches ../lib/coder-desktop/).
+    # Both the binary and agents bundle must be in the same directory.
     install(PROGRAMS "${MUTAGEN_BINARY}"
+        DESTINATION "${CMAKE_INSTALL_LIBDIR}/coder-desktop"
+        COMPONENT runtime
+    )
+    install(FILES "${MUTAGEN_AGENTS}"
         DESTINATION "${CMAKE_INSTALL_LIBDIR}/coder-desktop"
         COMPONENT runtime
     )
