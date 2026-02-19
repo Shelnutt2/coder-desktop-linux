@@ -1,5 +1,6 @@
 #include "tray/SystemTrayIcon.h"
 #include "data/SessionManager.h"
+#include "filesync/FileSyncManager.h"
 #include "vpn/VpnBridge.h"
 
 #include <QApplication>
@@ -19,8 +20,9 @@ static QIcon makeFallbackIcon() {
     return QIcon(pix);
 }
 
-SystemTrayIcon::SystemTrayIcon(VpnBridge* vpn, SessionManager* session, QObject* parent)
-    : QSystemTrayIcon(parent), m_vpn(vpn), m_session(session) {
+SystemTrayIcon::SystemTrayIcon(VpnBridge* vpn, SessionManager* session, FileSyncManager* fileSync,
+                               QObject* parent)
+    : QSystemTrayIcon(parent), m_vpn(vpn), m_session(session), m_fileSync(fileSync) {
     // Use a themed icon; fall back to a simple branded icon.
     QIcon icon = QIcon::fromTheme(QStringLiteral("network-vpn"));
     if (icon.isNull()) icon = QIcon::fromTheme(QStringLiteral("network-wired"));
@@ -32,6 +34,13 @@ SystemTrayIcon::SystemTrayIcon(VpnBridge* vpn, SessionManager* session, QObject*
     setContextMenu(&m_menu);
 
     connect(m_vpn, &VpnBridge::stateChanged, this, &SystemTrayIcon::onVpnStateChanged);
+
+    if (m_fileSync) {
+        connect(m_fileSync, &FileSyncManager::sessionCountChanged, this,
+                &SystemTrayIcon::updateTooltip);
+        connect(m_fileSync, &FileSyncManager::statusSummaryChanged, this,
+                &SystemTrayIcon::updateTooltip);
+    }
 
     show();
 }
@@ -68,7 +77,15 @@ void SystemTrayIcon::onVpnStateChanged() {
     m_connectAction->setVisible(!running);
     m_disconnectAction->setVisible(running);
 
-    setToolTip(QStringLiteral("Coder Desktop — VPN %1").arg(m_vpn->state()));
+    updateTooltip();
+}
+
+void SystemTrayIcon::updateTooltip() {
+    QString tip = QStringLiteral("Coder Desktop — VPN %1").arg(m_vpn->state());
+    if (m_fileSync && m_fileSync->sessionCount() > 0) {
+        tip += QStringLiteral("\nFile Sync: %1").arg(m_fileSync->statusSummary());
+    }
+    setToolTip(tip);
 }
 
 void SystemTrayIcon::onConnectClicked() {

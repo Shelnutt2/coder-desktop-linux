@@ -4,8 +4,11 @@
 #include <QAbstractListModel>
 #include <QObject>
 #include <QProcess>
+#include <QProcessEnvironment>
 #include <QString>
 #include <QTimer>
+#include <functional>
+#include <memory>
 #include <vector>
 
 #include "filesync/FileSyncSession.h"
@@ -32,6 +35,8 @@ class FileSyncManager : public QAbstractListModel {
     Q_PROPERTY(bool uploadAllowed READ uploadAllowed NOTIFY policyChanged)
     Q_PROPERTY(bool downloadAllowed READ downloadAllowed NOTIFY policyChanged)
     Q_PROPERTY(int sessionCount READ sessionCount NOTIFY sessionCountChanged)
+    /// Alias so QML can use the shorter `count` property.
+    Q_PROPERTY(int count READ sessionCount NOTIFY sessionCountChanged)
     Q_PROPERTY(QString statusSummary READ statusSummary NOTIFY statusSummaryChanged)
 
 public:
@@ -85,6 +90,9 @@ public:
     /// Terminate (delete) a session.  Auto-stops the daemon if none remain.
     Q_INVOKABLE void terminateSession(const QString& sessionId);
 
+    /// Alias for terminateSession() — used by QML delete confirmation dialog.
+    Q_INVOKABLE void deleteSession(const QString& sessionId) { terminateSession(sessionId); }
+
     // -- Properties ----------------------------------------------------------
 
     /// True when file-sync is available (VPN connected and not fully policy-blocked).
@@ -116,18 +124,15 @@ private:
     /// Interval between `mutagen sync list` polls (ms).
     static constexpr int kPollIntervalMs = 2000;
 
-    /// Timeout for individual CLI commands (ms).
-    static constexpr int kCommandTimeoutMs = 15000;
-
     // -- Helpers -------------------------------------------------------------
 
     /// Build common CLI arguments: `--data-directory=<dataDir>`.
     [[nodiscard]] QStringList dataDirArgs() const;
 
-    /// Run a short-lived `mutagen` CLI command and return its stdout.
-    /// Blocks the calling thread (via QProcess::waitForFinished).
-    /// On failure, emits errorOccurred() and returns an empty QByteArray.
-    [[nodiscard]] QByteArray runMutagenSync(const QStringList& args);
+    /// Run a short-lived `mutagen` CLI command asynchronously.
+    /// @p callback is invoked with the exit code and stdout when the process finishes.
+    void runMutagenAsync(const QStringList& args,
+                         std::function<void(int exitCode, const QByteArray& output)> callback);
 
     /// Parse JSON output from `mutagen sync list --json` into session list.
     [[nodiscard]] std::vector<FileSyncSession> parseSessionList(const QByteArray& json) const;
@@ -148,6 +153,7 @@ private:
     MutagenDaemon* m_daemon;      // non-owning
     QTimer m_pollTimer;
     bool m_vpnConnected = false;
+    bool m_pollInFlight = false;  ///< Guard to prevent overlapping poll processes.
 
     std::vector<FileSyncSession> m_sessions;
 };

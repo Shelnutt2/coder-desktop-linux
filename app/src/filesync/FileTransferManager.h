@@ -54,6 +54,8 @@ struct FileTransfer {
 class FileTransferManager : public QAbstractListModel {
     Q_OBJECT
     Q_PROPERTY(int activeTransferCount READ activeTransferCount NOTIFY transferCountChanged)
+    /// Total number of transfers (for reactive QML bindings).
+    Q_PROPERTY(int count READ rowCount NOTIFY transferCountChanged)
 
 public:
     /// Model roles exposed to QML delegates.
@@ -67,6 +69,7 @@ public:
         ErrorMessageRole,
         AgentHostnameRole,
     };
+    Q_ENUM(Role)
 
     explicit FileTransferManager(QObject* parent = nullptr);
     ~FileTransferManager() override;
