@@ -11,7 +11,7 @@
 #ifdef HAS_WEBENGINE
 #include <QNetworkCookie>
 #include <QWebEngineCookieStore>
-#include <QWebEngineProfile>
+#include <QtWebEngineQuick/QQuickWebEngineProfile>
 #endif
 
 // Cookie name used by Coder deployments for session authentication.
@@ -29,7 +29,9 @@ LoginFlowController::LoginFlowController(SessionManager& sessionManager, QObject
     : QObject(parent), m_sessionManager(sessionManager), m_nam(new QNetworkAccessManager(this)) {
 #ifdef HAS_WEBENGINE
     // Off-the-record profile — cookies are not persisted to disk.
-    m_profile = new QWebEngineProfile(this);
+    // QQuickWebEngineProfile (not QWebEngineProfile) is required because
+    // QML's WebEngineView.profile expects this type.
+    m_profile = new QQuickWebEngineProfile(this);
     m_cookieStore = m_profile->cookieStore();
     setupCookieMonitoring();
 #endif
