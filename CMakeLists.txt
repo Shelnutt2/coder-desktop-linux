@@ -33,6 +33,7 @@ set(CMAKE_INSTALL_RPATH_USE_LINK_LIBRARIES ON)
 # Centralized dependency detection
 # ---------------------------------------------------------------------------
 include(cmake/FindDependencies.cmake)
+include(cmake/FetchMutagen.cmake)
 
 # ---------------------------------------------------------------------------
 # Target 1: coder-desktop-helper (Go binary — D-Bus system service)
