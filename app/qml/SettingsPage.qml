@@ -307,95 +307,92 @@ Item {
                 locked: settingsManager.requireVpnLocked
             }
 
-            // ---- section divider (DLP — hidden when DLP build is disabled) ----
-            Column {
-                visible: typeof hasDlp !== "undefined" && hasDlp
+            // ---- section divider ----
+            Rectangle { Layout.fillWidth: true; height: 1; color: CoderTheme.divider }
+
+            // ================================================================
+            // DATA LOSS PREVENTION
+            // ================================================================
+            Label {
+                text: "DATA LOSS PREVENTION"
+                font.pixelSize: 11
+                font.weight: Font.DemiBold
+                color: CoderTheme.textSecondary
                 Layout.fillWidth: true
+                Layout.leftMargin: 16
+                Layout.topMargin: 24
+                Layout.bottomMargin: 8
+            }
 
-                Rectangle { width: parent.width; height: 1; color: CoderTheme.divider }
+            // Wayland-required info banner
+            Rectangle {
+                Layout.fillWidth: true
+                Layout.leftMargin: 16
+                Layout.rightMargin: 16
+                Layout.bottomMargin: 8
+                height: dlpInfoLabel.implicitHeight + 16
+                radius: CoderTheme.radiusSm
+                color: CoderTheme.warningSurface
+                visible: !settingsPage.isWayland
 
-                // ================================================================
-                // DATA LOSS PREVENTION
-                // ================================================================
                 Label {
-                    text: "DATA LOSS PREVENTION"
-                    font.pixelSize: 11
-                    font.weight: Font.DemiBold
-                    color: CoderTheme.textSecondary
-                    width: parent.width
-                    leftPadding: 16
-                    topPadding: 24
-                    bottomPadding: 8
+                    id: dlpInfoLabel
+                    anchors.fill: parent
+                    anchors.margins: 8
+                    text: "ℹ DLP requires a Wayland session"
+                    font.pixelSize: 13
+                    color: CoderTheme.warning
+                    wrapMode: Text.WordWrap
                 }
+            }
 
-                // Wayland-required info banner
-                Rectangle {
-                    width: parent.width - 32
-                    x: 16
-                    height: dlpInfoLabel.implicitHeight + 16
-                    radius: CoderTheme.radiusSm
-                    color: CoderTheme.warningSurface
-                    visible: !settingsPage.isWayland
+            SettingToggle {
+                label: "Enable DLP"
+                settingKey: "dlpEnabled"
+                checked: settingsManager.dlpEnabled
+                locked: settingsManager.dlpEnabledLocked
+            }
 
-                    Label {
-                        id: dlpInfoLabel
-                        anchors.fill: parent
-                        anchors.margins: 8
-                        text: "ℹ DLP requires a Wayland session"
-                        font.pixelSize: 13
-                        color: CoderTheme.warning
-                        wrapMode: Text.WordWrap
-                    }
-                }
+            SettingToggle {
+                label: "Block clipboard access"
+                settingKey: "dlpClipboardBlock"
+                checked: settingsManager.dlpClipboardBlock
+                locked: settingsManager.dlpClipboardBlockLocked
+            }
 
-                SettingToggle {
-                    label: "Enable DLP"
-                    settingKey: "dlpEnabled"
-                    checked: settingsManager.dlpEnabled
-                    locked: settingsManager.dlpEnabledLocked
-                }
+            SettingToggle {
+                label: "Block screenshots"
+                settingKey: "dlpScreenshotBlock"
+                checked: settingsManager.dlpScreenshotBlock
+                locked: settingsManager.dlpScreenshotBlockLocked
+            }
 
-                SettingToggle {
-                    label: "Block clipboard access"
-                    settingKey: "dlpClipboardBlock"
-                    checked: settingsManager.dlpClipboardBlock
-                    locked: settingsManager.dlpClipboardBlockLocked
-                }
+            SettingToggle {
+                label: "File sandbox"
+                settingKey: "dlpFileSandbox"
+                checked: settingsManager.dlpFileSandbox
+                locked: settingsManager.dlpFileSandboxLocked
+            }
 
-                SettingToggle {
-                    label: "Block screenshots"
-                    settingKey: "dlpScreenshotBlock"
-                    checked: settingsManager.dlpScreenshotBlock
-                    locked: settingsManager.dlpScreenshotBlockLocked
-                }
+            SettingToggle {
+                label: "Network sandbox"
+                settingKey: "dlpNetworkSandbox"
+                checked: settingsManager.dlpNetworkSandbox
+                locked: settingsManager.dlpNetworkSandboxLocked
+            }
 
-                SettingToggle {
-                    label: "File sandbox"
-                    settingKey: "dlpFileSandbox"
-                    checked: settingsManager.dlpFileSandbox
-                    locked: settingsManager.dlpFileSandboxLocked
-                }
+            SettingToggle {
+                label: "Force in-app browser"
+                settingKey: "dlpForceInAppBrowser"
+                checked: settingsManager.dlpForceInAppBrowser
+                locked: settingsManager.dlpForceInAppBrowserLocked
+            }
 
-                SettingToggle {
-                    label: "Network sandbox"
-                    settingKey: "dlpNetworkSandbox"
-                    checked: settingsManager.dlpNetworkSandbox
-                    locked: settingsManager.dlpNetworkSandboxLocked
-                }
-
-                SettingToggle {
-                    label: "Force in-app browser"
-                    settingKey: "dlpForceInAppBrowser"
-                    checked: settingsManager.dlpForceInAppBrowser
-                    locked: settingsManager.dlpForceInAppBrowserLocked
-                }
-
-                SettingToggle {
-                    label: "Disable external browser"
-                    settingKey: "dlpDisableExternalBrowser"
-                    checked: settingsManager.dlpDisableExternalBrowser
-                    locked: settingsManager.dlpDisableExternalBrowserLocked
-                }
+            SettingToggle {
+                label: "Disable external browser"
+                settingKey: "dlpDisableExternalBrowser"
+                checked: settingsManager.dlpDisableExternalBrowser
+                locked: settingsManager.dlpDisableExternalBrowserLocked
             }
 
             SettingToggle {
