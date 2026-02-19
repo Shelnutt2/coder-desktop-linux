@@ -171,8 +171,6 @@ ApplicationWindow {
                     display: AbstractButton.TextUnderIcon
                     font.pixelSize: 10
                     font.capitalization: Font.MixedCase
-                    visible: fileSyncManager.available || fileSyncManager.sessionCount > 0
-                    width: visible ? implicitWidth : 0
                 }
                 TabButton {
                     text: "Connect"
@@ -190,7 +188,7 @@ ApplicationWindow {
                     font.pixelSize: 10
                     font.capitalization: Font.MixedCase
                     visible: root.dlpAvailable
-                    width: root.dlpAvailable ? implicitWidth : 0
+                    width: root.dlpAvailable ? undefined : 0
                 }
                 TabButton {
                     text: "Settings"
