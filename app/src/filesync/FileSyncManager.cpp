@@ -276,9 +276,18 @@ void FileSyncManager::setVpnConnected(bool connected) {
         if (!m_pollTimer.isActive()) {
             m_pollTimer.start();
         }
-        refreshSessions();
+        // Delay the first refresh slightly to give the daemon time to open
+        // its IPC socket and load persisted sessions from disk.  Without
+        // this, the very first `sync list` may connect before the daemon is
+        // ready and return an empty result.
+        QTimer::singleShot(500, this, &FileSyncManager::refreshSessions);
     } else {
         m_pollTimer.stop();
+        // Stop the daemon when VPN disconnects — no point keeping it running
+        // since sync sessions cannot function without the VPN tunnel.
+        if (m_daemon->isRunning()) {
+            m_daemon->stop();
+        }
     }
 }
 
@@ -462,11 +471,14 @@ void FileSyncManager::updateModel(std::vector<FileSyncSession> newSessions) {
         emit statusSummaryChanged();
     }
 
-    // Auto-stop daemon if no sessions remain after a refresh.
-    if (m_sessions.empty() && m_daemon->isRunning()) {
-        qCInfo(lcFileSync) << "no sessions remain, stopping daemon";
+    // When no sessions remain, stop polling (but keep the daemon alive).
+    // The daemon is lightweight and will be stopped when the VPN disconnects
+    // or the app exits.  We keep it running so that a quick create→terminate
+    // →create cycle doesn't pay the daemon startup cost each time, and to
+    // avoid a race where the daemon hasn't finished loading persisted sessions
+    // yet when the first poll returns empty.
+    if (m_sessions.empty() && m_pollTimer.isActive()) {
         m_pollTimer.stop();
-        m_daemon->stop();
     }
 }
 
