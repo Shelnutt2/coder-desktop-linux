@@ -13,6 +13,9 @@ A native Linux desktop application for managing [Coder](https://coder.com) remot
 - **Workspace Management** — Browse, start, stop, and monitor workspaces across one or more Coder deployments. View build logs and workspace agents in real time.
 - **AI Task Monitoring** — Track AI-powered coding tasks running inside your workspaces with live status updates.
 - **Data Loss Prevention (DLP)** — Optional Wayland compositor sandbox that enforces clipboard, screenshot, and file-access policies on workspace applications. Managed via MDM or user settings.
+- **File Sync** — Bidirectional file synchronization between local and workspace directories, powered by [Mutagen](https://mutagen.io/). Create persistent sync sessions that survive app restarts.
+- **File Browser** — Graphical file explorer for workspace directories with breadcrumb navigation, upload, and download support. Transfers run over SCP through the VPN tunnel.
+- **DLP-Aware File Transfers** — File sync and transfers respect Data Loss Prevention policies. Administrators can restrict uploads, downloads, or both via MDM settings.
 - **Multi-Deployment Support** — Connect to multiple Coder deployments simultaneously with per-deployment credentials.
 - **Three-Layer Settings** — User preferences, MDM policy overrides (`/etc/coder-desktop/policy.json`), and compiled defaults. Administrators can lock any setting via MDM.
 - **Secure Credential Storage** — API tokens stored via `libsecret` (GNOME Keyring / KWallet) with encrypted-file fallback for headless environments.
@@ -29,6 +32,7 @@ A native Linux desktop application for managing [Coder](https://coder.com) remot
 | wlroots | ≥ 0.19 | DLP only | Wayland compositor for DLP sandbox |
 | wayland | — | DLP only | Client/server libraries |
 | libxkbcommon | — | DLP only | Keyboard handling in compositor |
+| Mutagen | ≥ 0.18.1 | File Sync | Bidirectional file synchronization engine (auto-fetched with `-DFETCH_MUTAGEN=ON`) |
 | libsecret | — | Recommended | Credential storage (GNOME Keyring / KWallet) |
 | bubblewrap | — | DLP only | Sandbox launcher for file/network isolation |
 | pkg-config | — | ✅ | Dependency resolution for C libraries |
@@ -119,7 +123,7 @@ cmake --build build --target coder-desktop    # Qt desktop application
 
 Coder Desktop is a monorepo producing three build targets that compose at runtime. The Qt desktop application communicates with a privileged Go helper binary over the **D-Bus system bus** to manage the VPN tunnel — the helper runs as root and handles TUN device creation, DNS configuration, and routing.
 
-For the full architecture reference, see [`docs/architecture.md`](docs/architecture.md).
+For the full architecture reference, see [`docs/architecture.md`](docs/architecture.md). For file sync and file browser details, see [`docs/file-sync.md`](docs/file-sync.md).
 
 ```mermaid
 graph TD
@@ -217,6 +221,9 @@ API tokens and session credentials are stored via the [Secret Service API](https
 | `dlpClipboardBlock` | `false` | Block clipboard copy/paste in DLP mode |
 | `dlpScreenshotBlock` | `false` | Block screenshots in DLP mode |
 | `checkForUpdates` | `true` | Check GitHub Releases for new versions |
+| `disableFileUpload` | `false` | Block local → remote file transfers |
+| `disableFileDownload` | `false` | Block remote → local file transfers |
+| `dlpFileSandbox` | `false` | Restrict file paths to sandbox-allowed locations |
 | `notificationsEnabled` | `true` | Show desktop notifications |
 | `theme` | `system` | UI theme (`system`, `light`, `dark`) |
 
