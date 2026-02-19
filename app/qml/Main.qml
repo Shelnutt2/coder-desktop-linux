@@ -31,6 +31,7 @@ ApplicationWindow {
     Shortcut { sequence: "Ctrl+3"; onActivated: tabBar.currentIndex = 2 }
     Shortcut { sequence: "Ctrl+4"; onActivated: tabBar.currentIndex = 3 }
     Shortcut { sequence: "Ctrl+5"; onActivated: tabBar.currentIndex = 4 }
+    Shortcut { sequence: "Ctrl+6"; onActivated: tabBar.currentIndex = 5 }
     Shortcut {
         sequence: "Ctrl+R"
         onActivated: {
@@ -117,18 +118,19 @@ ApplicationWindow {
 
                 WorkspacesPage { anchors.fill: parent; visible: tabBar.currentIndex === 0 }
                 TasksPage      { anchors.fill: parent; visible: tabBar.currentIndex === 1 }
-                VpnPage        { anchors.fill: parent; visible: tabBar.currentIndex === 2 }
+                FileSyncPage   { anchors.fill: parent; visible: tabBar.currentIndex === 2 }
+                VpnPage        { anchors.fill: parent; visible: tabBar.currentIndex === 3 }
                 Loader {
                     anchors.fill: parent
                     active: root.dlpAvailable
-                    visible: active && tabBar.currentIndex === 3
+                    visible: active && tabBar.currentIndex === 4
                     source: "SecureDevPage.qml"
                 }
                 SettingsPage   {
                     id: settingsPageInstance
                     anchors.fill: parent
-                    visible: tabBar.currentIndex === 4
-                    onNavigateToConnect: tabBar.currentIndex = 2
+                    visible: tabBar.currentIndex === 5
+                    onNavigateToConnect: tabBar.currentIndex = 3
                 }
             }
 
@@ -163,9 +165,19 @@ ApplicationWindow {
                     font.capitalization: Font.MixedCase
                 }
                 TabButton {
+                    text: "File Sync"
+                    icon.name: "folder-sync"
+                    icon.color: tabBar.currentIndex === 2 ? CoderTheme.primary : CoderTheme.textSecondary
+                    display: AbstractButton.TextUnderIcon
+                    font.pixelSize: 10
+                    font.capitalization: Font.MixedCase
+                    visible: fileSyncManager.available || fileSyncManager.sessionCount > 0
+                    width: visible ? implicitWidth : 0
+                }
+                TabButton {
                     text: "Connect"
                     icon.name: "network-vpn"
-                    icon.color: tabBar.currentIndex === 2 ? CoderTheme.primary : CoderTheme.textSecondary
+                    icon.color: tabBar.currentIndex === 3 ? CoderTheme.primary : CoderTheme.textSecondary
                     display: AbstractButton.TextUnderIcon
                     font.pixelSize: 10
                     font.capitalization: Font.MixedCase
@@ -173,7 +185,7 @@ ApplicationWindow {
                 TabButton {
                     text: "Secure Dev"
                     icon.name: "security-high"
-                    icon.color: tabBar.currentIndex === 3 ? CoderTheme.primary : CoderTheme.textSecondary
+                    icon.color: tabBar.currentIndex === 4 ? CoderTheme.primary : CoderTheme.textSecondary
                     display: AbstractButton.TextUnderIcon
                     font.pixelSize: 10
                     font.capitalization: Font.MixedCase
@@ -183,7 +195,7 @@ ApplicationWindow {
                 TabButton {
                     text: "Settings"
                     icon.name: "preferences-system"
-                    icon.color: tabBar.currentIndex === 4 ? CoderTheme.primary : CoderTheme.textSecondary
+                    icon.color: tabBar.currentIndex === 5 ? CoderTheme.primary : CoderTheme.textSecondary
                     display: AbstractButton.TextUnderIcon
                     font.pixelSize: 10
                     font.capitalization: Font.MixedCase
