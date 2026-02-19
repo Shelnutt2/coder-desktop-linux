@@ -14,9 +14,20 @@
 
 /// A single entry (file or directory) returned by the agent.
 struct DirectoryEntry {
+    Q_GADGET
+    Q_PROPERTY(QString name MEMBER name)
+    Q_PROPERTY(QString absolutePathString MEMBER absolutePathString)
+    Q_PROPERTY(bool isDir MEMBER isDir)
+
+public:
     QString name;
     QString absolutePathString;
     bool isDir = false;
+
+    [[nodiscard]] bool operator==(const DirectoryEntry& other) const {
+        return name == other.name && absolutePathString == other.absolutePathString &&
+               isDir == other.isDir;
+    }
 
     [[nodiscard]] static DirectoryEntry fromJson(const QJsonObject& json) {
         return DirectoryEntry{
@@ -29,6 +40,12 @@ struct DirectoryEntry {
 
 /// The full response from POST /api/v0/list-directory.
 struct DirectoryListing {
+    Q_GADGET
+    Q_PROPERTY(QStringList absolutePath MEMBER absolutePath)
+    Q_PROPERTY(QString absolutePathString MEMBER absolutePathString)
+    Q_PROPERTY(QList<DirectoryEntry> contents MEMBER contents)
+
+public:
     QStringList absolutePath;
     QString absolutePathString;
     QList<DirectoryEntry> contents;

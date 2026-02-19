@@ -81,7 +81,11 @@ Item {
     }
 
     // -- Initial load --------------------------------------------------------
-    Component.onCompleted: navigateToRoot()
+    // Navigate when agentHostname is set (not on Component.onCompleted, because
+    // the Loader's onLoaded binding may not have fired yet at that point).
+    onAgentHostnameChanged: {
+        if (agentHostname.length > 0) navigateToRoot()
+    }
 
     // -- API signal handler --------------------------------------------------
     Connections {
@@ -95,7 +99,7 @@ Item {
             currentContents = sortedContents(listing.contents || [])
         }
 
-        function onDirectoryListError(hostname, error) {
+        function onListDirectoryError(hostname, error) {
             if (hostname !== agentHostname) return
             isLoading = false
             errorMessage = error || "Failed to list directory"
