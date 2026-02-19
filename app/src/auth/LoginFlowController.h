@@ -9,7 +9,7 @@ class QNetworkReply;
 
 #ifdef HAS_WEBENGINE
 class QWebEngineCookieStore;
-#include <QWebEngineProfile>
+#include <QtWebEngineQuick/QQuickWebEngineProfile>
 #endif
 
 class SessionManager;
@@ -32,7 +32,7 @@ class LoginFlowController : public QObject {
     Q_PROPERTY(QString loginUrl READ loginUrl NOTIFY loginUrlChanged)
 
 #ifdef HAS_WEBENGINE
-    Q_PROPERTY(QObject* webEngineProfile READ webEngineProfileQml CONSTANT)
+    Q_PROPERTY(QQuickWebEngineProfile* webEngineProfile READ webEngineProfile CONSTANT)
 #endif
 
 public:
@@ -65,8 +65,7 @@ public:
 #ifdef HAS_WEBENGINE
     /// Returns the off-the-record WebEngine profile for QML to use.
     /// Null when WebEngine is unavailable or flow is not active.
-    [[nodiscard]] QWebEngineProfile* webEngineProfile() const { return m_profile; }
-    [[nodiscard]] QObject* webEngineProfileQml() const { return m_profile; }
+    [[nodiscard]] QQuickWebEngineProfile* webEngineProfile() const { return m_profile; }
 #endif
 
 signals:
@@ -105,7 +104,7 @@ private:
     bool m_probing = false;
 
 #ifdef HAS_WEBENGINE
-    QWebEngineProfile* m_profile = nullptr;          // owned by this
+    QQuickWebEngineProfile* m_profile = nullptr;     // owned by this
     QWebEngineCookieStore* m_cookieStore = nullptr;  // non-owning (owned by profile)
 
     void setupCookieMonitoring();
