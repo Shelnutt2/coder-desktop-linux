@@ -414,6 +414,7 @@ void FileTransferManager::purgeOldFinishedTransfers() {
 
     if (removed > 0) {
         qCDebug(lcFileTransfer) << "Purged" << removed << "old finished transfers";
+        emit transferCountChanged();
     }
 }
 

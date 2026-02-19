@@ -334,7 +334,7 @@ int main(int argc, char* argv[]) {
     engine.load(mainQml);
 
     // ---- System tray ----
-    SystemTrayIcon tray(&vpnBridge, &sessionManager);
+    SystemTrayIcon tray(&vpnBridge, &sessionManager, &fileSyncManager);
     notificationManager.setTrayIcon(tray.trayIcon());
 
     QObject::connect(&tray, &SystemTrayIcon::showWindowRequested, &engine, [&engine]() {

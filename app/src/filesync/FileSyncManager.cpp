@@ -137,59 +137,73 @@ void FileSyncManager::createSession(const QString& localPath, const QString& wor
     }
 
     qCInfo(lcFileSync) << "creating session:" << localPath << "->" << betaUrl;
-    const QByteArray output = runMutagenSync(args);
-    if (output.isNull()) {
-        return;  // error already emitted
-    }
-
-    // Start polling if not already running.
-    if (!m_pollTimer.isActive()) {
-        m_pollTimer.start();
-    }
-
-    // Trigger an immediate refresh to pick up the new session.
-    refreshSessions();
+    runMutagenAsync(args, [this](int exitCode, const QByteArray& /*output*/) {
+        if (exitCode != 0) {
+            emit errorOccurred(tr("Failed to create sync session"));
+            return;
+        }
+        // Start polling if not already running.
+        if (!m_pollTimer.isActive()) {
+            m_pollTimer.start();
+        }
+        refreshSessions();
+    });
 }
 
 void FileSyncManager::pauseSession(const QString& sessionId) {
     qCInfo(lcFileSync) << "pausing session:" << sessionId;
     QStringList args = {QStringLiteral("sync"), QStringLiteral("pause"), sessionId};
     args.append(dataDirArgs());
-    (void)runMutagenSync(args);
-    refreshSessions();
+    runMutagenAsync(args, [this](int exitCode, const QByteArray& /*output*/) {
+        if (exitCode != 0) {
+            emit errorOccurred(tr("Failed to pause session"));
+        }
+        refreshSessions();
+    });
 }
 
 void FileSyncManager::resumeSession(const QString& sessionId) {
     qCInfo(lcFileSync) << "resuming session:" << sessionId;
     QStringList args = {QStringLiteral("sync"), QStringLiteral("resume"), sessionId};
     args.append(dataDirArgs());
-    (void)runMutagenSync(args);
-    refreshSessions();
+    runMutagenAsync(args, [this](int exitCode, const QByteArray& /*output*/) {
+        if (exitCode != 0) {
+            emit errorOccurred(tr("Failed to resume session"));
+        }
+        refreshSessions();
+    });
 }
 
 void FileSyncManager::resetSession(const QString& sessionId) {
     qCInfo(lcFileSync) << "resetting session:" << sessionId;
     QStringList args = {QStringLiteral("sync"), QStringLiteral("reset"), sessionId};
     args.append(dataDirArgs());
-    (void)runMutagenSync(args);
-    refreshSessions();
+    runMutagenAsync(args, [this](int exitCode, const QByteArray& /*output*/) {
+        if (exitCode != 0) {
+            emit errorOccurred(tr("Failed to reset session"));
+        }
+        refreshSessions();
+    });
 }
 
 void FileSyncManager::terminateSession(const QString& sessionId) {
     qCInfo(lcFileSync) << "terminating session:" << sessionId;
     QStringList args = {QStringLiteral("sync"), QStringLiteral("terminate"), sessionId};
     args.append(dataDirArgs());
-    (void)runMutagenSync(args);
+    runMutagenAsync(args, [this](int exitCode, const QByteArray& /*output*/) {
+        if (exitCode != 0) {
+            emit errorOccurred(tr("Failed to terminate session"));
+        }
 
-    // Refresh to remove the session from the model.
-    refreshSessions();
+        // Refresh to remove the session from the model.
+        // The callback from refreshSessions will update m_sessions,
+        // so we check for auto-stop after that completes.
+        // For simplicity, schedule a deferred check.
+        refreshSessions();
 
-    // Auto-stop daemon if no sessions remain.
-    if (m_sessions.empty() && m_daemon->isRunning()) {
-        qCInfo(lcFileSync) << "no sessions remain, stopping daemon";
-        m_pollTimer.stop();
-        m_daemon->stop();
-    }
+        // Auto-stop daemon if no sessions remain (checked after refresh completes
+        // via updateModel → sessionCountChanged).
+    });
 }
 
 // ---------------------------------------------------------------------------
@@ -266,37 +280,40 @@ QStringList FileSyncManager::dataDirArgs() const {
     return {QStringLiteral("--data-directory=") + m_daemon->dataDir()};
 }
 
-QByteArray FileSyncManager::runMutagenSync(const QStringList& args) {
+void FileSyncManager::runMutagenAsync(
+    const QStringList& args, std::function<void(int exitCode, const QByteArray& output)> callback) {
     const QString binary = m_daemon->mutagenBinaryPath();
     if (binary.isEmpty()) {
         emit errorOccurred(QStringLiteral("Mutagen binary not found"));
-        return {};
+        return;
     }
 
-    qCDebug(lcFileSync) << "running:" << binary << args;
+    qCDebug(lcFileSync) << "running (async):" << binary << args;
 
-    QProcess proc;
-    proc.start(binary, args);
-    if (!proc.waitForFinished(kCommandTimeoutMs)) {
-        const QString msg = QStringLiteral("Mutagen command timed out: mutagen %1")
-                                .arg(args.join(QLatin1Char(' ')));
-        qCWarning(lcFileSync) << msg;
-        proc.kill();
-        proc.waitForFinished(3000);
-        emit errorOccurred(msg);
-        return {};
-    }
+    auto* proc = new QProcess(this);
+    QProcessEnvironment env = QProcessEnvironment::systemEnvironment();
+    env.insert(QStringLiteral("MUTAGEN_DATA_DIRECTORY"), m_daemon->dataDir());
+    proc->setProcessEnvironment(env);
+    proc->setProgram(binary);
+    proc->setArguments(args);
 
-    if (proc.exitCode() != 0) {
-        const QString stderr = QString::fromUtf8(proc.readAllStandardError()).trimmed();
-        const QString msg =
-            QStringLiteral("Mutagen command failed (exit %1): %2").arg(proc.exitCode()).arg(stderr);
-        qCWarning(lcFileSync) << msg;
-        emit errorOccurred(msg);
-        return {};
-    }
+    connect(proc, QOverload<int, QProcess::ExitStatus>::of(&QProcess::finished), this,
+            [proc, callback](int exitCode, QProcess::ExitStatus /*exitStatus*/) {
+                const QByteArray output = proc->readAllStandardOutput();
+                if (callback) {
+                    callback(exitCode, output);
+                }
+                proc->deleteLater();
+            });
 
-    return proc.readAllStandardOutput();
+    connect(proc, &QProcess::errorOccurred, this, [this, proc](QProcess::ProcessError err) {
+        if (err == QProcess::FailedToStart) {
+            emit errorOccurred(tr("Failed to start mutagen: %1").arg(proc->errorString()));
+            proc->deleteLater();
+        }
+    });
+
+    proc->start(QIODevice::ReadOnly);
 }
 
 std::vector<FileSyncSession> FileSyncManager::parseSessionList(const QByteArray& json) const {
@@ -393,17 +410,22 @@ void FileSyncManager::refreshSessions() {
     if (!m_daemon->isRunning()) {
         return;
     }
+    if (m_pollInFlight) {
+        return;  // skip overlapping polls
+    }
+    m_pollInFlight = true;
 
     QStringList args = {QStringLiteral("sync"), QStringLiteral("list"), QStringLiteral("--json")};
     args.append(dataDirArgs());
 
-    const QByteArray output = runMutagenSync(args);
-    if (output.isNull()) {
-        return;  // error already emitted
-    }
-
-    auto newSessions = parseSessionList(output);
-    updateModel(std::move(newSessions));
+    runMutagenAsync(args, [this](int exitCode, const QByteArray& output) {
+        m_pollInFlight = false;
+        if (exitCode != 0) {
+            return;
+        }
+        auto newSessions = parseSessionList(output);
+        updateModel(std::move(newSessions));
+    });
 }
 
 void FileSyncManager::updateModel(std::vector<FileSyncSession> newSessions) {
@@ -422,6 +444,13 @@ void FileSyncManager::updateModel(std::vector<FileSyncSession> newSessions) {
     }
     if (statusSummary() != oldSummary) {
         emit statusSummaryChanged();
+    }
+
+    // Auto-stop daemon if no sessions remain after a refresh.
+    if (m_sessions.empty() && m_daemon->isRunning()) {
+        qCInfo(lcFileSync) << "no sessions remain, stopping daemon";
+        m_pollTimer.stop();
+        m_daemon->stop();
     }
 }
 
