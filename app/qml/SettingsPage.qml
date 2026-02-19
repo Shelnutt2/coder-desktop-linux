@@ -412,6 +412,23 @@ Item {
                 Layout.bottomMargin: 8
             }
 
+            // ---- section divider ----
+            Rectangle { Layout.fillWidth: true; height: 1; color: CoderTheme.divider }
+
+            // ================================================================
+            // FILE TRANSFER
+            // ================================================================
+            Label {
+                text: "FILE TRANSFER"
+                font.pixelSize: 11
+                font.weight: Font.DemiBold
+                color: CoderTheme.textSecondary
+                Layout.fillWidth: true
+                Layout.leftMargin: 16
+                Layout.topMargin: 24
+                Layout.bottomMargin: 8
+            }
+
             SettingToggle {
                 label: "Block file uploads"
                 settingKey: "disableFileUpload"
