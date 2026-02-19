@@ -9,11 +9,22 @@ import CoderDesktop
 // downloading/uploading individual files through FileTransferManager.
 Item {
     id: fileBrowserPage
+    focus: true
 
     property string agentHostname: ""
     property string workspaceName: ""
 
     signal backClicked()
+
+    Keys.onPressed: function(event) {
+        if (event.key === Qt.Key_Backspace) {
+            if (cachedSegments.length > 1)
+                navigateTo(absolutePathUpTo(cachedSegments, cachedSegments.length - 2))
+            else if (cachedSegments.length === 1)
+                navigateTo("/")
+            event.accepted = true;
+        }
+    }
 
     // -- Internal state ------------------------------------------------------
     property string currentPath: ""          // absolute path string from API
@@ -21,6 +32,8 @@ Item {
     property bool   isLoading: false
     property string errorMessage: ""
     property int    selectedIndex: -1
+    property var    cachedSegments: pathSegments(currentPath)
+    onCurrentPathChanged: cachedSegments = pathSegments(currentPath)
 
     // -- Helpers -------------------------------------------------------------
     function formatFileSize(bytes) {
@@ -101,7 +114,10 @@ Item {
                 dest = currentContents[selectedIndex].absolutePathString
                 if (!dest.endsWith("/")) dest += "/"
             }
-            fileTransferManager.upload(agentHostname, selectedFile.toString().replace("file://", ""), dest + selectedFile.toString().split("/").pop())
+            var filePath = selectedFile.toString();
+            if (filePath.startsWith("file:///")) filePath = filePath.substring(7);
+            else if (filePath.startsWith("file://")) filePath = filePath.substring(6);
+            fileTransferManager.upload(agentHostname, filePath, dest + filePath.split("/").pop())
         }
     }
 
@@ -111,7 +127,9 @@ Item {
         property string remoteFilePath: ""
         property string remoteFileName: ""
         onAccepted: {
-            var localDir = selectedFolder.toString().replace("file://", "")
+            var localDir = selectedFolder.toString();
+            if (localDir.startsWith("file:///")) localDir = localDir.substring(7);
+            else if (localDir.startsWith("file://")) localDir = localDir.substring(6);
             if (!localDir.endsWith("/")) localDir += "/"
             fileTransferManager.download(agentHostname, remoteFilePath, localDir + remoteFileName)
         }
@@ -182,6 +200,27 @@ Item {
                 anchors.margins: 8
                 spacing: 4
 
+                // Up directory button
+                Label {
+                    text: "⬆"
+                    font.pixelSize: 14
+                    color: upDirMouse.containsMouse ? CoderTheme.primaryLight : CoderTheme.textSecondary
+                    visible: cachedSegments.length > 0
+
+                    MouseArea {
+                        id: upDirMouse
+                        anchors.fill: parent
+                        hoverEnabled: true
+                        cursorShape: Qt.PointingHandCursor
+                        onClicked: {
+                            if (cachedSegments.length > 1)
+                                navigateTo(absolutePathUpTo(cachedSegments, cachedSegments.length - 2))
+                            else
+                                navigateTo("/")
+                        }
+                    }
+                }
+
                 // Root /
                 Label {
                     text: "/"
@@ -198,11 +237,11 @@ Item {
                 }
 
                 Repeater {
-                    model: pathSegments(currentPath)
+                    model: cachedSegments
 
                     delegate: Row {
                         spacing: 4
-                        property bool isLast: index === pathSegments(currentPath).length - 1
+                        property bool isLast: index === cachedSegments.length - 1
 
                         Label {
                             text: modelData
@@ -220,7 +259,7 @@ Item {
                                 cursorShape: isLast ? Qt.ArrowCursor : Qt.PointingHandCursor
                                 onClicked: {
                                     if (!isLast) {
-                                        navigateTo(absolutePathUpTo(pathSegments(currentPath), index))
+                                        navigateTo(absolutePathUpTo(cachedSegments, index))
                                     }
                                 }
                             }
@@ -306,12 +345,19 @@ Item {
                         return "transparent"
                     }
 
+                    Behavior on color { ColorAnimation { duration: 120 } }
+
                     property var entry: currentContents[index]
+
+                    ToolTip.visible: fileDelegateMouse.containsMouse && entry && entry.absolutePathString
+                    ToolTip.text: entry ? entry.absolutePathString : ""
+                    ToolTip.delay: 800
 
                     MouseArea {
                         id: fileDelegateMouse
                         anchors.fill: parent
                         hoverEnabled: true
+                        cursorShape: Qt.PointingHandCursor
                         acceptedButtons: Qt.LeftButton | Qt.RightButton
 
                         onClicked: function(mouse) {
@@ -389,6 +435,7 @@ Item {
                 // Context menu
                 Menu {
                     id: contextMenu
+                    Material.background: CoderTheme.surface
 
                     MenuItem {
                         text: "Download"

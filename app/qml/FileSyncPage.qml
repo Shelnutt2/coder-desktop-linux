@@ -6,10 +6,18 @@ import CoderDesktop
 
 Item {
     id: fileSyncPage
+    focus: true
 
     property int selectedIndex: -1
     property string selectedSessionId: ""
     property bool selectedPaused: false
+
+    Keys.onDeletePressed: {
+        if (fileSyncPage.selectedSessionId !== "") {
+            fileSyncPage.deleteSessionId = fileSyncPage.selectedSessionId;
+            deleteConfirmDialog.open();
+        }
+    }
 
     function statusDotColor(category) {
         switch (category) {
@@ -197,6 +205,7 @@ Item {
                     id: delegateMouseArea
                     anchors.fill: parent
                     hoverEnabled: true
+                    cursorShape: Qt.PointingHandCursor
                     acceptedButtons: Qt.LeftButton | Qt.RightButton
 
                     onClicked: function (mouse) {
@@ -339,7 +348,7 @@ Item {
                     text: "New Session"
                     variant: "outline"
                     Layout.alignment: Qt.AlignHCenter
-                    enabled: vpnBridge.state === "connected"
+                    enabled: vpnBridge.state === "connected" && fileSyncManager.available
                     onClicked: newSessionDialog.open()
                 }
             }

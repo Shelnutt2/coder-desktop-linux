@@ -25,9 +25,18 @@ Dialog {
 
     signal directorySelected(string path)
 
-    // Internal directory tree model stored as a JS array
-    // Each entry: { path, name, depth, expanded, loaded, children: [] }
+    // Internal directory tree model stored as a JS array.
+    // Using a flat JS array with depth tracking rather than a nested ListModel
+    // for simplicity. The tradeoff is that reassigning the array triggers a
+    // full re-render, but the tree is typically small (tens of entries).
+    // Each entry: { path, name, depth, expanded, loaded }
     property var dirModel: []
+
+    // Pending request tracking for signal-based async
+    property var pendingPathSegments: ""
+    property string pendingRelativity: ""
+    property int pendingDepth: 0
+    property int pendingParentIndex: -1
 
     onOpened: {
         dirPicker.selectedPath = "";
@@ -36,15 +45,27 @@ Dialog {
         loadDirectory("", "home", 0, -1);
     }
 
-    function loadDirectory(path, relativity, depth, parentIndex) {
+    // Signal-based API — no callback. Results arrive via Connections below.
+    function loadDirectory(pathSegments, relativity, depth, parentIndex) {
         dirPicker.loading = true;
         dirPicker.errorMessage = "";
-        agentApiClient.listDirectory(dirPicker.agentHostname, path, relativity, function (success, entries, errorMsg) {
+        dirPicker.pendingPathSegments = pathSegments;
+        dirPicker.pendingRelativity = relativity;
+        dirPicker.pendingDepth = depth;
+        dirPicker.pendingParentIndex = parentIndex;
+        agentApiClient.listDirectory(dirPicker.agentHostname, pathSegments, relativity);
+    }
+
+    Connections {
+        target: agentApiClient
+
+        function onDirectoryListed(hostname, listing) {
+            if (hostname !== dirPicker.agentHostname) return;
             dirPicker.loading = false;
-            if (!success) {
-                dirPicker.errorMessage = errorMsg || "Failed to list directory.";
-                return;
-            }
+
+            var depth = dirPicker.pendingDepth;
+            var parentIndex = dirPicker.pendingParentIndex;
+            var entries = listing.contents || [];
 
             var newEntries = [];
             for (var i = 0; i < entries.length; i++) {
@@ -52,10 +73,10 @@ Dialog {
                 // Skip dotfiles unless enabled
                 if (!dirPicker.showDotfiles && entry.name.startsWith(".")) continue;
                 // Only show directories
-                if (!entry.isDirectory) continue;
+                if (!entry.isDir) continue;
 
                 newEntries.push({
-                    path: entry.absolutePath,
+                    path: entry.absolutePathString,
                     name: entry.name,
                     depth: depth,
                     expanded: false,
@@ -92,7 +113,13 @@ Dialog {
 
                 dirPicker.dirModel = model;
             }
-        });
+        }
+
+        function onDirectoryListError(hostname, errorMessage) {
+            if (hostname !== dirPicker.agentHostname) return;
+            dirPicker.loading = false;
+            dirPicker.errorMessage = errorMessage || "Failed to list directory.";
+        }
     }
 
     function toggleExpand(itemIndex) {
@@ -166,6 +193,7 @@ Dialog {
         Rectangle {
             Layout.fillWidth: true
             implicitHeight: pickerErrorLabel.implicitHeight + 16
+            radius: CoderTheme.radiusSm
             color: CoderTheme.errorSurface
             border.color: CoderTheme.error
             border.width: 1
@@ -217,6 +245,7 @@ Dialog {
                     id: dirDelegateMouseArea
                     anchors.fill: parent
                     hoverEnabled: true
+                    cursorShape: Qt.PointingHandCursor
 
                     onClicked: {
                         dirPicker.selectedPath = modelData.path;
@@ -243,6 +272,7 @@ Dialog {
 
                         MouseArea {
                             anchors.fill: parent
+                            cursorShape: Qt.PointingHandCursor
                             onClicked: dirPicker.toggleExpand(index)
                         }
                     }

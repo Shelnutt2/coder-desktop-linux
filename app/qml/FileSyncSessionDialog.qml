@@ -18,6 +18,8 @@ Dialog {
     Material.foreground: CoderTheme.textPrimary
 
     property string errorMessage: ""
+    property bool creating: false
+    property int previousSessionCount: 0
 
     // Build the connected agents list by iterating the peer model.
     // We use a ListModel proxy and refresh on open, since we cannot
@@ -48,6 +50,7 @@ Dialog {
                 var agents = [];
                 for (var i = 0; i < agentInstantiator.count; i++) {
                     var obj = agentInstantiator.objectAt(i);
+                    // PeerModel::Connected == 2 (see PeerModel.h)
                     if (obj && obj.status === 2) {
                         agents.push(obj.hostname);
                     }
@@ -62,12 +65,20 @@ Dialog {
         remotePathField.text = "";
         workspaceCombo.currentIndex = 0;
         sessionDialog.errorMessage = "";
+        sessionDialog.creating = false;
     }
 
     Connections {
         target: fileSyncManager
         function onErrorOccurred(message) {
             sessionDialog.errorMessage = message;
+            sessionDialog.creating = false;
+        }
+        function onSessionCountChanged() {
+            if (sessionDialog.creating && fileSyncManager.sessionCount > sessionDialog.previousSessionCount) {
+                sessionDialog.creating = false;
+                sessionDialog.close();
+            }
         }
     }
 
@@ -116,6 +127,8 @@ Dialog {
                     Layout.fillWidth: true
                     placeholderText: "/home/user/project"
                     selectByMouse: true
+                    color: CoderTheme.textPrimary
+                    placeholderTextColor: CoderTheme.textDisabled
 
                     background: Rectangle {
                         implicitHeight: 36
@@ -194,6 +207,8 @@ Dialog {
                     Layout.fillWidth: true
                     placeholderText: "~/project"
                     selectByMouse: true
+                    color: CoderTheme.textPrimary
+                    placeholderTextColor: CoderTheme.textDisabled
 
                     background: Rectangle {
                         implicitHeight: 36
@@ -226,15 +241,17 @@ Dialog {
         }
 
         CoderButton {
-            text: "Create"
+            text: sessionDialog.creating ? "Creating…" : "Create"
             variant: "default"
-            enabled: localPathField.text.length > 0 && remotePathField.text.length > 0 && workspaceCombo.currentIndex >= 0 && sessionDialog.connectedAgents.length > 0
+            enabled: !sessionDialog.creating && localPathField.text.length > 0 && remotePathField.text.length > 0 && workspaceCombo.currentIndex >= 0 && sessionDialog.connectedAgents.length > 0
             DialogButtonBox.buttonRole: DialogButtonBox.AcceptRole
         }
     }
 
     onAccepted: {
         sessionDialog.errorMessage = "";
+        sessionDialog.creating = true;
+        sessionDialog.previousSessionCount = fileSyncManager.sessionCount;
         fileSyncManager.createSession(localPathField.text, workspaceCombo.currentText, remotePathField.text);
     }
 
@@ -244,10 +261,9 @@ Dialog {
         title: "Select Local Directory"
         onAccepted: {
             var path = folder.toString();
-            // Strip file:// prefix
-            if (path.startsWith("file://")) {
-                path = path.substring(7);
-            }
+            // Strip file:// prefix — file:/// means local absolute path
+            if (path.startsWith("file:///")) path = path.substring(7);
+            else if (path.startsWith("file://")) path = path.substring(6);
             localPathField.text = path;
         }
     }

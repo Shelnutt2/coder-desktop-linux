@@ -13,8 +13,9 @@ Rectangle {
     property bool expanded: true
 
     signal cancelRequested(string transferId)
+    signal clearCompletedRequested()
 
-    visible: transferModel ? transferModel.rowCount() > 0 : false
+    visible: transferModel ? transferModel.count > 0 : false
     color: CoderTheme.surface
     border.color: CoderTheme.border
     border.width: 1
@@ -48,13 +49,30 @@ Rectangle {
                 }
 
                 Label {
-                    text: "Transfers" + (transferModel ? " (" + transferModel.rowCount() + ")" : "")
+                    text: "Transfers" + (transferModel ? " (" + transferModel.count + ")" : "")
                     font.pixelSize: 11
                     font.weight: Font.DemiBold
                     color: CoderTheme.textSecondary
                 }
 
                 Item { Layout.fillWidth: true }
+
+                // Clear completed button
+                Label {
+                    text: "Clear"
+                    font.pixelSize: 11
+                    color: clearCompletedMouse.containsMouse ? CoderTheme.primary : CoderTheme.textSecondary
+                    visible: transferModel ? transferModel.hasCompleted : false
+
+                    MouseArea {
+                        id: clearCompletedMouse
+                        anchors.fill: parent
+                        anchors.margins: -4
+                        hoverEnabled: true
+                        cursorShape: Qt.PointingHandCursor
+                        onClicked: panel.clearCompletedRequested()
+                    }
+                }
             }
         }
 
@@ -70,9 +88,10 @@ Rectangle {
             id: transferList
             Layout.fillWidth: true
             Layout.preferredHeight: contentHeight
+            Layout.maximumHeight: 200
             visible: panel.expanded
             clip: true
-            interactive: false
+            interactive: true
             model: panel.transferModel
             spacing: 4
 
@@ -81,6 +100,8 @@ Rectangle {
                 height: transferRow.implicitHeight + 16
                 radius: CoderTheme.radiusSm
                 color: transferDelegateMouse.containsMouse ? CoderTheme.hoverBg : "transparent"
+
+                Behavior on color { ColorAnimation { duration: 120 } }
 
                 MouseArea {
                     id: transferDelegateMouse
@@ -105,6 +126,17 @@ Rectangle {
                             font.pixelSize: 14
                             font.weight: Font.Bold
                             color: model.isUpload ? CoderTheme.warning : CoderTheme.info
+
+                            ToolTip.visible: dirIconMouse.containsMouse
+                            ToolTip.text: model.isUpload ? "Uploading" : "Downloading"
+                            ToolTip.delay: 500
+
+                            MouseArea {
+                                id: dirIconMouse
+                                anchors.fill: parent
+                                hoverEnabled: true
+                                acceptedButtons: Qt.NoButton
+                            }
                         }
 
                         // Filename (basename)
@@ -143,10 +175,13 @@ Rectangle {
                             font.pixelSize: 14
                             color: cancelMouse.containsMouse ? CoderTheme.error : CoderTheme.textSecondary
                             visible: model.state === "running" || model.state === "pending"
+                            horizontalAlignment: Text.AlignHCenter
+                            verticalAlignment: Text.AlignVCenter
 
                             MouseArea {
                                 id: cancelMouse
                                 anchors.fill: parent
+                                anchors.margins: -4  // extend hit target
                                 hoverEnabled: true
                                 cursorShape: Qt.PointingHandCursor
                                 onClicked: panel.cancelRequested(model.transferId)
@@ -193,7 +228,7 @@ Rectangle {
             text: "No transfers"
             color: CoderTheme.textDisabled
             font.pixelSize: 13
-            visible: panel.expanded && (transferModel ? transferModel.rowCount() === 0 : true)
+            visible: panel.expanded && (transferModel ? transferModel.count === 0 : true)
             Layout.alignment: Qt.AlignHCenter
         }
     }
