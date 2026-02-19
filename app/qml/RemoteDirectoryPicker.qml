@@ -17,7 +17,7 @@ Dialog {
     Material.background: CoderTheme.surface
     Material.foreground: CoderTheme.textPrimary
 
-    required property string agentHostname
+    property string agentHostname: ""
     property string selectedPath: ""
     property bool showDotfiles: false
     property bool loading: false
@@ -115,7 +115,7 @@ Dialog {
             }
         }
 
-        function onDirectoryListError(hostname, errorMessage) {
+        function onListDirectoryError(hostname, errorMessage) {
             if (hostname !== dirPicker.agentHostname) return;
             dirPicker.loading = false;
             dirPicker.errorMessage = errorMessage || "Failed to list directory.";
