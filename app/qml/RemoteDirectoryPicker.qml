@@ -46,14 +46,20 @@ Dialog {
     }
 
     // Signal-based API — no callback. Results arrive via Connections below.
-    function loadDirectory(pathSegments, relativity, depth, parentIndex) {
+    function loadDirectory(pathOrSegments, relativity, depth, parentIndex) {
         dirPicker.loading = true;
         dirPicker.errorMessage = "";
-        dirPicker.pendingPathSegments = pathSegments;
-        dirPicker.pendingRelativity = relativity;
+        // Accept either a path string or an array of segments.
+        var segments = (typeof pathOrSegments === "string")
+            ? pathOrSegments.split("/").filter(function(s) { return s.length > 0; })
+            : pathOrSegments;
+        // Default relativity to "root" for absolute paths.
+        var rel = (relativity && relativity.length > 0) ? relativity : "root";
+        dirPicker.pendingPathSegments = segments;
+        dirPicker.pendingRelativity = rel;
         dirPicker.pendingDepth = depth;
         dirPicker.pendingParentIndex = parentIndex;
-        agentApiClient.listDirectory(dirPicker.agentHostname, pathSegments, relativity);
+        agentApiClient.listDirectory(dirPicker.agentHostname, segments, rel);
     }
 
     Connections {

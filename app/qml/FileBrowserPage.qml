@@ -73,13 +73,12 @@ Item {
         errorMessage = ""
         // Build path segments array from absolute path
         var segments = pathSegments(pathString)
-        agentApiClient.listDirectory(agentHostname, segments, "absolute")
+        agentApiClient.listDirectory(agentHostname, segments, "root")
     }
 
     function navigateToRoot() {
         // Use "home" relativity with empty path to list the user's home
-        // directory. Sending an empty path with "absolute" relativity is
-        // invalid and causes a 500 from the agent API.
+        // directory. The agent API supports "home" and "root" relativity.
         selectedIndex = -1
         isLoading = true
         errorMessage = ""
