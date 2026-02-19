@@ -191,6 +191,25 @@ void LoginFlowController::openExternalCliAuth(const QString& deploymentUrl) {
     emit externalBrowserOpened(cliAuthUrl);
 }
 
+void LoginFlowController::handleJsTokenResult(const QString& token) {
+    if (!m_flowActive) return;
+    if (token.isEmpty()) return;
+
+    qInfo() << "LoginFlowController: captured session token via JavaScript API key generation";
+
+    m_sessionManager.login(m_deploymentUrl, token);
+
+    m_flowActive = false;
+    m_loginUrl.clear();
+    emit loginUrlChanged();
+    emit flowActiveChanged();
+    emit tokenObtained(m_deploymentUrl, token);
+
+#ifdef HAS_WEBENGINE
+    clearCookies();
+#endif
+}
+
 #ifdef HAS_WEBENGINE
 void LoginFlowController::setupCookieMonitoring() {
     connect(m_cookieStore, &QWebEngineCookieStore::cookieAdded, this,

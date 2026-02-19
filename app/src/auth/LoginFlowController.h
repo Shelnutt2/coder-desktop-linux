@@ -55,6 +55,10 @@ public:
     /// Cancel an in-progress browser login flow.
     Q_INVOKABLE void cancelFlow();
 
+    /// Called from QML when JavaScript token extraction succeeds.
+    /// This is a fallback for when cookie monitoring doesn't capture the token.
+    Q_INVOKABLE void handleJsTokenResult(const QString& token);
+
     /// Open the deployment's /cli-auth page in an external browser.
     Q_INVOKABLE void openExternalCliAuth(const QString& deploymentUrl);
 
