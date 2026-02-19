@@ -139,6 +139,12 @@ Item {
         }
     }
 
+    // -- Background (opaque so the overlay fully covers the detail page) -----
+    Rectangle {
+        anchors.fill: parent
+        color: CoderTheme.background
+    }
+
     // -- Layout --------------------------------------------------------------
     ColumnLayout {
         anchors.fill: parent
