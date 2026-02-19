@@ -21,7 +21,7 @@ Item {
             if (cachedSegments.length > 1)
                 navigateTo(absolutePathUpTo(cachedSegments, cachedSegments.length - 2))
             else if (cachedSegments.length === 1)
-                navigateTo("/")
+                navigateToRoot()
             event.accepted = true;
         }
     }
@@ -77,7 +77,13 @@ Item {
     }
 
     function navigateToRoot() {
-        navigateTo("/")
+        // Use "home" relativity with empty path to list the user's home
+        // directory. Sending an empty path with "absolute" relativity is
+        // invalid and causes a 500 from the agent API.
+        selectedIndex = -1
+        isLoading = true
+        errorMessage = ""
+        agentApiClient.listDirectory(agentHostname, [], "home")
     }
 
     // -- Initial load --------------------------------------------------------
@@ -226,7 +232,7 @@ Item {
                             if (cachedSegments.length > 1)
                                 navigateTo(absolutePathUpTo(cachedSegments, cachedSegments.length - 2))
                             else
-                                navigateTo("/")
+                                navigateToRoot()
                         }
                     }
                 }
@@ -242,7 +248,7 @@ Item {
                         anchors.fill: parent
                         hoverEnabled: true
                         cursorShape: Qt.PointingHandCursor
-                        onClicked: navigateTo("/")
+                        onClicked: navigateToRoot()
                     }
                 }
 
@@ -322,7 +328,12 @@ Item {
                     text: "Retry"
                     variant: "outline"
                     Layout.alignment: Qt.AlignHCenter
-                    onClicked: navigateTo(currentPath || "/")
+                    onClicked: {
+                        if (currentPath.length > 0)
+                            navigateTo(currentPath)
+                        else
+                            navigateToRoot()
+                    }
                 }
             }
 
