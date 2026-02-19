@@ -150,6 +150,22 @@ int main(int argc, char* argv[]) {
     SessionManager sessionManager(apiClient, secureStorage);
     WorkspaceModel workspaceModel;
     PeerModel peerModel;
+
+    // Wire VPN peer updates from the D-Bus bridge into the peer model.
+    QObject::connect(&vpnBridge, &VpnBridge::peerUpdated,
+                     [&peerModel](const QString& workspace, const QString& agent,
+                                  const QString& hostname, int status, int lastPingMs, bool isP2P) {
+                         peerModel.updatePeer({workspace, agent, hostname, status,
+                                               static_cast<qint64>(lastPingMs), isP2P});
+                     });
+
+    // Clear stale peers when VPN disconnects.
+    QObject::connect(&vpnBridge, &VpnBridge::stateChanged, [&vpnBridge, &peerModel]() {
+        if (vpnBridge.state() == QStringLiteral("disconnected")) {
+            peerModel.clear();
+        }
+    });
+
     NotificationManager notificationManager;
 
     // ---- Auto-updater ----
