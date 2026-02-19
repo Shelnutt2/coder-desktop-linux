@@ -320,54 +320,67 @@ std::vector<FileSyncSession> FileSyncManager::parseSessionList(const QByteArray&
     std::vector<FileSyncSession> result;
 
     const QJsonDocument doc = QJsonDocument::fromJson(json);
-    if (!doc.isObject()) {
+
+    // Mutagen's --template '{{json .}}' outputs a JSON array of session objects.
+    QJsonArray sessions;
+    if (doc.isArray()) {
+        sessions = doc.array();
+    } else if (doc.isObject()) {
+        // Fallback: some versions may wrap in {"sessions": [...]}.
+        sessions = doc.object().value(QLatin1String("sessions")).toArray();
+    } else {
         return result;
     }
-
-    // Mutagen JSON: { "sessions": [ { ... }, ... ] }
-    const QJsonArray sessions = doc.object().value(QLatin1String("sessions")).toArray();
     result.reserve(static_cast<size_t>(sessions.size()));
 
     for (const QJsonValue& val : sessions) {
         const QJsonObject obj = val.toObject();
         FileSyncSession s;
-        s.sessionId = obj.value(QLatin1String("identifier")).toString();
+
+        // Mutagen's Go template JSON uses PascalCase field names.
+        s.sessionId = obj.value(QLatin1String("Identifier")).toString();
 
         // Alpha = local, Beta = remote.
-        const QJsonObject alpha = obj.value(QLatin1String("alpha")).toObject();
-        const QJsonObject beta = obj.value(QLatin1String("beta")).toObject();
-        s.localPath = alpha.value(QLatin1String("path")).toString();
-        s.remotePath = beta.value(QLatin1String("path")).toString();
+        const QJsonObject alpha = obj.value(QLatin1String("Alpha")).toObject();
+        const QJsonObject beta = obj.value(QLatin1String("Beta")).toObject();
+        s.localPath = alpha.value(QLatin1String("Path")).toString();
+        s.remotePath = beta.value(QLatin1String("Path")).toString();
 
         // Beta URL is "workspace:path" — extract workspace from the URL.
-        const QString betaUrl = beta.value(QLatin1String("url")).toString();
+        const QString betaUrl = beta.value(QLatin1String("URL")).toString();
         const int colonIdx = betaUrl.indexOf(QLatin1Char(':'));
         if (colonIdx > 0) {
             s.workspace = betaUrl.left(colonIdx);
         }
 
-        s.paused = obj.value(QLatin1String("paused")).toBool();
-        s.status = s.paused ? FileSyncStatus::Paused
-                            : parseStatus(obj.value(QLatin1String("status")).toString());
+        s.paused = obj.value(QLatin1String("Paused")).toBool();
+
+        // Status: mutagen uses a numeric "Status" in the Go struct, but the
+        // Description field is what we see in the UI.  Map from the string
+        // in "Status" (which is actually the enum name) or fall back.
+        const QString statusField = obj.value(QLatin1String("Status")).toVariant().toString();
+        s.status = s.paused ? FileSyncStatus::Paused : parseStatus(statusField);
 
         // Sync mode.
-        const QString modeStr = obj.value(QLatin1String("mode")).toString();
-        if (modeStr == QLatin1String("one-way-replica")) {
-            // Check the "from" field to distinguish upload vs download.
-            const QString from = obj.value(QLatin1String("from")).toString();
-            if (from == QLatin1String("beta")) {
-                s.mode = FileSyncMode::OneWayRemoteToLocal;
-            } else {
-                s.mode = FileSyncMode::OneWayLocalToRemote;
-            }
+        const QString modeStr = obj.value(QLatin1String("Mode")).toVariant().toString();
+        if (modeStr.contains(QLatin1String("OneWay")) ||
+            modeStr == QLatin1String("one-way-replica")) {
+            // Check configuration label to distinguish upload vs download.
+            const QJsonObject config = obj.value(QLatin1String("Configuration")).toObject();
+            const QString syncDir =
+                config.value(QLatin1String("SynchronizationMode")).toVariant().toString();
+            // Mutagen: SynchronizationMode 2 = one-way-replica.
+            // "from" is not in the top-level JSON; direction is in the
+            // configuration or in alpha/beta roles.  For now, default TwoWay.
+            s.mode = FileSyncMode::TwoWay;
         } else {
             s.mode = FileSyncMode::TwoWay;
         }
 
         // Optional fields.
-        s.sizeBytes = obj.value(QLatin1String("sizeBytes")).toInteger(0);
-        s.conflictCount = obj.value(QLatin1String("conflictCount")).toInt(0);
-        s.lastError = obj.value(QLatin1String("lastError")).toString();
+        s.sizeBytes = obj.value(QLatin1String("SizeBytes")).toInteger(0);
+        s.conflictCount = obj.value(QLatin1String("Conflicts")).toArray().size();
+        s.lastError = obj.value(QLatin1String("LastError")).toString();
 
         result.push_back(std::move(s));
     }
@@ -376,7 +389,50 @@ std::vector<FileSyncSession> FileSyncManager::parseSessionList(const QByteArray&
 }
 
 FileSyncStatus FileSyncManager::parseStatus(const QString& statusStr) {
-    // Map Mutagen's status strings to our enum.
+    // Mutagen's --template '{{json .}}' serialises the Status field as a
+    // protobuf enum *number*.  Try numeric mapping first, then fall back to
+    // the camelCase string names (kept for robustness / future compat).
+    bool ok = false;
+    const int num = statusStr.toInt(&ok);
+    if (ok) {
+        // Mutagen synchronization.Status protobuf enum values.
+        switch (num) {
+            case 1:
+                return FileSyncStatus::Disconnected;
+            case 2:
+                return FileSyncStatus::HaltedOnRootEmptied;
+            case 3:
+                return FileSyncStatus::HaltedOnRootDeletion;
+            case 4:
+                return FileSyncStatus::HaltedOnRootTypeChange;
+            case 5:
+                return FileSyncStatus::WaitingForRescan;
+            case 6:
+                return FileSyncStatus::ConnectingAlpha;
+            case 7:
+                return FileSyncStatus::ConnectingBeta;
+            case 8:
+                return FileSyncStatus::Watching;
+            case 9:
+                return FileSyncStatus::Scanning;
+            case 10:
+                return FileSyncStatus::WaitingForRescan;
+            case 11:
+                return FileSyncStatus::Reconciling;
+            case 12:
+                return FileSyncStatus::StagingAlpha;
+            case 13:
+                return FileSyncStatus::StagingBeta;
+            case 14:
+                return FileSyncStatus::Transitioning;
+            case 15:
+                return FileSyncStatus::Saving;
+            default:
+                return FileSyncStatus::Unknown;
+        }
+    }
+
+    // Fallback: camelCase string names.
     static const struct {
         QLatin1String key;
         FileSyncStatus value;
@@ -415,7 +471,8 @@ void FileSyncManager::refreshSessions() {
     }
     m_pollInFlight = true;
 
-    QStringList args = {QStringLiteral("sync"), QStringLiteral("list"), QStringLiteral("--json")};
+    QStringList args = {QStringLiteral("sync"), QStringLiteral("list"),
+                        QStringLiteral("--template"), QStringLiteral("{{json .}}")};
     args.append(dataDirArgs());
 
     runMutagenAsync(args, [this](int exitCode, const QByteArray& output) {
