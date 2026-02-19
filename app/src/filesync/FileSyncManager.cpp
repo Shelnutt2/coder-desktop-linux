@@ -262,12 +262,22 @@ void FileSyncManager::setVpnConnected(bool connected) {
     m_vpnConnected = connected;
     emit availableChanged();
 
-    // Start/stop polling based on connectivity.
-    if (connected && !m_sessions.empty()) {
+    if (connected) {
+        // On VPN connect, start the daemon and poll for any pre-existing
+        // sessions that were created in a previous app run.  Mutagen
+        // persists session state in MUTAGEN_DATA_DIRECTORY, so sessions
+        // survive across app restarts.
+        if (!m_daemon->isRunning()) {
+            if (!m_daemon->start()) {
+                qCWarning(lcFileSync) << "failed to start daemon on VPN connect";
+                return;
+            }
+        }
         if (!m_pollTimer.isActive()) {
             m_pollTimer.start();
         }
-    } else if (!connected) {
+        refreshSessions();
+    } else {
         m_pollTimer.stop();
     }
 }
