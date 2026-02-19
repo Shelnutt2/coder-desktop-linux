@@ -1,6 +1,9 @@
 #include "apps/IconThemeProvider.h"
 
 #include <QIcon>
+#include <QLoggingCategory>
+
+Q_LOGGING_CATEGORY(lcIconTheme, "coder.icontheme")
 
 IconThemeProvider::IconThemeProvider() : QQuickImageProvider(QQuickImageProvider::Pixmap) {}
 
@@ -11,7 +14,7 @@ QPixmap IconThemeProvider::requestPixmap(const QString& id, QSize* size,
 
     QIcon icon = QIcon::fromTheme(id);
     if (icon.isNull()) {
-        // Return empty pixmap — QML Image will have status != Ready, triggering fallback emoji.
+        qCDebug(lcIconTheme) << "Icon not found in theme:" << id;
         if (size) *size = QSize(0, 0);
         return QPixmap();
     }
