@@ -232,8 +232,26 @@ int main(int argc, char* argv[]) {
 
     // Wire VPN state to FileSyncManager so it knows when the tunnel is up.
     QObject::connect(&vpnBridge, &VpnBridge::stateChanged, [&]() {
-        fileSyncManager.setVpnConnected(vpnBridge.state() == QStringLiteral("connected"));
+        const bool connected = vpnBridge.state() == QStringLiteral("connected");
+        fileSyncManager.setVpnConnected(connected);
+        if (!connected) {
+            peerModel.clear();
+        }
     });
+
+    // Wire VPN peer updates into the PeerModel so QML can enumerate connected agents.
+    QObject::connect(&vpnBridge, &VpnBridge::peerUpdated,
+                     [&](const QString& workspace, const QString& agent, const QString& hostname,
+                         int status, int lastPingMs, bool isP2P) {
+                         peerModel.updatePeer(PeerModel::PeerInfo{
+                             .workspaceName = workspace,
+                             .agentName = agent,
+                             .hostname = hostname,
+                             .status = status,
+                             .lastPingMs = lastPingMs,
+                             .isP2P = isP2P,
+                         });
+                     });
 
     // ---- Login flow (browser-based auth) ----
     LoginFlowController loginFlowController(sessionManager);
