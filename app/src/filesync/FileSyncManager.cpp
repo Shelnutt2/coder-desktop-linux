@@ -155,7 +155,7 @@ void FileSyncManager::pauseSession(const QString& sessionId) {
     qCInfo(lcFileSync) << "pausing session:" << sessionId;
     QStringList args = {QStringLiteral("sync"), QStringLiteral("pause"), sessionId};
     args.append(dataDirArgs());
-    runMutagenSync(args);
+    (void)runMutagenSync(args);
     refreshSessions();
 }
 
@@ -163,7 +163,7 @@ void FileSyncManager::resumeSession(const QString& sessionId) {
     qCInfo(lcFileSync) << "resuming session:" << sessionId;
     QStringList args = {QStringLiteral("sync"), QStringLiteral("resume"), sessionId};
     args.append(dataDirArgs());
-    runMutagenSync(args);
+    (void)runMutagenSync(args);
     refreshSessions();
 }
 
@@ -171,7 +171,7 @@ void FileSyncManager::resetSession(const QString& sessionId) {
     qCInfo(lcFileSync) << "resetting session:" << sessionId;
     QStringList args = {QStringLiteral("sync"), QStringLiteral("reset"), sessionId};
     args.append(dataDirArgs());
-    runMutagenSync(args);
+    (void)runMutagenSync(args);
     refreshSessions();
 }
 
@@ -179,7 +179,7 @@ void FileSyncManager::terminateSession(const QString& sessionId) {
     qCInfo(lcFileSync) << "terminating session:" << sessionId;
     QStringList args = {QStringLiteral("sync"), QStringLiteral("terminate"), sessionId};
     args.append(dataDirArgs());
-    runMutagenSync(args);
+    (void)runMutagenSync(args);
 
     // Refresh to remove the session from the model.
     refreshSessions();
