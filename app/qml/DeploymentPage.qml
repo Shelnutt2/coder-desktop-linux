@@ -30,7 +30,7 @@ Item {
     // Also refresh when auth state changes (login/logout/switch).
     Connections {
         target: sessionManager
-        function onAuthStateChanged() { deploymentsPage.refreshDeployments() }
+        function onAuthStateChanged() { refreshDeployments() }
     }
 
     Rectangle {
@@ -55,7 +55,7 @@ Item {
                 MouseArea {
                     anchors.fill: parent
                     cursorShape: Qt.PointingHandCursor
-                    onClicked: deploymentsPage.backRequested()
+                    onClicked: backRequested()
                 }
             }
 
@@ -82,7 +82,7 @@ Item {
             Layout.fillHeight: true
             clip: true
             spacing: 8
-            model: deploymentsPage.deploymentList
+            model: deploymentList
 
             delegate: Rectangle {
                 width: deploymentListView.width
@@ -166,7 +166,7 @@ Item {
                             enabled: !modelData.isActive
                             onClicked: {
                                 sessionManager.switchDeployment(modelData.url)
-                                deploymentsPage.refreshDeployments()
+                                refreshDeployments()
                             }
                         }
 
@@ -187,7 +187,7 @@ Item {
             // ---- Empty state ----
             Label {
                 anchors.centerIn: parent
-                visible: deploymentsPage.deploymentList.length === 0
+                visible: deploymentList.length === 0
                 text: "No deployments configured"
                 font.pixelSize: 16
                 color: CoderTheme.textDisabled
@@ -293,7 +293,7 @@ Item {
 
         onAccepted: {
             sessionManager.removeDeployment(removeDialog.deploymentUrl)
-            deploymentsPage.refreshDeployments()
+            refreshDeployments()
         }
     }
 }
