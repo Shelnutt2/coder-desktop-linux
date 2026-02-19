@@ -38,6 +38,9 @@ Item {
     // -- Terminal state --
     property string selectedTerminalAgentId: ""
     property string selectedTerminalAgentName: ""
+    // -- File browser state --
+    property string selectedFileBrowserAgentHost: ""
+    property string selectedFileBrowserWorkspaceName: ""
 
     function loadDetail() {
         detailLoading = true
@@ -428,6 +431,24 @@ Item {
                                     workspaceDetailPage.selectedTerminalAgentName = model.agentName
                                 }
                             }
+
+                            // Browse Files button
+                            CoderButton {
+                                text: "Browse Files"
+                                variant: "outline"
+                                enabled: model.agentStatus === "connected"
+                                         && vpnBridge.state === "connected"
+                                font.pixelSize: 12
+                                onClicked: {
+                                    workspaceDetailPage.selectedFileBrowserAgentHost =
+                                        model.agentName + "." + workspaceDetailPage.workspaceName
+                                            + "." + workspaceDetailPage.workspaceOwner + ".coder"
+                                    workspaceDetailPage.selectedFileBrowserWorkspaceName =
+                                        workspaceDetailPage.workspaceName
+                                }
+                                ToolTip.visible: hovered
+                                ToolTip.text: "Browse workspace file system"
+                            }
                         }
                     }
                 }
@@ -669,6 +690,20 @@ Item {
             item.agentName = Qt.binding(function() { return workspaceDetailPage.selectedTerminalAgentName; });
             item.workspaceName = Qt.binding(function() { return workspaceDetailPage.workspaceName; });
             item.closeRequested.connect(function() { workspaceDetailPage.selectedTerminalAgentId = ""; });
+        }
+    }
+
+    // ---- File browser overlay ----
+    Loader {
+        id: fileBrowserLoader
+        anchors.fill: parent
+        active: workspaceDetailPage.selectedFileBrowserAgentHost.length > 0
+        z: 12
+        source: "FileBrowserPage.qml"
+        onLoaded: {
+            item.agentHostname = Qt.binding(function() { return workspaceDetailPage.selectedFileBrowserAgentHost; });
+            item.workspaceName = Qt.binding(function() { return workspaceDetailPage.selectedFileBrowserWorkspaceName; });
+            item.backClicked.connect(function() { workspaceDetailPage.selectedFileBrowserAgentHost = ""; });
         }
     }
 }

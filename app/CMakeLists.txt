@@ -127,6 +127,15 @@ if(ENABLE_DLP)
     qt_target_qml_sources(coder-desktop QML_FILES qml/SecureDevPage.qml)
 endif()
 
+# File sync / file browser QML pages (always registered — runtime feature-gated)
+qt_target_qml_sources(coder-desktop QML_FILES
+    qml/FileSyncPage.qml
+    qml/FileSyncSessionDialog.qml
+    qml/RemoteDirectoryPicker.qml
+    qml/FileBrowserPage.qml
+    qml/TransferPanel.qml
+)
+
 qt_add_resources(coder-desktop "terminal_assets"
     PREFIX "/CoderDesktop"
     FILES

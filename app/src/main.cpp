@@ -14,6 +14,7 @@
 #include "tray/SystemTrayIcon.h"
 #include "vpn/VpnBridge.h"
 
+#include "api/AgentApiClient.h"
 #include "api/CoderApiClient.h"
 #include "api/PollingController.h"
 #include "api/dto/Task.h"
@@ -25,6 +26,9 @@
 #ifdef HAS_DLP
 #include "dlp/DlpCompositorManager.h"
 #endif
+#include "filesync/FileSyncManager.h"
+#include "filesync/FileTransferManager.h"
+#include "filesync/MutagenDaemon.h"
 #include "models/PeerModel.h"
 #include "models/TaskModel.h"
 #include "models/WorkspaceModel.h"
@@ -177,6 +181,12 @@ int main(int argc, char* argv[]) {
 
     TaskModel taskModel;
 
+    // ---- File sync / transfer ----
+    AgentApiClient agentApiClient;
+    MutagenDaemon mutagenDaemon;
+    FileSyncManager fileSyncManager(&settingsManager, &mutagenDaemon);
+    FileTransferManager fileTransferManager;
+
     // ---- Polling controller (auto-refresh, caching, notifications) ----
     PollingController pollingController(apiClient, workspaceModel, taskModel, notificationManager,
                                         settingsManager);
@@ -219,6 +229,11 @@ int main(int argc, char* argv[]) {
     };
     syncNotifEnabled();
     QObject::connect(&settingsManager, &SettingsManager::settingsChanged, syncNotifEnabled);
+
+    // Wire VPN state to FileSyncManager so it knows when the tunnel is up.
+    QObject::connect(&vpnBridge, &VpnBridge::stateChanged, [&]() {
+        fileSyncManager.setVpnConnected(vpnBridge.state() == QStringLiteral("connected"));
+    });
 
     // ---- Login flow (browser-based auth) ----
     LoginFlowController loginFlowController(sessionManager);
@@ -280,6 +295,10 @@ int main(int argc, char* argv[]) {
     engine.rootContext()->setContextProperty(QStringLiteral("dlpCompositor"), &dlpCompositor);
 #endif
     engine.rootContext()->setContextProperty(QStringLiteral("appModel"), &appModel);
+    engine.rootContext()->setContextProperty(QStringLiteral("agentApiClient"), &agentApiClient);
+    engine.rootContext()->setContextProperty(QStringLiteral("fileSyncManager"), &fileSyncManager);
+    engine.rootContext()->setContextProperty(QStringLiteral("fileTransferManager"),
+                                             &fileTransferManager);
     engine.rootContext()->setContextProperty(QStringLiteral("loginFlowController"),
                                              &loginFlowController);
     engine.rootContext()->setContextProperty(QStringLiteral("pollingController"),
