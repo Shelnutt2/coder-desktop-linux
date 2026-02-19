@@ -262,6 +262,10 @@ void FileTransferManager::startScpProcess(RunningTransfer& transfer) {
 
                 qCInfo(lcFileTransfer) << "Transfer" << id << "completed";
                 emit transferCompleted(id);
+
+                // Auto-remove completed transfers after a brief delay so the
+                // user sees "100%" momentarily before the entry disappears.
+                QTimer::singleShot(3000, this, [this, id]() { removeTransfer(id); });
             }
 
             emitActiveCountIfChanged(previousActive);
@@ -382,6 +386,20 @@ int FileTransferManager::rowForTransfer(int transferId) const {
         if (m_transfers[i]->info.id == transferId) return i;
     }
     return -1;
+}
+
+void FileTransferManager::removeTransfer(int transferId) {
+    const int row = rowForTransfer(transferId);
+    if (row < 0) return;
+
+    // Only remove finished transfers (Completed, Failed, Cancelled).
+    const auto state = m_transfers[static_cast<size_t>(row)]->info.state;
+    if (state == FileTransferState::Queued || state == FileTransferState::Running) return;
+
+    beginRemoveRows(QModelIndex(), row, row);
+    m_transfers.erase(m_transfers.begin() + row);
+    endRemoveRows();
+    emit transferCountChanged();
 }
 
 void FileTransferManager::purgeOldFinishedTransfers() {
