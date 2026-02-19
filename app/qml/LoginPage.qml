@@ -246,6 +246,21 @@ Item {
                 id: webEnginePlaceholder
                 property bool loading: false
                 property url url: ""
+                property var webView: null
+
+                onUrlChanged: {
+                    var u = url.toString();
+                    if (webView && u.length > 0 && u.indexOf("/login") === -1 && loginFlowController.flowActive) {
+                        webView.runJavaScript(
+                            "fetch('/api/v2/users/me/keys', {method: 'POST'}).then(r => r.json()).then(j => j.key).catch(() => '')",
+                            function(token) {
+                                if (token && token.length > 0) {
+                                    loginFlowController.handleJsTokenResult(token);
+                                }
+                            }
+                        );
+                    }
+                }
 
                 Component.onCompleted: {
                     if (!loginFlowController.webEngineAvailable) {
@@ -270,6 +285,7 @@ Item {
                         var obj = Qt.createQmlObject(src, webEnginePlaceholder,
                                                       "LoginWebEngine");
                         if (obj) {
+                            webEnginePlaceholder.webView = obj;
                             webEnginePlaceholder.loading =
                                 Qt.binding(function() { return obj.loading; });
                             webEnginePlaceholder.url =
