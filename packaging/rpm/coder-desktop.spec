@@ -53,6 +53,7 @@ Loss Prevention compositor, and native credential storage via libsecret.
 %{_libdir}/%{appname}/libcoderdlp.so
 %{_libdir}/%{appname}/libcodervpn.so
 %{_libdir}/%{appname}/mutagen
+%{_libdir}/%{appname}/mutagen-agents.tar.gz
 %{_datadir}/applications/com.coder.CoderDesktop.desktop
 %{_datadir}/icons/hicolor/scalable/apps/coder-desktop.svg
 
