@@ -240,6 +240,20 @@ if(BUILD_TESTING)
     target_include_directories(tst_applaunchprofile PRIVATE src)
     target_link_libraries(tst_applaunchprofile PRIVATE Qt6::Core Qt6::Test)
     add_test(NAME AppLaunchProfileTest COMMAND tst_applaunchprofile)
+
+    add_executable(tst_filesync
+        tests/unit/tst_filesync.cpp
+        src/filesync/FileSyncSession.cpp
+        src/filesync/FileSyncManager.cpp
+        src/filesync/MutagenDaemon.cpp
+        src/api/AgentApiClient.cpp
+        src/filesync/FileTransferManager.cpp
+        src/settings/SettingsManager.cpp
+        src/settings/MdmConfigManager.cpp
+    )
+    target_include_directories(tst_filesync PRIVATE src)
+    target_link_libraries(tst_filesync PRIVATE Qt6::Core Qt6::Test Qt6::Network)
+    add_test(NAME FileSyncTest COMMAND tst_filesync)
 endif()
 
 # ---------------------------------------------------------------------------
