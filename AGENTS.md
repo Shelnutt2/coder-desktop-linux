@@ -1,3 +1,5 @@
+You are an experienced, pragmatic software engineering AI agent. Do not over-engineer a solution when a simple one is possible. Keep edits minimal. If you want an exception to ANY rule, you MUST stop and get permission first.
+
 # AGENTS.md — Coder Desktop for Linux
 
 ## Project Overview
@@ -43,6 +45,38 @@ coder-desktop-linux/
 │   └── systemd/                # systemd service unit for helper
 └── .github/workflows/          # CI pipelines
 ```
+
+## Reference
+
+### Important Files
+
+| File | Purpose |
+|------|---------|
+| `CMakeLists.txt` | Top-level CMake config defining all three build targets |
+| `.clang-format` | clang-format style (Google-based, 100-col, 4-space indent) |
+| `app/CMakeLists.txt` | Qt app build config (sources, QML, Qt modules) |
+| `app/src/main.cpp` | Qt app entry point |
+| `coder-dlp-compositor/include/coderdlp.h` | Public C API for DLP compositor |
+| `coder-vpn-linux/cmd/coder-desktop-helper/main.go` | Go helper entry point |
+| `dbus/com.coder.Desktop.Helper1.xml` | D-Bus interface definition |
+| `packaging/polkit/com.coder.Desktop.Helper1.policy` | Polkit policy for privileged operations |
+| `packaging/systemd/coder-desktop-helper.service` | systemd service unit for helper |
+
+### Key Directories
+
+| Directory | Contents |
+|-----------|----------|
+| `app/src/api/` | REST API client (`CoderApiClient`) and WebSocket base |
+| `app/src/auth/` | Authentication and login flow |
+| `app/src/dlp/` | DLP compositor manager (Qt-side integration) |
+| `app/src/settings/` | `SettingsManager`, `MdmConfigManager` (three-layer settings) |
+| `app/src/vpn/` | VPN control logic (D-Bus calls to helper) |
+| `app/src/tray/` | System tray icon and menu |
+| `app/src/models/` | Qt models (workspaces, agents, etc.) |
+| `app/qml/` | QML UI pages (Main, VPN, Workspaces, Settings, SecureDev, etc.) |
+| `app/tests/unit/` | Qt unit tests (`tst_*.cpp`) |
+| `coder-vpn-linux/internal/dbusservice/` | Go D-Bus service implementation |
+| `dbus/` | D-Bus config, interface XML, `.service` files |
 
 ## Build Commands
 
@@ -102,6 +136,41 @@ Install the git pre-commit hook to catch formatting issues before commit:
 ### Go
 
 Go code in `coder-vpn-linux/` follows standard `gofmt` formatting.
+
+```bash
+cd coder-vpn-linux && gofmt -w .
+```
+
+## Lint
+
+CI runs `clang-format --dry-run --Werror` (LLVM 21) on all C/C++ sources. There is no separate C++ linter (no clang-tidy config). For Go, use standard `go vet`:
+
+```bash
+# Check C/C++ formatting (dry run — reports errors without modifying files)
+find app/src coder-dlp-compositor/src -type f \( -name '*.h' -o -name '*.cpp' -o -name '*.c' \) \
+  -exec clang-format --dry-run --Werror {} +
+
+# Go vet
+cd coder-vpn-linux && go vet ./...
+```
+
+## Clean
+
+```bash
+# Remove CMake build directory
+rm -rf build/
+
+# Go clean
+cd coder-vpn-linux && go clean ./...
+```
+
+## Scripts
+
+| Script | Purpose |
+|--------|---------|
+| `scripts/install-hooks.sh` | Install git pre-commit hook (symlinks `scripts/pre-commit`) |
+| `packaging/release.sh` | Build release packages (tar.gz, .deb, .rpm) |
+| `packaging/appimage/build-appimage.sh` | Create AppImage from a Release build |
 
 ## Architecture Cheat Sheet
 
@@ -184,15 +253,55 @@ in settings files. Fallback: encrypted file for headless/no-keyring environments
 ## Testing
 
 ```bash
-# Qt app unit tests
-cd build && ctest --test-dir app --output-on-failure
+# Qt app unit tests (requires offscreen platform when headless / CI)
+QT_QPA_PLATFORM=offscreen ctest --test-dir build/app --output-on-failure
 
 # Go tests
 cd coder-vpn-linux && go test ./...
 
-# DLP compositor tests (if any)
-cd build && ctest --test-dir coder-dlp-compositor --output-on-failure
+# DLP compositor tests
+ctest --test-dir build/coder-dlp-compositor --output-on-failure
 ```
+
+### Testing Patterns
+
+- Qt tests live in `app/tests/unit/` and use the **QTest** framework (`QTest`, `QSignalSpy`, `QTemporaryDir`).
+- Test files are named `tst_<topic>.cpp` (e.g., `tst_settings.cpp`, `tst_models.cpp`, `tst_apiclient.cpp`).
+- Tests exercise components in isolation. For example, `tst_settings.cpp` validates the three-layer settings model by writing temporary policy JSON files and asserting that `SettingsManager` resolves values correctly.
+- When running Qt tests without a display server, set `QT_QPA_PLATFORM=offscreen`.
+- Go tests use standard `testing` package conventions.
+
+### Pre-commit Validation Checklist
+
+Before committing, run at minimum:
+
+1. **Format** — `find app/src coder-dlp-compositor/src -type f \( -name '*.h' -o -name '*.cpp' -o -name '*.c' \) -exec clang-format -i {} +`
+2. **Build** — `cmake --build build -j$(nproc)`
+3. **Test** — `QT_QPA_PLATFORM=offscreen ctest --test-dir build/app --output-on-failure`
+4. **Go** (if touching `coder-vpn-linux/`) — `cd coder-vpn-linux && go test ./... && go vet ./...`
+
+## Commit and Pull Request Guidelines
+
+### Commit Messages
+
+This project uses **conventional commits** (`type(scope): message`):
+
+- **Types:** `feat`, `fix`, `refactor`, `test`, `docs`, `chore`, `ci`
+- **Scope** (optional): component name — `auth`, `settings`, `dlp`, `qml`, `sandbox`, etc.
+- **Examples:**
+  - `feat(settings): add 6 missing settings UI elements`
+  - `fix(auth): use QQuickWebEngineProfile for QML WebEngineView compatibility`
+  - `test: add tests for sandbox config extensions, RunningAppModel, and AppLaunchProfile`
+  - `fix: clang-format all C/C++ sources`
+
+Use imperative mood in the subject line. Keep the subject under 72 characters.
+
+### Pull Request Requirements
+
+1. All CI checks must pass (lint + build + tests for all three components).
+2. Format all touched C/C++ files with `clang-format` before pushing.
+3. If adding new source files, update `app/CMakeLists.txt` (sources list) accordingly.
+4. If adding new QML files, register them in the `qt_add_qml_module()` call in `app/CMakeLists.txt`.
 
 ## What NOT To Do
 
@@ -207,3 +316,7 @@ cd build && ctest --test-dir coder-dlp-compositor --output-on-failure
 5. **Do NOT store secrets in settings files** — Use `libsecret` for API tokens and session credentials. Settings files are plaintext JSON.
 
 6. **Do NOT bypass the settings layer resolution** — Always go through `SettingsManager` to read settings. Never read user prefs or MDM policy directly in UI code.
+
+7. **Do NOT add new source files without updating CMakeLists.txt** — Every new `.cpp`, `.h`, or `.qml` file in `app/` must be registered in `app/CMakeLists.txt`. The build will silently succeed but your code won't be compiled.
+
+8. **Do NOT use bare `new`/`delete` outside of Qt parent ownership** — Use `std::unique_ptr` or `std::shared_ptr`. `new QFoo(parent)` is fine because Qt's parent-child tree manages lifetime. See C++ Coding Standards above.
