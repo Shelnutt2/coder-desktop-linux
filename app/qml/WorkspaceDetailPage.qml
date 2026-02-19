@@ -273,10 +273,12 @@ Item {
                     title: "Stop workspace?"
                     anchors.centerIn: Overlay.overlay
                     modal: true
+                    width: 340
                     standardButtons: Dialog.Ok | Dialog.Cancel
                     Material.accent: CoderTheme.primary
 
                     Label {
+                        width: stopConfirmDialog.availableWidth
                         text: "Are you sure you want to stop \"" + workspaceDetailPage.workspaceName + "\"?"
                         wrapMode: Text.WordWrap
                     }
