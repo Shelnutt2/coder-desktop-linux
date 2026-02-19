@@ -247,6 +247,7 @@ if(BUILD_TESTING)
         src/filesync/FileSyncManager.cpp
         src/filesync/MutagenDaemon.cpp
         src/api/AgentApiClient.cpp
+        src/api/dto/AgentDirectory.h
         src/filesync/FileTransferManager.cpp
         src/settings/SettingsManager.cpp
         src/settings/MdmConfigManager.cpp
