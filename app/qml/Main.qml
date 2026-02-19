@@ -171,6 +171,8 @@ ApplicationWindow {
                     display: AbstractButton.TextUnderIcon
                     font.pixelSize: 10
                     font.capitalization: Font.MixedCase
+                    visible: fileSyncManager.available || fileSyncManager.sessionCount > 0
+                    width: visible ? implicitWidth : 0
                 }
                 TabButton {
                     text: "Connect"
