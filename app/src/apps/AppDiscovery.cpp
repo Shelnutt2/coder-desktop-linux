@@ -4,6 +4,7 @@
 #include <QDirIterator>
 #include <QFile>
 #include <QFutureWatcher>
+#include <QIcon>
 #include <QRegularExpression>
 #include <QStandardPaths>
 #include <QTextStream>
@@ -178,10 +179,13 @@ std::optional<AppEntry> parseDesktopFile(const QString& filePath) {
     entry.fromDesktopFile = true;
 
     if (!icon.isEmpty()) {
-        entry.iconName = icon;
         if (icon.startsWith(QLatin1Char('/'))) {
             entry.iconPath = icon;
+            entry.iconName = icon;
+        } else if (QIcon::hasThemeIcon(icon)) {
+            entry.iconName = icon;
         }
+        // else: icon not found in theme, leave iconName empty → fallback emoji
     }
 
     return entry;
