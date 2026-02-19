@@ -2,7 +2,7 @@ import QtQuick
 import QtQuick.Controls
 import QtQuick.Controls.Material
 import QtQuick.Layouts
-import QtQuick.Dialogs
+import Qt.labs.platform as Platform
 import CoderDesktop
 
 // File browser page — lists remote workspace files via Agent API and allows
@@ -112,8 +112,8 @@ Item {
         }
     }
 
-    // -- File dialogs --------------------------------------------------------
-    FileDialog {
+    // -- File dialogs (native OS pickers via Qt.labs.platform) ---------------
+    Platform.FileDialog {
         id: uploadFileDialog
         title: "Select file to upload"
         onAccepted: {
@@ -124,20 +124,20 @@ Item {
                 dest = currentContents[selectedIndex].absolutePathString
                 if (!dest.endsWith("/")) dest += "/"
             }
-            var filePath = selectedFile.toString();
+            var filePath = file.toString();
             if (filePath.startsWith("file:///")) filePath = filePath.substring(7);
             else if (filePath.startsWith("file://")) filePath = filePath.substring(6);
             fileTransferManager.upload(agentHostname, filePath, dest + filePath.split("/").pop())
         }
     }
 
-    FolderDialog {
+    Platform.FolderDialog {
         id: downloadFolderDialog
         title: "Save file to..."
         property string remoteFilePath: ""
         property string remoteFileName: ""
         onAccepted: {
-            var localDir = selectedFolder.toString();
+            var localDir = folder.toString();
             if (localDir.startsWith("file:///")) localDir = localDir.substring(7);
             else if (localDir.startsWith("file://")) localDir = localDir.substring(6);
             if (!localDir.endsWith("/")) localDir += "/"

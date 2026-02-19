@@ -146,6 +146,9 @@ private:
     /// Row index for a given transfer id, or -1.
     [[nodiscard]] int rowForTransfer(int transferId) const;
 
+    /// Remove a single finished transfer by id (no-op if still active).
+    void removeTransfer(int transferId);
+
     /// Remove finished transfers that exceed kMaxFinishedTransfers.
     void purgeOldFinishedTransfers();
 
