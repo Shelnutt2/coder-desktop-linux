@@ -10,6 +10,7 @@
 #include "api/dto/AgentDirectory.h"
 #include "filesync/FileSyncManager.h"
 #include "filesync/FileSyncSession.h"
+#include "filesync/FileTransferManager.h"
 #include "filesync/MutagenDaemon.h"
 #include "settings/SettingsManager.h"
 
@@ -416,6 +417,506 @@ private slots:
         // Out-of-bounds index should return an invalid QVariant.
         QModelIndex idx = manager.index(0, 0);
         QVERIFY(!manager.data(idx, FileSyncManager::LocalPathRole).isValid());
+    }
+
+    // =================================================================
+    // 8. FileSyncSession — extended
+    // =================================================================
+
+    void testStatusStringUnknownNotEmpty() {
+        FileSyncSession s;
+        s.status = FileSyncStatus::Unknown;
+        QVERIFY(!s.statusString().isEmpty());
+        QCOMPARE(s.statusCategory(), QStringLiteral("error"));
+    }
+
+    void testFileSyncModeValuesDistinct() {
+        // Verify enum values exist and are distinct.
+        QVERIFY(static_cast<int>(FileSyncMode::TwoWay) !=
+                static_cast<int>(FileSyncMode::OneWayLocalToRemote));
+        QVERIFY(static_cast<int>(FileSyncMode::OneWayLocalToRemote) !=
+                static_cast<int>(FileSyncMode::OneWayRemoteToLocal));
+        QVERIFY(static_cast<int>(FileSyncMode::TwoWay) !=
+                static_cast<int>(FileSyncMode::OneWayRemoteToLocal));
+    }
+
+    void testSessionDefaultValues() {
+        // A default-constructed session has sensible defaults.
+        FileSyncSession s;
+        QVERIFY(s.sessionId.isEmpty());
+        QVERIFY(s.localPath.isEmpty());
+        QVERIFY(s.workspace.isEmpty());
+        QVERIFY(s.remotePath.isEmpty());
+        QCOMPARE(s.status, FileSyncStatus::Unknown);
+        QCOMPARE(s.mode, FileSyncMode::TwoWay);
+        QCOMPARE(s.sizeBytes, 0);
+        QCOMPARE(s.conflictCount, 0);
+        QVERIFY(!s.paused);
+        QVERIFY(s.lastError.isEmpty());
+    }
+
+    void testStatusCategoryCoversAllStatuses() {
+        // Every status enum must produce a non-empty category string.
+        FileSyncSession s;
+        const std::initializer_list<FileSyncStatus> allStatuses = {
+            FileSyncStatus::Unknown,
+            FileSyncStatus::ConnectingAlpha,
+            FileSyncStatus::ConnectingBeta,
+            FileSyncStatus::Scanning,
+            FileSyncStatus::Reconciling,
+            FileSyncStatus::StagingAlpha,
+            FileSyncStatus::StagingBeta,
+            FileSyncStatus::Transitioning,
+            FileSyncStatus::Saving,
+            FileSyncStatus::Watching,
+            FileSyncStatus::Disconnected,
+            FileSyncStatus::HaltedOnRootEmptied,
+            FileSyncStatus::HaltedOnRootDeletion,
+            FileSyncStatus::HaltedOnRootTypeChange,
+            FileSyncStatus::WaitingForRescan,
+            FileSyncStatus::Paused,
+        };
+        for (auto st : allStatuses) {
+            s.status = st;
+            const QString cat = s.statusCategory();
+            QVERIFY2(!cat.isEmpty(),
+                     qPrintable(
+                         QStringLiteral("Empty category for status %1").arg(static_cast<int>(st))));
+            // Must be one of the known categories.
+            QVERIFY2(cat == QLatin1String("ok") || cat == QLatin1String("working") ||
+                         cat == QLatin1String("error") || cat == QLatin1String("paused"),
+                     qPrintable(QStringLiteral("Unexpected category '%1'").arg(cat)));
+        }
+    }
+
+    // =================================================================
+    // 9. FileSyncManager — signals and idempotency
+    // =================================================================
+
+    void testSetVpnConnectedIdempotent() {
+        QTemporaryDir tmpDir;
+        QVERIFY(tmpDir.isValid());
+
+        SettingsManager settings(tmpDir.filePath(QStringLiteral("no-policy")),
+                                 userSettingsPath(tmpDir));
+        MutagenDaemon daemon;
+        FileSyncManager manager(&settings, &daemon);
+
+        QSignalSpy spy(&manager, &FileSyncManager::availableChanged);
+        QVERIFY(spy.isValid());
+
+        manager.setVpnConnected(true);
+        QCOMPARE(spy.count(), 1);
+
+        // Same value again — should NOT emit a second time.
+        manager.setVpnConnected(true);
+        QCOMPARE(spy.count(), 1);
+    }
+
+    void testSetVpnConnectedToggle() {
+        QTemporaryDir tmpDir;
+        QVERIFY(tmpDir.isValid());
+
+        SettingsManager settings(tmpDir.filePath(QStringLiteral("no-policy")),
+                                 userSettingsPath(tmpDir));
+        MutagenDaemon daemon;
+        FileSyncManager manager(&settings, &daemon);
+
+        QSignalSpy spy(&manager, &FileSyncManager::availableChanged);
+        QVERIFY(spy.isValid());
+
+        manager.setVpnConnected(true);
+        manager.setVpnConnected(false);
+        QCOMPARE(spy.count(), 2);
+    }
+
+    void testCountPropertyMatchesSessionCount() {
+        QTemporaryDir tmpDir;
+        QVERIFY(tmpDir.isValid());
+
+        SettingsManager settings(tmpDir.filePath(QStringLiteral("no-policy")),
+                                 userSettingsPath(tmpDir));
+        MutagenDaemon daemon;
+        FileSyncManager manager(&settings, &daemon);
+
+        // The `count` Q_PROPERTY aliases sessionCount().
+        QCOMPARE(manager.property("count").toInt(), manager.sessionCount());
+        QCOMPARE(manager.property("count").toInt(), 0);
+    }
+
+    void testStatusSummaryEmpty() {
+        QTemporaryDir tmpDir;
+        QVERIFY(tmpDir.isValid());
+
+        SettingsManager settings(tmpDir.filePath(QStringLiteral("no-policy")),
+                                 userSettingsPath(tmpDir));
+        MutagenDaemon daemon;
+        FileSyncManager manager(&settings, &daemon);
+
+        // Empty model should report "No sync sessions".
+        QCOMPARE(manager.statusSummary(), QStringLiteral("No sync sessions"));
+    }
+
+    void testPolicyChangedSignalOnSettingsChange() {
+        QTemporaryDir tmpDir;
+        QVERIFY(tmpDir.isValid());
+
+        SettingsManager settings(tmpDir.filePath(QStringLiteral("no-policy")),
+                                 userSettingsPath(tmpDir));
+        MutagenDaemon daemon;
+        FileSyncManager manager(&settings, &daemon);
+
+        QSignalSpy spy(&manager, &FileSyncManager::policyChanged);
+        QVERIFY(spy.isValid());
+
+        // Changing any setting triggers settingsChanged → policyChanged.
+        settings.setUserPreference(QStringLiteral("disableFileUpload"), true);
+        QVERIFY(spy.count() >= 1);
+    }
+
+    void testUploadDownloadBothDisabledAfterConstruction() {
+        // Start with no policy, then dynamically disable both directions.
+        QTemporaryDir tmpDir;
+        QVERIFY(tmpDir.isValid());
+
+        SettingsManager settings(tmpDir.filePath(QStringLiteral("no-policy")),
+                                 userSettingsPath(tmpDir));
+        MutagenDaemon daemon;
+        FileSyncManager manager(&settings, &daemon);
+        manager.setVpnConnected(true);
+        QVERIFY(manager.isAvailable());
+
+        // Disable both via user preferences (unlocked).
+        settings.setUserPreference(QStringLiteral("disableFileUpload"), true);
+        settings.setUserPreference(QStringLiteral("disableFileDownload"), true);
+        QVERIFY(!manager.uploadAllowed());
+        QVERIFY(!manager.downloadAllowed());
+        QVERIFY(!manager.isAvailable());
+    }
+
+    void testAvailableTrueRequiresBothVpnAndPolicy() {
+        QTemporaryDir tmpDir;
+        QVERIFY(tmpDir.isValid());
+
+        // Upload-only policy.
+        QJsonObject downloadEntry;
+        downloadEntry[QStringLiteral("value")] = true;
+        downloadEntry[QStringLiteral("locked")] = true;
+
+        QJsonObject settingsObj;
+        settingsObj[QStringLiteral("disableFileDownload")] = downloadEntry;
+
+        const QString mdmPath = writePolicyFile(tmpDir, settingsObj);
+        SettingsManager settings(mdmPath, userSettingsPath(tmpDir));
+        MutagenDaemon daemon;
+        FileSyncManager manager(&settings, &daemon);
+
+        // VPN off → not available.
+        manager.setVpnConnected(false);
+        QVERIFY(!manager.isAvailable());
+
+        // VPN on, but download disabled (upload still allowed) → available.
+        manager.setVpnConnected(true);
+        QVERIFY(manager.isAvailable());
+    }
+
+    void testNegativeRowIndex() {
+        QTemporaryDir tmpDir;
+        QVERIFY(tmpDir.isValid());
+
+        SettingsManager settings(tmpDir.filePath(QStringLiteral("no-policy")),
+                                 userSettingsPath(tmpDir));
+        MutagenDaemon daemon;
+        FileSyncManager manager(&settings, &daemon);
+
+        // Negative row should return invalid.
+        QModelIndex idx = manager.index(-1, 0);
+        QVERIFY(!manager.data(idx, FileSyncManager::SessionIdRole).isValid());
+    }
+
+    void testDataWithInvalidRole() {
+        QTemporaryDir tmpDir;
+        QVERIFY(tmpDir.isValid());
+
+        SettingsManager settings(tmpDir.filePath(QStringLiteral("no-policy")),
+                                 userSettingsPath(tmpDir));
+        MutagenDaemon daemon;
+        FileSyncManager manager(&settings, &daemon);
+
+        QModelIndex idx = manager.index(0, 0);
+        // Invalid role number should not crash and should return invalid variant.
+        QVERIFY(!manager.data(idx, 9999).isValid());
+    }
+
+    void testRowCountWithParentReturnsZero() {
+        QTemporaryDir tmpDir;
+        QVERIFY(tmpDir.isValid());
+
+        SettingsManager settings(tmpDir.filePath(QStringLiteral("no-policy")),
+                                 userSettingsPath(tmpDir));
+        MutagenDaemon daemon;
+        FileSyncManager manager(&settings, &daemon);
+
+        // A valid parent means we're asking for children of a specific row,
+        // which is always 0 for a flat list model.
+        QModelIndex parent = manager.index(0, 0);
+        QCOMPARE(manager.rowCount(parent), 0);
+    }
+
+    // =================================================================
+    // 10. FileTransferManager — role names & empty state
+    // =================================================================
+
+    void testTransferManagerRoleNames() {
+        FileTransferManager manager;
+        auto roles = manager.roleNames();
+
+        QVERIFY(roles.values().contains("transferId"));
+        QVERIFY(roles.values().contains("localPath"));
+        QVERIFY(roles.values().contains("remotePath"));
+        QVERIFY(roles.values().contains("isUpload"));
+        QVERIFY(roles.values().contains("progress"));
+        QVERIFY(roles.values().contains("state"));
+        QVERIFY(roles.values().contains("errorMessage"));
+        QVERIFY(roles.values().contains("agentHostname"));
+    }
+
+    void testTransferManagerEmptyState() {
+        FileTransferManager manager;
+        QCOMPARE(manager.rowCount(), 0);
+        QCOMPARE(manager.activeTransferCount(), 0);
+        QCOMPARE(manager.property("count").toInt(), 0);
+    }
+
+    void testTransferManagerDownloadCreatesEntry() {
+        FileTransferManager manager;
+
+        QSignalSpy countSpy(&manager, &FileTransferManager::transferCountChanged);
+        QVERIFY(countSpy.isValid());
+
+        int id = manager.download(QStringLiteral("test.coder"), QStringLiteral("/remote/file.txt"),
+                                  QStringLiteral("/tmp/file.txt"));
+        QVERIFY(id > 0);
+        QCOMPARE(manager.rowCount(), 1);
+        QVERIFY(countSpy.count() >= 1);
+    }
+
+    void testTransferManagerUploadCreatesEntry() {
+        FileTransferManager manager;
+
+        int id = manager.upload(QStringLiteral("test.coder"), QStringLiteral("/tmp/local.txt"),
+                                QStringLiteral("/remote/dest.txt"));
+        QVERIFY(id > 0);
+        QCOMPARE(manager.rowCount(), 1);
+    }
+
+    void testTransferManagerCancelNonexistent() {
+        FileTransferManager manager;
+
+        // Cancelling a non-existent transfer should not crash.
+        manager.cancelTransfer(9999);
+        QCOMPARE(manager.rowCount(), 0);
+    }
+
+    void testTransferManagerDownloadDataRoles() {
+        FileTransferManager manager;
+
+        int id = manager.download(QStringLiteral("test.coder"), QStringLiteral("/remote/file.txt"),
+                                  QStringLiteral("/tmp/file.txt"));
+        QModelIndex idx = manager.index(0);
+        QVERIFY(idx.isValid());
+
+        QCOMPARE(manager.data(idx, FileTransferManager::TransferIdRole).toInt(), id);
+        QCOMPARE(manager.data(idx, FileTransferManager::RemotePathRole).toString(),
+                 QStringLiteral("/remote/file.txt"));
+        QCOMPARE(manager.data(idx, FileTransferManager::LocalPathRole).toString(),
+                 QStringLiteral("/tmp/file.txt"));
+        QCOMPARE(manager.data(idx, FileTransferManager::IsUploadRole).toBool(), false);
+        QCOMPARE(manager.data(idx, FileTransferManager::AgentHostnameRole).toString(),
+                 QStringLiteral("test.coder"));
+        // Progress should be 0 initially (no bytes transferred).
+        QCOMPARE(manager.data(idx, FileTransferManager::ProgressRole).toDouble(), 0.0);
+    }
+
+    void testTransferManagerUploadDataRoles() {
+        FileTransferManager manager;
+
+        int id = manager.upload(QStringLiteral("ws.coder"), QStringLiteral("/tmp/up.txt"),
+                                QStringLiteral("/home/coder/up.txt"));
+        QModelIndex idx = manager.index(0);
+        QVERIFY(idx.isValid());
+
+        QCOMPARE(manager.data(idx, FileTransferManager::TransferIdRole).toInt(), id);
+        QCOMPARE(manager.data(idx, FileTransferManager::IsUploadRole).toBool(), true);
+        QCOMPARE(manager.data(idx, FileTransferManager::LocalPathRole).toString(),
+                 QStringLiteral("/tmp/up.txt"));
+        QCOMPARE(manager.data(idx, FileTransferManager::RemotePathRole).toString(),
+                 QStringLiteral("/home/coder/up.txt"));
+        QCOMPARE(manager.data(idx, FileTransferManager::AgentHostnameRole).toString(),
+                 QStringLiteral("ws.coder"));
+    }
+
+    void testTransferManagerInvalidIndex() {
+        FileTransferManager manager;
+
+        QModelIndex invalid;
+        QVERIFY(!manager.data(invalid, FileTransferManager::TransferIdRole).isValid());
+    }
+
+    void testTransferManagerMultipleTransfers() {
+        FileTransferManager manager;
+
+        int id1 = manager.download(QStringLiteral("a.coder"), QStringLiteral("/r/1"),
+                                   QStringLiteral("/l/1"));
+        int id2 = manager.upload(QStringLiteral("b.coder"), QStringLiteral("/l/2"),
+                                 QStringLiteral("/r/2"));
+        QVERIFY(id1 != id2);
+        QCOMPARE(manager.rowCount(), 2);
+
+        // Verify each row returns the correct transfer id.
+        QCOMPARE(manager.data(manager.index(0), FileTransferManager::TransferIdRole).toInt(), id1);
+        QCOMPARE(manager.data(manager.index(1), FileTransferManager::TransferIdRole).toInt(), id2);
+    }
+
+    void testTransferManagerRowCountWithParent() {
+        FileTransferManager manager;
+
+        manager.download(QStringLiteral("a.coder"), QStringLiteral("/r/1"), QStringLiteral("/l/1"));
+
+        // A flat model returns 0 for any valid parent.
+        QModelIndex parent = manager.index(0);
+        QCOMPARE(manager.rowCount(parent), 0);
+    }
+
+    void testTransferManagerInvalidRoleReturnsInvalid() {
+        FileTransferManager manager;
+
+        manager.download(QStringLiteral("a.coder"), QStringLiteral("/r/1"), QStringLiteral("/l/1"));
+        QModelIndex idx = manager.index(0);
+
+        // An unknown role should return an invalid QVariant.
+        QVERIFY(!manager.data(idx, 9999).isValid());
+    }
+
+    void testTransferManagerCountProperty() {
+        FileTransferManager manager;
+
+        QCOMPARE(manager.property("count").toInt(), 0);
+        manager.download(QStringLiteral("a.coder"), QStringLiteral("/r/1"), QStringLiteral("/l/1"));
+        QCOMPARE(manager.property("count").toInt(), 1);
+    }
+
+    // =================================================================
+    // 11. FileTransfer struct
+    // =================================================================
+
+    void testFileTransferProgressZeroWhenTotalUnknown() {
+        FileTransfer t;
+        t.bytesTotal = 0;
+        t.bytesTransferred = 100;
+        QCOMPARE(t.progress(), 0.0);
+    }
+
+    void testFileTransferProgressComputation() {
+        FileTransfer t;
+        t.bytesTotal = 200;
+        t.bytesTransferred = 100;
+        QCOMPARE(t.progress(), 0.5);
+    }
+
+    void testFileTransferProgressComplete() {
+        FileTransfer t;
+        t.bytesTotal = 1000;
+        t.bytesTransferred = 1000;
+        QCOMPARE(t.progress(), 1.0);
+    }
+
+    void testFileTransferDefaultState() {
+        FileTransfer t;
+        QCOMPARE(t.id, 0);
+        QVERIFY(t.agentHostname.isEmpty());
+        QVERIFY(t.localPath.isEmpty());
+        QVERIFY(t.remotePath.isEmpty());
+        QVERIFY(!t.isUpload);
+        QCOMPARE(t.bytesTransferred, 0);
+        QCOMPARE(t.bytesTotal, 0);
+        QCOMPARE(t.state, FileTransferState::Queued);
+        QVERIFY(t.errorMessage.isEmpty());
+    }
+
+    void testFileTransferStateEnumValues() {
+        // Ensure all state enum values are distinct.
+        QSet<int> values;
+        values.insert(static_cast<int>(FileTransferState::Queued));
+        values.insert(static_cast<int>(FileTransferState::Running));
+        values.insert(static_cast<int>(FileTransferState::Completed));
+        values.insert(static_cast<int>(FileTransferState::Failed));
+        values.insert(static_cast<int>(FileTransferState::Cancelled));
+        QCOMPARE(values.size(), 5);
+    }
+
+    // =================================================================
+    // 12. AgentDirectory DTO — edge cases
+    // =================================================================
+
+    void testDirectoryEntryExtraFieldsIgnored() {
+        QJsonObject json;
+        json[QStringLiteral("name")] = QStringLiteral("test");
+        json[QStringLiteral("absolute_path_string")] = QStringLiteral("/test");
+        json[QStringLiteral("is_dir")] = true;
+        json[QStringLiteral("unexpected_field")] = QStringLiteral("ignored");
+
+        auto entry = DirectoryEntry::fromJson(json);
+        QCOMPARE(entry.name, QStringLiteral("test"));
+        QCOMPARE(entry.absolutePathString, QStringLiteral("/test"));
+        QVERIFY(entry.isDir);
+    }
+
+    void testDirectoryEntryWrongTypeForBool() {
+        // is_dir as string instead of bool — toBool(false) returns false for non-bool.
+        QJsonObject json;
+        json[QStringLiteral("name")] = QStringLiteral("test");
+        json[QStringLiteral("absolute_path_string")] = QStringLiteral("/test");
+        json[QStringLiteral("is_dir")] = QStringLiteral("true");  // string, not bool
+
+        auto entry = DirectoryEntry::fromJson(json);
+        QCOMPARE(entry.name, QStringLiteral("test"));
+        // QJsonValue::toBool(false) on a string returns the default (false).
+        QVERIFY(!entry.isDir);
+    }
+
+    void testDirectoryListingLargeContents() {
+        // Verify parsing works for a larger number of entries.
+        QJsonArray contents;
+        for (int i = 0; i < 100; ++i) {
+            QJsonObject entry;
+            entry[QStringLiteral("name")] = QStringLiteral("file_%1.txt").arg(i);
+            entry[QStringLiteral("absolute_path_string")] =
+                QStringLiteral("/dir/file_%1.txt").arg(i);
+            entry[QStringLiteral("is_dir")] = false;
+            contents.append(entry);
+        }
+
+        QJsonObject json;
+        json[QStringLiteral("absolute_path")] = QJsonArray({QStringLiteral("dir")});
+        json[QStringLiteral("absolute_path_string")] = QStringLiteral("/dir");
+        json[QStringLiteral("contents")] = contents;
+
+        auto listing = DirectoryListing::fromJson(json);
+        QCOMPARE(listing.contents.size(), 100);
+        QCOMPARE(listing.contents[0].name, QStringLiteral("file_0.txt"));
+        QCOMPARE(listing.contents[99].name, QStringLiteral("file_99.txt"));
+    }
+
+    void testDirectoryEntryNameWithSpecialChars() {
+        QJsonObject json;
+        json[QStringLiteral("name")] = QStringLiteral("file with spaces & (parens).txt");
+        json[QStringLiteral("absolute_path_string")] =
+            QStringLiteral("/dir/file with spaces & (parens).txt");
+        json[QStringLiteral("is_dir")] = false;
+
+        auto entry = DirectoryEntry::fromJson(json);
+        QCOMPARE(entry.name, QStringLiteral("file with spaces & (parens).txt"));
     }
 };
 
