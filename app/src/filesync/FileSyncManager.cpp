@@ -277,7 +277,10 @@ void FileSyncManager::setVpnConnected(bool connected) {
 // ---------------------------------------------------------------------------
 
 QStringList FileSyncManager::dataDirArgs() const {
-    return {QStringLiteral("--data-directory=") + m_daemon->dataDir()};
+    // Mutagen 0.18+ does not have a --data-directory CLI flag; the data
+    // directory is controlled exclusively via the MUTAGEN_DATA_DIRECTORY
+    // environment variable, which is set in runMutagenAsync().
+    return {};
 }
 
 void FileSyncManager::runMutagenAsync(
