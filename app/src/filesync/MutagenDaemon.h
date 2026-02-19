@@ -43,6 +43,9 @@ public:
     /// Resolved path to the mutagen binary, or empty if not found.
     [[nodiscard]] QString mutagenBinaryPath() const;
 
+    /// Data directory used by this daemon instance.
+    [[nodiscard]] QString dataDir() const;
+
 signals:
     void runningChanged();
     void errorOccurred(const QString& message);

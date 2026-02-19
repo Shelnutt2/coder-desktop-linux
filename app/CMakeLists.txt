@@ -82,6 +82,21 @@ if(ENABLE_DLP)
     )
 endif()
 
+# File sync sources (always compiled — runtime feature-gated by VPN + policy)
+target_sources(coder-desktop PRIVATE
+    src/api/AgentApiClient.h
+    src/api/AgentApiClient.cpp
+    src/api/dto/AgentDirectory.h
+    src/filesync/MutagenDaemon.h
+    src/filesync/MutagenDaemon.cpp
+    src/filesync/FileSyncSession.h
+    src/filesync/FileSyncSession.cpp
+    src/filesync/FileSyncManager.h
+    src/filesync/FileSyncManager.cpp
+    src/filesync/FileTransferManager.h
+    src/filesync/FileTransferManager.cpp
+)
+
 set_source_files_properties(qml/CoderTheme.qml PROPERTIES QT_QML_SINGLETON_TYPE TRUE)
 
 qt_add_qml_module(coder-desktop

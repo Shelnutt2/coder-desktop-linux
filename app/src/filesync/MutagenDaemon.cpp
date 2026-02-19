@@ -125,6 +125,10 @@ QString MutagenDaemon::mutagenBinaryPath() const {
     return m_binaryPath;
 }
 
+QString MutagenDaemon::dataDir() const {
+    return m_dataDir;
+}
+
 // --- Private ----------------------------------------------------------------
 
 void MutagenDaemon::cleanupOrphan() {
