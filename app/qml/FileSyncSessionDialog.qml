@@ -22,42 +22,44 @@ Dialog {
     property int previousSessionCount: 0
 
     // Build the connected agents list by iterating the peer model.
-    // We use a ListModel proxy and refresh on open, since we cannot
-    // reliably access role data by index outside a delegate context.
     property var connectedAgents: []
 
     function refreshAgents() {
-        connectedAgents = [];
+        var agents = [];
+        for (var i = 0; i < agentInstantiator.count; i++) {
+            var obj = agentInstantiator.objectAt(i);
+            // PeerModel::Connected == 2 (see PeerModel.h)
+            if (obj && obj.status === 2) {
+                agents.push(obj.hostname);
+            }
+        }
+        connectedAgents = agents;
     }
 
-    // Use an Instantiator to reactively read model roles into our JS array.
-    // The Instantiator creates lightweight QtObjects for each peer; the
-    // Component.onCompleted of each checks whether the peer is connected.
+    // Use an Instantiator to reactively track peer model roles. The
+    // Instantiator stays active at all times so the agent list is ready
+    // when the dialog opens.
     Instantiator {
         id: agentInstantiator
         model: peerModel
-        active: sessionDialog.visible
         delegate: QtObject {
             required property string hostname
             required property int status
 
-            Component.onCompleted: updateAgents()
-            Component.onDestruction: updateAgents()
-            onStatusChanged: updateAgents()
-
-            function updateAgents() {
-                // Rebuild the whole list from instantiator children
-                var agents = [];
-                for (var i = 0; i < agentInstantiator.count; i++) {
-                    var obj = agentInstantiator.objectAt(i);
-                    // PeerModel::Connected == 2 (see PeerModel.h)
-                    if (obj && obj.status === 2) {
-                        agents.push(obj.hostname);
-                    }
-                }
-                sessionDialog.connectedAgents = agents;
-            }
+            Component.onCompleted: refreshAgentsDelayed.restart()
+            Component.onDestruction: refreshAgentsDelayed.restart()
+            onStatusChanged: sessionDialog.refreshAgents()
         }
+    }
+
+    // Coalesce rapid Instantiator creation events into a single refresh.
+    // During bulk model resets objectAt() may return null for indices that
+    // are still being created; the short delay lets Qt finish instantiation.
+    Timer {
+        id: refreshAgentsDelayed
+        interval: 50
+        repeat: false
+        onTriggered: sessionDialog.refreshAgents()
     }
 
     onOpened: {
