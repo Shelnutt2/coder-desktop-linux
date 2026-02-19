@@ -21,7 +21,8 @@ coder-desktop-linux/
 ├── README.md
 ├── LICENSE
 ├── docs/
-│   └── planned_implementation.md
+│   ├── planned_implementation.md
+│   └── file-sync.md            # File sync & file browser documentation
 ├── coder-vpn-linux/            # Go module → coder-desktop-helper
 │   ├── go.mod / go.sum
 │   ├── cmd/coder-desktop-helper/main.go  # Entry point
@@ -36,8 +37,10 @@ coder-desktop-linux/
 ├── app/                        # Qt 6 / C++ → coder-desktop
 │   ├── CMakeLists.txt
 │   ├── src/                    # C++ sources
+│   │   ├── filesync/           # File sync: MutagenDaemon, FileSyncManager, FileTransferManager
+│   │   └── api/                # API clients: AgentApiClient, DTOs
 │   ├── qml/                    # QML UI files
-│   └── tests/                  # Unit tests
+│   └── tests/                  # Unit tests (includes tst_filesync)
 ├── dbus/                       # D-Bus config, interface XML, service files
 ├── packaging/                  # Distribution packaging
 │   ├── deb/ rpm/ flatpak/ appimage/
@@ -191,7 +194,10 @@ coder-desktop-helper (Go, runs as root)
 coder-desktop (Qt app, runs as user)
   ├── D-Bus → coder-desktop-helper (Start/Stop VPN, receive state signals)
   ├── dlopen(libcoderdlp.so) → launches nested Wayland compositor
-  └── REST → Coder deployment API
+  ├── REST → Coder deployment API
+  ├── mutagen CLI subprocess → bidirectional file sync over SSH/VPN
+  ├── AgentApiClient → HTTP POST :4/api/v0/list-directory (directory browsing)
+  └── scp subprocess → individual file upload/download over VPN
 ```
 
 ## C++ Coding Standards
@@ -250,6 +256,47 @@ When MDM is not present, all settings appear as editable user preferences.
 Secrets (API tokens) go through `libsecret` (D-Bus Secret Service API), NOT
 in settings files. Fallback: encrypted file for headless/no-keyring environments.
 
+### File sync via Mutagen CLI
+
+File synchronization uses the `mutagen` CLI binary as a subprocess — NOT the
+Mutagen gRPC API. `FileSyncManager` (in `app/src/filesync/`) orchestrates
+session CRUD by spawning `QProcess` for each Mutagen command (`sync create`,
+`sync list --json`, `sync pause`, `sync resume`, `sync terminate`).
+
+Key components:
+- **`MutagenDaemon`** (`app/src/filesync/MutagenDaemon.h/.cpp`) — manages the
+  `mutagen daemon start/stop` lifecycle. Lazy-starts on first session creation,
+  auto-stops when last session is terminated, cleans up orphan daemons on startup.
+  Binary search: (1) app executable dir, (2) `../lib/coder-desktop/mutagen`, (3) `$PATH`.
+- **`FileSyncManager`** (`app/src/filesync/FileSyncManager.h/.cpp`) —
+  `QAbstractListModel` that exposes sync sessions to QML. Polls
+  `mutagen sync list --json` every 2 seconds via a `QTimer`.
+- **`FileSyncSession`** (`app/src/filesync/FileSyncSession.h/.cpp`) — data model
+  for a single session's state (status, paths, conflicts, errors).
+- **`FileTransferManager`** (`app/src/filesync/FileTransferManager.h/.cpp`) —
+  manages individual file uploads/downloads via `scp` subprocess over the VPN.
+
+Environment: `MUTAGEN_DATA_DIRECTORY=~/.local/share/coder-desktop/mutagen/`,
+`MUTAGEN_SSH_CONFIG_PATH=none`.
+
+### Agent API client (workspace directory browsing)
+
+`AgentApiClient` (`app/src/api/AgentApiClient.h/.cpp`) sends HTTP requests to
+the workspace agent's API on port 4 (accessible over the VPN tunnel). The
+primary endpoint is `POST /api/v0/list-directory`, which returns directory
+contents parsed into `DirectoryListing` / `DirectoryEntry` DTOs
+(`app/src/api/dto/AgentDirectory.h`).
+
+### DLP policy enforcement for file operations
+
+File transfer settings (`disableFileUpload`, `disableFileDownload`,
+`dlpFileSandbox`) follow the standard three-layer resolution. Policy is enforced
+in `FileSyncManager` and `FileTransferManager` (C++ layer), not just in QML.
+When upload is disabled, sync sessions run in download-only mode; when download
+is disabled, upload-only mode. Both disabled hides the File Sync tab entirely
+and makes the file browser read-only. See [`docs/file-sync.md`](docs/file-sync.md)
+for the full enforcement matrix.
+
 ## Testing
 
 ```bash
@@ -259,8 +306,11 @@ QT_QPA_PLATFORM=offscreen ctest --test-dir build/app --output-on-failure
 # Go tests
 cd coder-vpn-linux && go test ./...
 
-# DLP compositor tests
-ctest --test-dir build/coder-dlp-compositor --output-on-failure
+# File sync tests (22 tests)
+cd build && ctest --test-dir app --output-on-failure -R tst_filesync
+
+# DLP compositor tests (if any)
+cd build && ctest --test-dir coder-dlp-compositor --output-on-failure
 ```
 
 ### Testing Patterns
@@ -320,3 +370,9 @@ Use imperative mood in the subject line. Keep the subject under 72 characters.
 7. **Do NOT add new source files without updating CMakeLists.txt** — Every new `.cpp`, `.h`, or `.qml` file in `app/` must be registered in `app/CMakeLists.txt`. The build will silently succeed but your code won't be compiled.
 
 8. **Do NOT use bare `new`/`delete` outside of Qt parent ownership** — Use `std::unique_ptr` or `std::shared_ptr`. `new QFoo(parent)` is fine because Qt's parent-child tree manages lifetime. See C++ Coding Standards above.
+
+9. **Do NOT use blocking QProcess for Mutagen/SCP calls** — All subprocess invocations (`mutagen`, `scp`) must use async `QProcess` with `finished` signal callbacks. Calling `waitForFinished()` blocks the Qt event loop and freezes the UI.
+
+10. **Do NOT bypass DLP policy checks in file transfer code** — Upload/download restrictions must be enforced in `FileSyncManager` and `FileTransferManager` (C++ layer). QML hides UI controls for convenience, but the C++ layer is the enforcement boundary. Never allow a file transfer that violates the active policy.
+
+11. **Do NOT use Mutagen gRPC** — The Linux client uses the Mutagen CLI binary as a subprocess, not the gRPC API. This avoids CGo complexity and keeps the integration simple. All Mutagen interaction goes through `MutagenDaemon` → `QProcess`.

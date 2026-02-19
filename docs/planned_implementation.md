@@ -311,3 +311,57 @@ Corrected phases:
 - [ ] Performance optimization
 - [ ] Documentation finalization
 - [ ] CI/CD release pipeline
+
+### Phase 6: File Sync & File Browser — ✅ Implemented
+
+Bidirectional file synchronization and remote file browsing for connected
+workspaces. Uses the Mutagen CLI for sync sessions and the workspace agent API
+for directory listing, with SCP for individual file transfers.
+
+- [x] Mutagen daemon lifecycle management (`MutagenDaemon`)
+- [x] Sync session CRUD via Mutagen CLI (`FileSyncManager`)
+- [x] Session status polling (2-second interval, JSON output)
+- [x] Sync session data model (`FileSyncSession`)
+- [x] Remote directory browsing via Agent API (`AgentApiClient`)
+- [x] Directory listing DTOs (`AgentDirectory`)
+- [x] File upload/download via SCP (`FileTransferManager`)
+- [x] File Sync tab UI (`FileSyncPage.qml`, `FileSyncSessionDialog.qml`)
+- [x] Remote directory picker (`RemoteDirectoryPicker.qml`)
+- [x] File browser with breadcrumb navigation (`FileBrowserPage.qml`)
+- [x] Transfer progress panel (`TransferPanel.qml`)
+- [x] DLP policy enforcement (upload/download restrictions, sandbox paths)
+- [x] Unit tests — 22 tests (`tst_filesync`)
+
+#### Architecture
+
+```
+FileSyncManager ──→ MutagenDaemon ──→ mutagen binary (subprocess)
+                                           │
+                                           SSH over VPN tunnel
+                                           │
+                                           ▼
+                                     Workspace Agent
+
+FileBrowserPage ──→ AgentApiClient ──→ HTTP POST :4/api/v0/list-directory
+              └────→ FileTransferManager ──→ scp (subprocess) over VPN
+```
+
+#### Components
+
+| Component | Path | Purpose |
+|-----------|------|---------|
+| MutagenDaemon | `app/src/filesync/MutagenDaemon.h/.cpp` | Daemon subprocess lifecycle |
+| FileSyncSession | `app/src/filesync/FileSyncSession.h/.cpp` | Session state data model |
+| FileSyncManager | `app/src/filesync/FileSyncManager.h/.cpp` | QAbstractListModel, session CRUD, policy enforcement |
+| FileTransferManager | `app/src/filesync/FileTransferManager.h/.cpp` | SCP-based file upload/download |
+| AgentApiClient | `app/src/api/AgentApiClient.h/.cpp` | HTTP client for agent directory API |
+| AgentDirectory DTO | `app/src/api/dto/AgentDirectory.h` | DirectoryEntry/DirectoryListing structs |
+
+#### Dependencies
+
+- **Mutagen ≥ 0.18.1** — sync engine (CLI binary, not gRPC)
+- **Workspace Agent API** — `POST /api/v0/list-directory` on port 4
+- **SCP** — file transfer over SSH (port 22 on workspace agent)
+- **VPN tunnel** — all communication routes through the Coder VPN
+
+For full documentation, see [`docs/file-sync.md`](file-sync.md).
