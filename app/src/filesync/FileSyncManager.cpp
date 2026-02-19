@@ -471,15 +471,11 @@ void FileSyncManager::updateModel(std::vector<FileSyncSession> newSessions) {
         emit statusSummaryChanged();
     }
 
-    // When no sessions remain, stop polling (but keep the daemon alive).
-    // The daemon is lightweight and will be stopped when the VPN disconnects
-    // or the app exits.  We keep it running so that a quick create→terminate
-    // →create cycle doesn't pay the daemon startup cost each time, and to
-    // avoid a race where the daemon hasn't finished loading persisted sessions
-    // yet when the first poll returns empty.
-    if (m_sessions.empty() && m_pollTimer.isActive()) {
-        m_pollTimer.stop();
-    }
+    // Keep polling regardless of whether sessions are empty.  The poll timer
+    // runs only while VPN is connected and `sync list` is cheap.  Stopping
+    // early on empty results would prevent discovering sessions if the daemon
+    // takes longer than expected to load them from disk, and would also miss
+    // sessions created externally (e.g. via the mutagen CLI).
 }
 
 FileSyncMode FileSyncManager::effectiveSyncMode() const {
