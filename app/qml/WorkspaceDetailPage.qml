@@ -449,7 +449,13 @@ Item {
                                         workspaceDetailPage.workspaceName
                                 }
                                 ToolTip.visible: hovered
-                                ToolTip.text: "Browse workspace file system"
+                                ToolTip.text: {
+                                    if (vpnBridge.state !== "connected")
+                                        return "Connect to VPN to browse files"
+                                    if (model.agentStatus !== "connected")
+                                        return "Agent is not connected"
+                                    return "Browse workspace file system"
+                                }
                             }
                         }
                     }

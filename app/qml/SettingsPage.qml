@@ -814,7 +814,9 @@ Item {
         property bool checked: false
         property bool locked: false
 
+        // Works in both ColumnLayout (Layout.fillWidth) and Column (width binding).
         Layout.fillWidth: true
+        width: parent ? parent.width : 0
         implicitHeight: 56
         color: toggleHover.hovered ? CoderTheme.hoverBg : "transparent"
 

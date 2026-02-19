@@ -62,7 +62,7 @@ Rectangle {
                     text: "Clear"
                     font.pixelSize: 11
                     color: clearCompletedMouse.containsMouse ? CoderTheme.primary : CoderTheme.textSecondary
-                    visible: transferModel ? transferModel.hasCompleted : false
+                    visible: transferModel ? transferModel.count > 0 : false
 
                     MouseArea {
                         id: clearCompletedMouse
