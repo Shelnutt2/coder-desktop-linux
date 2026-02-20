@@ -26,6 +26,7 @@ static const struct {
     {"dlpDisableExternalBrowser", false},
     {"dlpWatermark", false},
     {"dlpDbusFilter", false},
+    {"dlpDbusAllowedNames", QStringList()},
     {"disableFileUpload", false},
     {"disableFileDownload", false},
     {"theme", QStringLiteral("system")},
@@ -149,6 +150,10 @@ bool SettingsManager::dlpDbusFilter() const {
     return resolve(QStringLiteral("dlpDbusFilter"), false).toBool();
 }
 
+QStringList SettingsManager::dlpDbusAllowedNames() const {
+    return resolve(QStringLiteral("dlpDbusAllowedNames"), QStringList()).toStringList();
+}
+
 bool SettingsManager::externalBrowserAllowed() const {
     return !dlpForceInAppBrowser() && !dlpDisableExternalBrowser();
 }
@@ -234,6 +239,9 @@ bool SettingsManager::dlpWatermarkLocked() const {
 }
 bool SettingsManager::dlpDbusFilterLocked() const {
     return m_mdm->isLocked(QStringLiteral("dlpDbusFilter"));
+}
+bool SettingsManager::dlpDbusAllowedNamesLocked() const {
+    return m_mdm->isLocked(QStringLiteral("dlpDbusAllowedNames"));
 }
 bool SettingsManager::disableFileUploadLocked() const {
     return m_mdm->isLocked(QStringLiteral("disableFileUpload"));
