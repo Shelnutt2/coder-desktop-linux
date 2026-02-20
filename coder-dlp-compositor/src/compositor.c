@@ -380,3 +380,10 @@ void coder_dlp_set_log_callback(coder_dlp_compositor* comp, coder_dlp_log_cb cb,
     comp->log_cb = cb;
     comp->log_cb_data = user_data;
 }
+
+void coder_dlp_set_watermark_identity(coder_dlp_compositor* comp, const char* identity) {
+    if (!comp || !identity) {
+        return;
+    }
+    dlp_watermark_set_identity(&comp->watermark, identity);
+}

@@ -50,6 +50,7 @@ add_library(coderdlp SHARED
     src/sandbox_launcher.c
     src/output.c
     src/input.c
+    src/watermark.c
     src/xwayland.c
 )
 add_dependencies(coderdlp xdg_shell_protocol cursor_shape_protocol)

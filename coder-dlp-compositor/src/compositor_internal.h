@@ -2,6 +2,7 @@
 #define CODER_DLP_COMPOSITOR_INTERNAL_H
 
 #include "coder_dlp.h"
+#include "watermark.h"
 
 #include <wayland-server-core.h>
 #include <wlr/backend.h>
@@ -150,6 +151,9 @@ struct coder_dlp_compositor {
 
     /* Socket name for client connections */
     const char* socket;
+
+    /* Watermark */
+    struct dlp_watermark_state watermark;
 };
 
 /* Clipboard mediation (clipboard.c) */
