@@ -151,7 +151,13 @@ bool SettingsManager::dlpDbusFilter() const {
 }
 
 QStringList SettingsManager::dlpDbusAllowedNames() const {
-    return resolve(QStringLiteral("dlpDbusAllowedNames"), QStringList()).toStringList();
+    QVariant v = resolve(QStringLiteral("dlpDbusAllowedNames"), QStringList());
+    if (v.typeId() == QMetaType::QString) {
+        // INI format may deserialize empty list as empty string
+        const QString s = v.toString();
+        return s.isEmpty() ? QStringList() : QStringList(s);
+    }
+    return v.toStringList();
 }
 
 bool SettingsManager::externalBrowserAllowed() const {

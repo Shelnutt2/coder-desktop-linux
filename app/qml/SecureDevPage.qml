@@ -671,7 +671,8 @@ Item {
                                 customFsCheck.checked,
                                 false,
                                 [],
-                                settingsManager.dlpDbusFilter
+                                settingsManager.dlpDbusFilter,
+                                settingsManager.dlpDbusAllowedNames
                             );
                             commandField.text = "";
                         }
