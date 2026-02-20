@@ -75,6 +75,9 @@ public:
     Q_PROPERTY(bool dlpWatermark READ dlpWatermark NOTIFY settingsChanged)
     Q_PROPERTY(bool dlpWatermarkLocked READ dlpWatermarkLocked NOTIFY settingsChanged)
 
+    Q_PROPERTY(bool dlpDbusFilter READ dlpDbusFilter NOTIFY settingsChanged)
+    Q_PROPERTY(bool dlpDbusFilterLocked READ dlpDbusFilterLocked NOTIFY settingsChanged)
+
     // Convenience: true when external browser is allowed by DLP policy
     Q_PROPERTY(bool externalBrowserAllowed READ externalBrowserAllowed NOTIFY settingsChanged)
 
@@ -136,6 +139,7 @@ public:
     [[nodiscard]] bool dlpForceInAppBrowser() const;
     [[nodiscard]] bool dlpDisableExternalBrowser() const;
     [[nodiscard]] bool dlpWatermark() const;
+    [[nodiscard]] bool dlpDbusFilter() const;
     [[nodiscard]] bool externalBrowserAllowed() const;
 
     [[nodiscard]] bool disableFileUpload() const;
@@ -166,6 +170,7 @@ public:
     [[nodiscard]] bool dlpForceInAppBrowserLocked() const;
     [[nodiscard]] bool dlpDisableExternalBrowserLocked() const;
     [[nodiscard]] bool dlpWatermarkLocked() const;
+    [[nodiscard]] bool dlpDbusFilterLocked() const;
     [[nodiscard]] bool disableFileUploadLocked() const;
     [[nodiscard]] bool disableFileDownloadLocked() const;
     [[nodiscard]] bool themeLocked() const;

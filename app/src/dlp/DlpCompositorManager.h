@@ -81,7 +81,8 @@ public:
                               const QString& workspacePath = QString(), bool isolatePid = true,
                               bool isolateIpc = true, bool isolateNetwork = false,
                               bool isolateFilesystem = false, bool bindHomeRw = false,
-                              const QStringList& extraBindPaths = QStringList());
+                              const QStringList& extraBindPaths = QStringList(),
+                              bool filterDbus = false);
 
     /// Stop a specific app by PID.
     Q_INVOKABLE void stopApp(int pid);
