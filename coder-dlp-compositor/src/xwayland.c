@@ -9,10 +9,7 @@
 #include "compositor_internal.h"
 
 #include <stdlib.h>
-#include <sys/stat.h>
 
-#include <drm_fourcc.h>
-#include <wlr/render/drm_format_set.h>
 #include <wlr/types/wlr_keyboard.h>
 #include <wlr/types/wlr_seat.h>
 #include <wlr/types/wlr_xdg_shell.h>
@@ -120,40 +117,6 @@ static void handle_xwayland_surface_associate(struct wl_listener* listener, void
         wlr_scene_node_set_enabled(&xsurf->scene_tree->node, false);
     }
 
-    /* Set per-surface DMA-BUF feedback to restrict Xwayland to linear
-     * modifiers only.  Without this, Xwayland's DRI3 path may allocate
-     * buffers with GPU-specific tiled/compressed modifiers (e.g. Intel
-     * CCS) that the nested compositor's renderer cannot import, causing
-     * garbled or black rendering (common with Electron/Chromium apps).
-     *
-     * LINEAR preserves GPU rasterization — only the buffer layout changes. */
-    if (xsurf->compositor->linux_dmabuf && xsurface->surface) {
-        struct coder_dlp_compositor* comp = xsurf->compositor;
-        int drm_fd = wlr_renderer_get_drm_fd(comp->renderer);
-        if (drm_fd >= 0) {
-            struct stat stat_buf;
-            if (fstat(drm_fd, &stat_buf) == 0) {
-                struct wlr_linux_dmabuf_feedback_v1 feedback = {0};
-                feedback.main_device = stat_buf.st_rdev;
-
-                struct wlr_linux_dmabuf_feedback_v1_tranche* tranche =
-                    wlr_linux_dmabuf_feedback_add_tranche(&feedback);
-                if (tranche) {
-                    tranche->target_device = stat_buf.st_rdev;
-                    /* Add common formats with LINEAR modifier only */
-                    wlr_drm_format_set_add(&tranche->formats, DRM_FORMAT_ARGB8888,
-                                           DRM_FORMAT_MOD_LINEAR);
-                    wlr_drm_format_set_add(&tranche->formats, DRM_FORMAT_XRGB8888,
-                                           DRM_FORMAT_MOD_LINEAR);
-
-                    wlr_linux_dmabuf_v1_set_surface_feedback(comp->linux_dmabuf, xsurface->surface,
-                                                             &feedback);
-                }
-                wlr_linux_dmabuf_feedback_v1_finish(&feedback);
-            }
-        }
-    }
-
     /* Wire up map/unmap listeners on the wlr_surface */
     xsurf->map.notify = handle_xwayland_surface_map;
     wl_signal_add(&xsurface->surface->events.map, &xsurf->map);
@@ -173,7 +136,9 @@ static void handle_xwayland_surface_dissociate(struct wl_listener* listener, voi
     struct coder_dlp_xwayland_surface* xsurf = wl_container_of(listener, xsurf, dissociate);
 
     wl_list_remove(&xsurf->map.link);
+    wl_list_init(&xsurf->map.link);
     wl_list_remove(&xsurf->unmap.link);
+    wl_list_init(&xsurf->unmap.link);
 }
 
 static void handle_xwayland_surface_destroy(struct wl_listener* listener, void* data) {
@@ -383,6 +348,15 @@ const char* coder_dlp_get_xwayland_display(const coder_dlp_compositor* comp) {
 
 void dlp_xwayland_init(struct coder_dlp_compositor* comp) {
     wl_list_init(&comp->xwayland_surfaces);
+
+    /* Disable glamor/DRI3 in Xwayland.  Without this, Xwayland's glamor
+     * allocates DMA-BUF buffers with GPU-specific tiled/compressed modifiers
+     * (e.g. Intel CCS) that the nested compositor's renderer cannot import,
+     * causing garbled or black rendering.  With glamor disabled, buffer
+     * transport falls back to wl_shm (software pixmap conversion) while X11
+     * clients still use GPU for rasterization — only the compositor handoff
+     * changes.  Xwayland inherits our environment when wlroots fork()s it. */
+    setenv("XWAYLAND_NO_GLAMOR", "1", 1);
 
     comp->xwayland = wlr_xwayland_create(comp->wl_display, comp->wlr_compositor, true);
     if (!comp->xwayland) {
