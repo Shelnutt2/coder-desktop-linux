@@ -130,6 +130,7 @@ coder_dlp_compositor* coder_dlp_create(void* parent_wl_surface, coder_dlp_log_le
     s_log_comp = comp;
 
     wl_list_init(&comp->toplevels);
+    wl_list_init(&comp->xwayland_surfaces);
 
     /* Wayland display */
     comp->wl_display = wl_display_create();
@@ -208,6 +209,9 @@ coder_dlp_compositor* coder_dlp_create(void* parent_wl_surface, coder_dlp_log_le
 
     /* Security context protocol */
     dlp_security_context_init(comp);
+
+    /* Xwayland support for X11 apps */
+    dlp_xwayland_init(comp);
 
     /* Cursor event listeners — cursor aggregates all pointer devices */
     comp->cursor_motion.notify = handle_cursor_motion;
@@ -301,6 +305,9 @@ void coder_dlp_destroy(coder_dlp_compositor* comp) {
     wl_list_remove(&comp->cursor_axis.link);
     wl_list_remove(&comp->cursor_frame.link);
     wl_list_remove(&comp->request_set_cursor.link);
+
+    /* Xwayland cleanup */
+    dlp_xwayland_destroy(comp);
 
     /* Clean up any remaining toplevels — remove their listeners so wlroots
      * assertions don't fire during display teardown. */

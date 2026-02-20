@@ -199,8 +199,43 @@ char** dlp_build_bwrap_args(const coder_dlp_compositor* comp, const char* comman
         }
     }
 
-    PUSH("--unsetenv");
-    PUSH("DISPLAY");
+    /* X11/Xwayland display: if Xwayland is running, set DISPLAY so X11 apps
+     * connect through our compositor.  Otherwise unset to prevent escape. */
+    const char* xwl_display = coder_dlp_get_xwayland_display(comp);
+    if (xwl_display) {
+        PUSH("--setenv");
+        PUSH("DISPLAY");
+        PUSH(xwl_display);
+
+        /* Bind the X11 socket into the sandbox */
+        const char* display_num = xwl_display;
+        if (display_num[0] == ':') {
+            display_num++;
+        }
+        char x11_socket[PATH_MAX];
+        snprintf(x11_socket, sizeof(x11_socket), "/tmp/.X11-unix/X%s", display_num);
+        PUSH("--bind");
+        PUSH(x11_socket);
+        PUSH(x11_socket);
+
+        /* With Xwayland available, don't force Wayland backends.
+         * Native Wayland apps auto-detect WAYLAND_DISPLAY; X11-only apps
+         * fall back to DISPLAY.  Both paths go through DLP compositor. */
+    } else {
+        PUSH("--unsetenv");
+        PUSH("DISPLAY");
+
+        /* Force Wayland backends when no Xwayland is available */
+        PUSH("--setenv");
+        PUSH("GDK_BACKEND");
+        PUSH("wayland");
+        PUSH("--setenv");
+        PUSH("QT_QPA_PLATFORM");
+        PUSH("wayland");
+        PUSH("--setenv");
+        PUSH("SDL_VIDEODRIVER");
+        PUSH("wayland");
+    }
 
     /* Chromium/Electron's internal sandbox conflicts with bwrap's user
      * namespace.  Disable it since bwrap already provides sandboxing. */
@@ -208,17 +243,7 @@ char** dlp_build_bwrap_args(const coder_dlp_compositor* comp, const char* comman
     PUSH("ELECTRON_NO_SANDBOX");
     PUSH("1");
 
-    /* Force all GUI toolkits to use the Wayland backend.  Without these,
-     * apps try X11 first, find DISPLAY unset, and silently fail. */
-    PUSH("--setenv");
-    PUSH("GDK_BACKEND");
-    PUSH("wayland");
-    PUSH("--setenv");
-    PUSH("QT_QPA_PLATFORM");
-    PUSH("wayland");
-    PUSH("--setenv");
-    PUSH("SDL_VIDEODRIVER");
-    PUSH("wayland");
+    /* These hints are always useful regardless of Xwayland availability */
     PUSH("--setenv");
     PUSH("ELECTRON_OZONE_PLATFORM_HINT");
     PUSH("wayland");
