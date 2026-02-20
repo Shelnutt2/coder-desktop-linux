@@ -10,6 +10,7 @@
 #include <errno.h>
 #include <fcntl.h>
 #include <linux/limits.h>
+#include <stdbool.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
@@ -18,6 +19,30 @@
 
 #include <signal.h>
 #include <wlr/util/log.h>
+
+/* Check if a binary is available somewhere in PATH. */
+static bool find_in_path(const char* name) {
+    char* path = getenv("PATH");
+    if (!path) {
+        return false;
+    }
+    char* dup = strdup(path);
+    if (!dup) {
+        return false;
+    }
+    char* tok = strtok(dup, ":");
+    while (tok) {
+        char buf[PATH_MAX];
+        snprintf(buf, sizeof(buf), "%s/%s", tok, name);
+        if (access(buf, X_OK) == 0) {
+            free(dup);
+            return true;
+        }
+        tok = strtok(NULL, ":");
+    }
+    free(dup);
+    return false;
+}
 
 /* Start xdg-dbus-proxy with filtering.  Returns 0 on success, -1 on failure.
  * On success, fills in proxy->pid, proxy->pipe_write_fd, proxy->socket_path. */
@@ -29,21 +54,20 @@ static int dlp_start_dbus_proxy(struct dlp_dbus_proxy* proxy,
         return -1;
     }
 
-    /* Check xdg-dbus-proxy exists */
-    if (access("/usr/bin/xdg-dbus-proxy", X_OK) != 0) {
-        wlr_log(WLR_ERROR, "xdg-dbus-proxy not found, D-Bus filtering unavailable");
+    /* Check xdg-dbus-proxy is available somewhere in PATH */
+    if (!find_in_path("xdg-dbus-proxy")) {
+        wlr_log(WLR_ERROR, "xdg-dbus-proxy not found in PATH, D-Bus filtering unavailable");
         return -1;
     }
 
-    /* Create proxy socket path */
-    snprintf(proxy->socket_path, sizeof(proxy->socket_path), "/tmp/coder-dlp-dbus-XXXXXX");
-    int mkstemp_fd = mkstemp(proxy->socket_path);
-    if (mkstemp_fd < 0) {
+    /* Create a unique directory for the proxy socket (avoids TOCTOU —
+     * mkdtemp creates the directory atomically with mode 0700). */
+    snprintf(proxy->dir_path, sizeof(proxy->dir_path), "/tmp/coder-dlp-dbus-XXXXXX");
+    if (!mkdtemp(proxy->dir_path)) {
+        wlr_log(WLR_ERROR, "mkdtemp failed for D-Bus proxy: %s", strerror(errno));
         return -1;
     }
-    /* mkstemp creates the file; remove it so xdg-dbus-proxy can create its socket */
-    close(mkstemp_fd);
-    unlink(proxy->socket_path);
+    snprintf(proxy->socket_path, sizeof(proxy->socket_path), "%s/bus", proxy->dir_path);
 
     /* Create lifecycle pipe — closing the write end signals proxy to exit */
     int pipe_fds[2];
@@ -98,7 +122,7 @@ static int dlp_start_dbus_proxy(struct dlp_dbus_proxy* proxy,
             "org.freedesktop.Notifications.GetServerInformation@/org/freedesktop/Notifications";
 
         /* User-specified additional --talk names */
-        static char talk_bufs[16][256];
+        char talk_bufs[16][256];
         if (sandbox && sandbox->dbus_talk_names) {
             for (int i = 0; i < sandbox->dbus_talk_count && i < 16 && ac < 60; i++) {
                 if (sandbox->dbus_talk_names[i]) {
@@ -132,6 +156,8 @@ static int dlp_start_dbus_proxy(struct dlp_dbus_proxy* proxy,
     kill(pid, SIGTERM);
     waitpid(pid, NULL, 0);
     close(pipe_fds[1]);
+    /* Clean up the directory we created */
+    rmdir(proxy->dir_path);
     proxy->pid = -1;
     proxy->pipe_write_fd = -1;
     return -1;
@@ -142,16 +168,31 @@ void dlp_cleanup_dbus_proxies(coder_dlp_compositor* comp) {
         return;
     }
     for (int i = 0; i < comp->dbus_proxy_count; i++) {
+        /* Close the lifecycle pipe first — this signals the proxy to exit
+         * gracefully via EOF on its --fd pipe. */
         if (comp->dbus_proxies[i].pipe_write_fd >= 0) {
             close(comp->dbus_proxies[i].pipe_write_fd);
+            comp->dbus_proxies[i].pipe_write_fd = -1;
         }
         if (comp->dbus_proxies[i].pid > 0) {
-            kill(comp->dbus_proxies[i].pid, SIGTERM);
-            waitpid(comp->dbus_proxies[i].pid, NULL, 0);
+            /* Give the proxy a moment to exit from pipe EOF */
+            int status;
+            pid_t ret = waitpid(comp->dbus_proxies[i].pid, &status, WNOHANG);
+            if (ret == 0) {
+                /* Still running — send SIGTERM and wait */
+                kill(comp->dbus_proxies[i].pid, SIGTERM);
+                waitpid(comp->dbus_proxies[i].pid, NULL, 0);
+            }
+            /* NOTE: zombie proxies from long-running sessions are reaped here
+             * during coder_dlp_destroy().  If the compositor runs for a very
+             * long time, zombies accumulate until teardown. */
         }
-        /* Remove socket file */
+        /* Remove socket file and directory */
         if (comp->dbus_proxies[i].socket_path[0]) {
             unlink(comp->dbus_proxies[i].socket_path);
+        }
+        if (comp->dbus_proxies[i].dir_path[0]) {
+            rmdir(comp->dbus_proxies[i].dir_path);
         }
     }
     free(comp->dbus_proxies);
@@ -327,11 +368,16 @@ char** dlp_build_bwrap_args(const coder_dlp_compositor* comp, const char* comman
 
     /* D-Bus session bus — bind either the xdg-dbus-proxy filtered socket or
      * the host bus socket into the sandbox tmpfs.
-     * Must come after the tmpfs overlay of XDG_RUNTIME_DIR above. */
+     * Must come after the tmpfs overlay of XDG_RUNTIME_DIR above.
+     *
+     * dbus_proxy_socket semantics:
+     *   non-NULL, non-empty  → filtered proxy socket, bind it
+     *   empty string ("")    → D-Bus blocked entirely (proxy failed with filter_dbus=true)
+     *   NULL                 → unfiltered, bind real bus (filter_dbus=false) */
     if (xdg_runtime) {
         char dbus_path[PATH_MAX];
         snprintf(dbus_path, sizeof(dbus_path), "%s/bus", xdg_runtime);
-        if (dbus_proxy_socket) {
+        if (dbus_proxy_socket && dbus_proxy_socket[0] != '\0') {
             /* Filtered: bind the proxy socket to the standard bus path */
             PUSH("--bind");
             PUSH(dbus_proxy_socket);
@@ -341,6 +387,11 @@ char** dlp_build_bwrap_args(const coder_dlp_compositor* comp, const char* comman
             char dbus_addr[PATH_MAX + 32];
             snprintf(dbus_addr, sizeof(dbus_addr), "unix:path=%s", dbus_path);
             PUSH(dbus_addr);
+        } else if (dbus_proxy_socket && dbus_proxy_socket[0] == '\0') {
+            /* D-Bus blocked: proxy was requested but failed — no bus access.
+             * Unset DBUS_SESSION_BUS_ADDRESS so apps don't try to connect. */
+            PUSH("--unsetenv");
+            PUSH("DBUS_SESSION_BUS_ADDRESS");
         } else if (access(dbus_path, F_OK) == 0) {
             /* Unfiltered: bind the real bus socket directly */
             PUSH("--bind");
@@ -466,7 +517,8 @@ int coder_dlp_launch_app(coder_dlp_compositor* comp, const char* command,
             wlr_log(WLR_INFO, "D-Bus proxy started (pid=%d, socket=%s)", proxy.pid,
                     proxy.socket_path);
         } else {
-            wlr_log(WLR_ERROR, "D-Bus proxy failed to start, falling back to unfiltered bus");
+            wlr_log(WLR_ERROR, "D-Bus proxy failed, launching without D-Bus access");
+            proxy_socket = ""; /* empty string sentinel = no D-Bus at all */
         }
     }
 
@@ -478,6 +530,9 @@ int coder_dlp_launch_app(coder_dlp_compositor* comp, const char* command,
             kill(proxy.pid, SIGTERM);
             waitpid(proxy.pid, NULL, 0);
             unlink(proxy.socket_path);
+            if (proxy.dir_path[0]) {
+                rmdir(proxy.dir_path);
+            }
         }
         return -1;
     }
@@ -491,6 +546,9 @@ int coder_dlp_launch_app(coder_dlp_compositor* comp, const char* command,
             kill(proxy.pid, SIGTERM);
             waitpid(proxy.pid, NULL, 0);
             unlink(proxy.socket_path);
+            if (proxy.dir_path[0]) {
+                rmdir(proxy.dir_path);
+            }
         }
         return -1;
     }
@@ -498,7 +556,7 @@ int coder_dlp_launch_app(coder_dlp_compositor* comp, const char* command,
     if (pid == 0) {
         /* Redirect stdout+stderr to a log file for debugging.
          * The fd is inherited through bwrap to the child process. */
-        int log_fd = open("/tmp/coder-dlp-child.log", O_WRONLY | O_CREAT | O_APPEND, 0644);
+        int log_fd = open("/tmp/coder-dlp-child.log", O_WRONLY | O_CREAT | O_APPEND, 0600);
         if (log_fd >= 0) {
             dup2(log_fd, STDOUT_FILENO);
             dup2(log_fd, STDERR_FILENO);
@@ -524,7 +582,14 @@ int coder_dlp_launch_app(coder_dlp_compositor* comp, const char* command,
                 comp->dbus_proxies = tmp;
                 comp->dbus_proxy_capacity = new_cap;
             } else {
-                wlr_log(WLR_ERROR, "failed to track D-Bus proxy, leaking pid %d", proxy.pid);
+                wlr_log(WLR_ERROR, "failed to track D-Bus proxy, cleaning up");
+                close(proxy.pipe_write_fd);
+                kill(proxy.pid, SIGTERM);
+                waitpid(proxy.pid, NULL, 0);
+                unlink(proxy.socket_path);
+                if (proxy.dir_path[0]) {
+                    rmdir(proxy.dir_path);
+                }
             }
         }
         if (comp->dbus_proxy_count < comp->dbus_proxy_capacity) {
