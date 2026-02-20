@@ -18,6 +18,7 @@
 #include <wlr/types/wlr_subcompositor.h>
 #include <wlr/types/wlr_xcursor_manager.h>
 #include <wlr/types/wlr_xdg_shell.h>
+#include <wlr/xwayland/xwayland.h>
 
 struct coder_dlp_toplevel {
     struct wlr_xdg_toplevel* xdg_toplevel;
@@ -34,6 +35,29 @@ struct coder_dlp_toplevel {
     struct wl_listener request_fullscreen;
 
     struct wl_list link; /* coder_dlp_compositor.toplevels */
+};
+
+struct coder_dlp_xwayland_surface {
+    struct wlr_xwayland_surface* xwayland_surface;
+    struct coder_dlp_compositor* compositor;
+    struct wlr_scene_tree* scene_tree;
+
+    struct wl_listener associate;
+    struct wl_listener dissociate;
+    struct wl_listener map;
+    struct wl_listener unmap;
+    struct wl_listener destroy;
+    struct wl_listener request_configure;
+    struct wl_listener request_move;
+    struct wl_listener request_resize;
+    struct wl_listener request_maximize;
+    struct wl_listener request_fullscreen;
+    struct wl_listener request_activate;
+    struct wl_listener set_override_redirect;
+    struct wl_listener set_title;
+    struct wl_listener set_class;
+
+    struct wl_list link; /* coder_dlp_compositor.xwayland_surfaces */
 };
 
 struct coder_dlp_compositor {
@@ -73,6 +97,12 @@ struct coder_dlp_compositor {
     struct wl_listener new_xdg_toplevel;
     struct wl_listener new_xdg_popup;
     struct wl_list toplevels; /* coder_dlp_toplevel.link */
+
+    /* Xwayland */
+    struct wlr_xwayland* xwayland;
+    struct wl_listener xwayland_surface;
+    struct wl_listener xwayland_ready;
+    struct wl_list xwayland_surfaces; /* coder_dlp_xwayland_surface.link */
 
     /* Backend */
     struct wl_listener new_output;
@@ -157,5 +187,9 @@ void handle_request_set_cursor(struct wl_listener* listener, void* data);
 /* Shell event handlers (shell.c) */
 void compositor_handle_new_xdg_toplevel(struct wl_listener* listener, void* data);
 void compositor_handle_new_xdg_popup(struct wl_listener* listener, void* data);
+
+/* Xwayland support (xwayland.c) */
+void dlp_xwayland_init(struct coder_dlp_compositor* comp);
+void dlp_xwayland_destroy(struct coder_dlp_compositor* comp);
 
 #endif /* CODER_DLP_COMPOSITOR_INTERNAL_H */

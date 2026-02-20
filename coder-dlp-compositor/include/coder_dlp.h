@@ -69,6 +69,9 @@ void coder_dlp_set_log_callback(coder_dlp_compositor* comp, coder_dlp_log_cb cb,
 typedef void (*coder_dlp_surface_cb)(coder_dlp_compositor* comp, void* wlr_surface, void* data);
 void coder_dlp_on_new_surface(coder_dlp_compositor* comp, coder_dlp_surface_cb cb, void* data);
 
+/* Returns the Xwayland DISPLAY string (e.g. ":1") or NULL if not ready. */
+const char* coder_dlp_get_xwayland_display(const coder_dlp_compositor* comp);
+
 #ifdef __cplusplus
 }
 #endif
