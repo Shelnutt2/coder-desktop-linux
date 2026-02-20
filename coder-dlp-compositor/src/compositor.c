@@ -225,7 +225,8 @@ coder_dlp_compositor* coder_dlp_create(void* parent_wl_surface, coder_dlp_log_le
     comp->data_device_mgr = wlr_data_device_manager_create(comp->wl_display);
 
     /* Additional protocol globals required by Electron/Chromium clients */
-    wlr_linux_dmabuf_v1_create_with_renderer(comp->wl_display, 4, comp->renderer);
+    comp->linux_dmabuf =
+        wlr_linux_dmabuf_v1_create_with_renderer(comp->wl_display, 4, comp->renderer);
     wlr_viewporter_create(comp->wl_display);
     wlr_xdg_decoration_manager_v1_create(comp->wl_display);
     wlr_fractional_scale_manager_v1_create(comp->wl_display, 1);
