@@ -488,3 +488,10 @@ void coder_dlp_set_watermark_identity(coder_dlp_compositor* comp, const char* id
     }
     dlp_watermark_set_identity(&comp->watermark, identity);
 }
+
+#if !WLR_HAS_X11_BACKEND
+const char* coder_dlp_get_xwayland_display(const coder_dlp_compositor* comp) {
+    (void)comp;
+    return NULL;
+}
+#endif
