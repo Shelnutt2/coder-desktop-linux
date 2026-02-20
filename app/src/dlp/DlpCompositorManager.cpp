@@ -25,6 +25,20 @@ bool DlpCompositorManager::isAvailable() const {
     return coder_dlp_is_available();
 }
 
+bool DlpCompositorManager::isWaylandSession() const {
+    return qEnvironmentVariableIsSet("WAYLAND_DISPLAY");
+}
+
+QString DlpCompositorManager::securityLevel() const {
+    if (qEnvironmentVariableIsSet("WAYLAND_DISPLAY")) {
+        return QStringLiteral("full");
+    }
+    if (qEnvironmentVariableIsSet("DISPLAY")) {
+        return QStringLiteral("partial");
+    }
+    return QStringLiteral("unavailable");
+}
+
 bool DlpCompositorManager::isRunning() const {
     return !m_apps.empty();
 }
@@ -53,7 +67,7 @@ int DlpCompositorManager::launchApp(const QString& command, const QString& appNa
                                     bool isolateNetwork, bool isolateFilesystem, bool bindHomeRw,
                                     const QStringList& extraBindPaths) {
     if (!isAvailable()) {
-        emit errorOccurred(QStringLiteral("DLP compositor requires a Wayland session"));
+        emit errorOccurred(QStringLiteral("DLP compositor requires a Wayland or X11 session"));
         return -1;
     }
 
