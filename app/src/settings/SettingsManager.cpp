@@ -12,16 +12,27 @@ static const struct {
     const char* key;
     QVariant value;
 } kDefaults[] = {
-    {"deploymentUrl", QString()},        {"allowedDeployments", QStringList()},
-    {"disableMultiDeployment", false},   {"requireVpn", false},
-    {"autoConnectVpn", false},           {"dlpEnabled", false},
-    {"dlpClipboardBlock", false},        {"dlpScreenshotBlock", false},
-    {"dlpFileSandbox", false},           {"dlpNetworkSandbox", false},
-    {"dlpForceInAppBrowser", false},     {"dlpDisableExternalBrowser", false},
-    {"disableFileUpload", false},        {"disableFileDownload", false},
-    {"theme", QStringLiteral("system")}, {"notificationsEnabled", true},
-    {"checkForUpdates", true},           {"logLevel", QStringLiteral("info")},
-    {"refreshIntervalSec", 10},          {"disableDataCache", false},
+    {"deploymentUrl", QString()},
+    {"allowedDeployments", QStringList()},
+    {"disableMultiDeployment", false},
+    {"requireVpn", false},
+    {"autoConnectVpn", false},
+    {"dlpEnabled", false},
+    {"dlpClipboardBlock", false},
+    {"dlpScreenshotBlock", false},
+    {"dlpFileSandbox", false},
+    {"dlpNetworkSandbox", false},
+    {"dlpForceInAppBrowser", false},
+    {"dlpDisableExternalBrowser", false},
+    {"dlpWatermark", false},
+    {"disableFileUpload", false},
+    {"disableFileDownload", false},
+    {"theme", QStringLiteral("system")},
+    {"notificationsEnabled", true},
+    {"checkForUpdates", true},
+    {"logLevel", QStringLiteral("info")},
+    {"refreshIntervalSec", 10},
+    {"disableDataCache", false},
 };
 
 // ---------------------------------------------------------------------------
@@ -129,6 +140,10 @@ bool SettingsManager::dlpDisableExternalBrowser() const {
     return resolve(QStringLiteral("dlpDisableExternalBrowser"), false).toBool();
 }
 
+bool SettingsManager::dlpWatermark() const {
+    return resolve(QStringLiteral("dlpWatermark"), false).toBool();
+}
+
 bool SettingsManager::externalBrowserAllowed() const {
     return !dlpForceInAppBrowser() && !dlpDisableExternalBrowser();
 }
@@ -208,6 +223,9 @@ bool SettingsManager::dlpForceInAppBrowserLocked() const {
 }
 bool SettingsManager::dlpDisableExternalBrowserLocked() const {
     return m_mdm->isLocked(QStringLiteral("dlpDisableExternalBrowser"));
+}
+bool SettingsManager::dlpWatermarkLocked() const {
+    return m_mdm->isLocked(QStringLiteral("dlpWatermark"));
 }
 bool SettingsManager::disableFileUploadLocked() const {
     return m_mdm->isLocked(QStringLiteral("disableFileUpload"));

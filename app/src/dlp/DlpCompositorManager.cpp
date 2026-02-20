@@ -84,6 +84,11 @@ int DlpCompositorManager::launchApp(const QString& command, const QString& appNa
     // Apply current DLP policy to the new compositor.
     coder_dlp_set_policy(comp, &m_currentPolicy);
 
+    // Apply watermark identity if set.
+    if (!m_watermarkIdentity.isEmpty()) {
+        coder_dlp_set_watermark_identity(comp, m_watermarkIdentity.constData());
+    }
+
     // Set the compositor window title so it's identifiable in the taskbar.
     const QString title =
         QStringLiteral("Coder Secure - %1").arg(appName.isEmpty() ? command : appName);
@@ -188,18 +193,30 @@ void DlpCompositorManager::stopAll() {
 }
 
 void DlpCompositorManager::updatePolicy(bool clipboardBlockOutgoing, bool clipboardBlockIncoming,
-                                        bool screenshotBlock, bool fileSandbox,
-                                        bool networkSandbox) {
+                                        bool screenshotBlock, bool fileSandbox, bool networkSandbox,
+                                        bool watermarkEnabled) {
     m_currentPolicy.clipboard_block_outgoing = clipboardBlockOutgoing;
     m_currentPolicy.clipboard_block_incoming = clipboardBlockIncoming;
     m_currentPolicy.screenshot_block = screenshotBlock;
     m_currentPolicy.file_sandbox = fileSandbox;
     m_currentPolicy.network_sandbox = networkSandbox;
+    m_currentPolicy.watermark_enabled = watermarkEnabled;
 
     // Apply to all active compositors.
     for (const auto& app : m_apps) {
         if (app->compositor) {
             coder_dlp_set_policy(app->compositor, &m_currentPolicy);
+        }
+    }
+}
+
+void DlpCompositorManager::setWatermarkIdentity(const QString& identity) {
+    m_watermarkIdentity = identity.toUtf8();
+
+    // Apply to all active compositors.
+    for (const auto& app : m_apps) {
+        if (app->compositor) {
+            coder_dlp_set_watermark_identity(app->compositor, m_watermarkIdentity.constData());
         }
     }
 }

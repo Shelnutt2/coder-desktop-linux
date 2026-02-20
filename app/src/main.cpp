@@ -275,9 +275,21 @@ int main(int argc, char* argv[]) {
                                        settingsManager.dlpClipboardBlock(),  // both directions
                                        true,  // screenshot always blocked
                                        settingsManager.dlpFileSandbox(),
-                                       settingsManager.dlpNetworkSandbox());
+                                       settingsManager.dlpNetworkSandbox(),
+                                       settingsManager.dlpWatermark());
         }
     });
+
+    // Wire auth state changes to update watermark identity.
+    auto updateWatermarkIdentity = [&]() {
+        if (sessionManager.isAuthenticated()) {
+            const QString identity = QStringLiteral("%1@%2").arg(sessionManager.currentUsername(),
+                                                                 sessionManager.currentUrl());
+            dlpCompositor.setWatermarkIdentity(identity);
+        }
+    };
+    QObject::connect(&sessionManager, &SessionManager::authStateChanged, updateWatermarkIdentity);
+    updateWatermarkIdentity();  // apply immediately if already authenticated
 #endif
 
     // ---- QML engine ----
