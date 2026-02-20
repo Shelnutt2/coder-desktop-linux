@@ -123,7 +123,14 @@ int coder_dlp_get_client_count(const coder_dlp_compositor* comp) {
     return comp ? comp->client_count : 0;
 }
 void coder_dlp_set_output_title(coder_dlp_compositor* comp, const char* title) {
-    if (!comp || !comp->output || !title) {
+    if (!comp || !title) {
+        return;
+    }
+    /* Store for later use (e.g. if output isn't created yet). */
+    free(comp->output_title);
+    comp->output_title = strdup(title);
+
+    if (!comp->output) {
         return;
     }
     if (wlr_backend_is_wl(comp->backend)) {
@@ -436,6 +443,8 @@ void coder_dlp_destroy(coder_dlp_compositor* comp) {
     if (comp->cursor) {
         wlr_cursor_destroy(comp->cursor);
     }
+
+    free(comp->output_title);
 
     /* Finally destroy display */
     if (comp->wl_display) {

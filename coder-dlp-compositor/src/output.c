@@ -5,8 +5,14 @@
 
 #include "watermark.h"
 
+#include <wlr/backend/wayland.h>
+#include <wlr/config.h>
 #include <wlr/render/allocator.h>
 #include <wlr/types/wlr_cursor.h>
+
+#if WLR_HAS_X11_BACKEND
+#include <wlr/backend/x11.h>
+#endif
 #include <wlr/types/wlr_output.h>
 #include <wlr/types/wlr_xcursor_manager.h>
 #include <wlr/util/log.h>
@@ -71,6 +77,21 @@ void compositor_handle_new_output(struct wl_listener* listener, void* data) {
 
     /* Only handle one output for the nested compositor */
     comp->output = output;
+
+    /* Apply stored window title before the first commit.
+     * For Wayland backend, the title must be set before commit;
+     * for X11 backend, it can be set at any time but setting it
+     * early avoids a flash of an untitled window. */
+    if (comp->output_title) {
+        if (wlr_backend_is_wl(comp->backend)) {
+            wlr_wl_output_set_title(output, comp->output_title);
+        }
+#if WLR_HAS_X11_BACKEND
+        else if (wlr_backend_is_x11(comp->backend)) {
+            wlr_x11_output_set_title(output, comp->output_title);
+        }
+#endif
+    }
 
     /* wlroots 0.19 requires render initialization before the output can
      * produce frames.  Without this call the output stays blank. */

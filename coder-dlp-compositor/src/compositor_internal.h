@@ -175,6 +175,9 @@ struct coder_dlp_compositor {
     /* Socket name for client connections */
     const char* socket;
 
+    /* Window title for the compositor output */
+    char* output_title;
+
     /* Watermark */
     struct dlp_watermark_state watermark;
 
