@@ -203,6 +203,13 @@ Item {
                             color: settingsManager.dlpWatermark ? CoderTheme.success : CoderTheme.textSecondary
                         }
 
+                        Label { text: "D-Bus filter:"; color: CoderTheme.textPrimary }
+                        Label {
+                            text: settingsManager.dlpDbusFilter ? "Enabled" : "Disabled"
+                            font.bold: true
+                            color: settingsManager.dlpDbusFilter ? CoderTheme.success : CoderTheme.textSecondary
+                        }
+
                         Label { text: "In-app browser:"; color: CoderTheme.textPrimary }
                         Label {
                             text: settingsManager.dlpForceInAppBrowser ? "Forced" : "Optional"
@@ -663,7 +670,8 @@ Item {
                                 customNetCheck.checked,
                                 customFsCheck.checked,
                                 false,
-                                []
+                                [],
+                                settingsManager.dlpDbusFilter
                             );
                             commandField.text = "";
                         }
@@ -684,7 +692,7 @@ Item {
     LaunchDialog {
         id: launchDialog
         onLaunchRequested: function(command, appName, workspacePath, pid, ipc, net, fs, homeRw) {
-            dlpCompositor.launchApp(command, appName, workspacePath, pid, ipc, net, fs, homeRw, []);
+            dlpCompositor.launchApp(command, appName, workspacePath, pid, ipc, net, fs, homeRw, [], settingsManager.dlpDbusFilter);
         }
     }
 
