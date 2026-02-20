@@ -65,7 +65,7 @@ static void test_bwrap_args_basic(void) {
     assert(comp != NULL);
     comp->socket = "wayland-test";
 
-    char** argv = dlp_build_bwrap_args(comp, "echo hello", NULL);
+    char** argv = dlp_build_bwrap_args(comp, "echo hello", NULL, NULL);
     assert(argv != NULL);
 
     /* First arg must be "bwrap" */
@@ -112,7 +112,7 @@ static void test_bwrap_args_sandbox_options(void) {
     sandbox.isolate_ipc = true;
     sandbox.network_namespace = "vpn0";
 
-    char** argv = dlp_build_bwrap_args(comp, "ls", &sandbox);
+    char** argv = dlp_build_bwrap_args(comp, "ls", &sandbox, NULL);
     assert(argv != NULL);
 
     int found_bind_ws = 0, found_pid = 0, found_ipc = 0, found_net = 0;
@@ -146,7 +146,7 @@ static void test_bwrap_args_no_fs_isolation(void) {
     sandbox.workspace_path = "/home/user/workspace";
     sandbox.isolate_filesystem = false;
 
-    char** argv = dlp_build_bwrap_args(comp, "ls", &sandbox);
+    char** argv = dlp_build_bwrap_args(comp, "ls", &sandbox, NULL);
     assert(argv != NULL);
 
     int found_rw_bind_root = 0;
@@ -187,7 +187,7 @@ static void test_bwrap_args_bind_home_rw(void) {
         sandbox.isolate_filesystem = true;
         sandbox.bind_home_rw = false;
 
-        char** argv = dlp_build_bwrap_args(comp, "echo hi", &sandbox);
+        char** argv = dlp_build_bwrap_args(comp, "echo hi", &sandbox, NULL);
         assert(argv != NULL);
 
         int found_ro_bind_root = 0, found_tmpfs_home = 0, found_bind_home = 0;
@@ -215,7 +215,7 @@ static void test_bwrap_args_bind_home_rw(void) {
         sandbox.isolate_filesystem = true;
         sandbox.bind_home_rw = true;
 
-        char** argv = dlp_build_bwrap_args(comp, "echo hi", &sandbox);
+        char** argv = dlp_build_bwrap_args(comp, "echo hi", &sandbox, NULL);
         assert(argv != NULL);
 
         int found_ro_bind_root = 0, found_tmpfs_home = 0, found_bind_home = 0;
@@ -253,7 +253,7 @@ static void test_bwrap_args_extra_bind_paths(void) {
     sandbox.extra_bind_paths = extra_paths;
     sandbox.extra_bind_count = 2;
 
-    char** argv = dlp_build_bwrap_args(comp, "ls", &sandbox);
+    char** argv = dlp_build_bwrap_args(comp, "ls", &sandbox, NULL);
     assert(argv != NULL);
 
     int found_opt = 0, found_data = 0;
@@ -283,7 +283,7 @@ static void test_bwrap_args_extra_bind_paths_null(void) {
     sandbox.extra_bind_paths = NULL;
     sandbox.extra_bind_count = 0;
 
-    char** argv = dlp_build_bwrap_args(comp, "ls", &sandbox);
+    char** argv = dlp_build_bwrap_args(comp, "ls", &sandbox, NULL);
     assert(argv != NULL);
 
     /* Must contain at least "bwrap" and the command */
@@ -296,17 +296,87 @@ static void test_bwrap_args_extra_bind_paths_null(void) {
 
 static void test_bwrap_args_null_returns_null(void) {
     /* NULL comp or command must return NULL. */
-    assert(dlp_build_bwrap_args(NULL, "echo", NULL) == NULL);
+    assert(dlp_build_bwrap_args(NULL, "echo", NULL, NULL) == NULL);
 
     coder_dlp_compositor* comp = calloc(1, sizeof(*comp));
     assert(comp != NULL);
-    assert(dlp_build_bwrap_args(comp, NULL, NULL) == NULL);
+    assert(dlp_build_bwrap_args(comp, NULL, NULL, NULL) == NULL);
     free(comp);
 
     /* dlp_free_bwrap_args(NULL) must not crash */
     dlp_free_bwrap_args(NULL);
 
     printf("test_bwrap_args_null_returns_null: PASSED\n");
+}
+
+static void test_bwrap_args_dbus_proxy_socket(void) {
+    /* When a proxy socket path is provided, bwrap args should bind it to the
+     * standard XDG_RUNTIME_DIR/bus path instead of the real bus socket. */
+    setenv("XDG_RUNTIME_DIR", "/run/user/1000", 1);
+
+    coder_dlp_compositor* comp = calloc(1, sizeof(*comp));
+    assert(comp != NULL);
+    comp->socket = "wayland-test";
+
+    char** argv = dlp_build_bwrap_args(comp, "echo hi", NULL, "/tmp/coder-dlp-dbus-proxy");
+    assert(argv != NULL);
+
+    int found_proxy_bind = 0;
+    int found_dbus_env = 0;
+    for (int i = 0; argv[i]; i++) {
+        /* Check that the proxy socket is bound to the standard bus path */
+        if (strcmp(argv[i], "--bind") == 0 && argv[i + 1] &&
+            strcmp(argv[i + 1], "/tmp/coder-dlp-dbus-proxy") == 0 && argv[i + 2] &&
+            strcmp(argv[i + 2], "/run/user/1000/bus") == 0)
+            found_proxy_bind = 1;
+        /* Check DBUS_SESSION_BUS_ADDRESS points to the standard path */
+        if (strcmp(argv[i], "DBUS_SESSION_BUS_ADDRESS") == 0 && i > 0 &&
+            strcmp(argv[i - 1], "--setenv") == 0 && argv[i + 1] &&
+            strcmp(argv[i + 1], "unix:path=/run/user/1000/bus") == 0)
+            found_dbus_env = 1;
+    }
+    assert(found_proxy_bind);
+    assert(found_dbus_env);
+
+    dlp_free_bwrap_args(argv);
+    free(comp);
+    printf("test_bwrap_args_dbus_proxy_socket: PASSED\n");
+}
+
+static void test_bwrap_args_dbus_filter_config(void) {
+    /* Verify that filter_dbus in sandbox config doesn't affect bwrap args
+     * directly — it only controls whether the proxy is started in
+     * coder_dlp_launch_app().  dlp_build_bwrap_args() uses the proxy socket
+     * parameter.  With proxy_socket=NULL, behavior is identical to unfiltered. */
+    setenv("XDG_RUNTIME_DIR", "/run/user/1000", 1);
+
+    coder_dlp_compositor* comp = calloc(1, sizeof(*comp));
+    assert(comp != NULL);
+    comp->socket = "wayland-test";
+
+    coder_dlp_sandbox_config sandbox;
+    memset(&sandbox, 0, sizeof(sandbox));
+    sandbox.filter_dbus = true;
+    sandbox.dbus_talk_names = NULL;
+    sandbox.dbus_talk_count = 0;
+
+    /* With proxy_socket=NULL, even though filter_dbus is set, bwrap args
+     * should fall through to the unfiltered code path. */
+    char** argv = dlp_build_bwrap_args(comp, "echo hi", &sandbox, NULL);
+    assert(argv != NULL);
+
+    /* Should NOT have a proxy socket bind */
+    int found_proxy_bind = 0;
+    for (int i = 0; argv[i]; i++) {
+        if (strcmp(argv[i], "--bind") == 0 && argv[i + 1] &&
+            strstr(argv[i + 1], "coder-dlp-dbus") != NULL)
+            found_proxy_bind = 1;
+    }
+    assert(!found_proxy_bind);
+
+    dlp_free_bwrap_args(argv);
+    free(comp);
+    printf("test_bwrap_args_dbus_filter_config: PASSED\n");
 }
 
 int main(void) {
@@ -320,6 +390,8 @@ int main(void) {
     test_bwrap_args_extra_bind_paths();
     test_bwrap_args_extra_bind_paths_null();
     test_bwrap_args_null_returns_null();
+    test_bwrap_args_dbus_proxy_socket();
+    test_bwrap_args_dbus_filter_config();
     printf("All tests passed.\n");
     return 0;
 }

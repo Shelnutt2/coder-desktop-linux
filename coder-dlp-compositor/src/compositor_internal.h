@@ -4,6 +4,8 @@
 #include "coder_dlp.h"
 #include "watermark.h"
 
+#include <sys/types.h> /* pid_t */
+
 #include <wayland-server-core.h>
 #include <wlr/backend.h>
 #include <wlr/render/allocator.h>
@@ -59,6 +61,12 @@ struct coder_dlp_xwayland_surface {
     struct wl_listener set_class;
 
     struct wl_list link; /* coder_dlp_compositor.xwayland_surfaces */
+};
+
+struct dlp_dbus_proxy {
+    pid_t pid;
+    int pipe_write_fd;     /* close this to signal proxy to exit */
+    char socket_path[256]; /* proxy socket path */
 };
 
 struct coder_dlp_compositor {
@@ -154,6 +162,11 @@ struct coder_dlp_compositor {
 
     /* Watermark */
     struct dlp_watermark_state watermark;
+
+    /* D-Bus proxy tracking */
+    struct dlp_dbus_proxy* dbus_proxies;
+    int dbus_proxy_count;
+    int dbus_proxy_capacity;
 };
 
 /* Clipboard mediation (clipboard.c) */
@@ -164,8 +177,12 @@ void dlp_security_context_init(struct coder_dlp_compositor* comp);
 
 /* Sandbox launcher helpers (sandbox_launcher.c) — exposed for testing */
 char** dlp_build_bwrap_args(const struct coder_dlp_compositor* comp, const char* command,
-                            const struct coder_dlp_sandbox_config* sandbox);
+                            const struct coder_dlp_sandbox_config* sandbox,
+                            const char* dbus_proxy_socket);
 void dlp_free_bwrap_args(char** argv);
+
+/* D-Bus proxy lifecycle (sandbox_launcher.c) */
+void dlp_cleanup_dbus_proxies(struct coder_dlp_compositor* comp);
 
 /* Output event handlers (output.c) */
 void compositor_handle_new_output(struct wl_listener* listener, void* data);
