@@ -1,5 +1,6 @@
 #include <QDir>
 #include <QFile>
+#include <QJsonArray>
 #include <QJsonDocument>
 #include <QJsonObject>
 #include <QSignalSpy>
@@ -315,6 +316,64 @@ private slots:
             QCOMPARE(mgr.mdmEnabled(), false);
             QCOMPARE(mgr.notificationsEnabled(), true);
         }
+    }
+
+    // -----------------------------------------------------------------
+    // 9. dlpDbusAllowedNames — default (empty list)
+    // -----------------------------------------------------------------
+    void testDlpDbusAllowedNamesDefault() {
+        QTemporaryDir tmpDir;
+        QVERIFY(tmpDir.isValid());
+
+        SettingsManager mgr(tmpDir.filePath(QStringLiteral("no-such-policy.json")),
+                            userSettingsPath(tmpDir));
+
+        QCOMPARE(mgr.dlpDbusAllowedNames(), QStringList());
+        QCOMPARE(mgr.dlpDbusAllowedNamesLocked(), false);
+    }
+
+    // -----------------------------------------------------------------
+    // 10. dlpDbusAllowedNames — MDM policy with locked list
+    // -----------------------------------------------------------------
+    void testDlpDbusAllowedNamesMdmPolicy() {
+        QTemporaryDir tmpDir;
+        QVERIFY(tmpDir.isValid());
+
+        QJsonObject allowedNames;
+        allowedNames[QStringLiteral("value")] =
+            QJsonArray({QStringLiteral("org.freedesktop.Notifications"),
+                        QStringLiteral("org.example.Custom")});
+        allowedNames[QStringLiteral("locked")] = true;
+
+        QJsonObject settings;
+        settings[QStringLiteral("dlpDbusAllowedNames")] = allowedNames;
+
+        const QString policyPath = writePolicyFile(tmpDir, settings);
+        SettingsManager mgr(policyPath, userSettingsPath(tmpDir));
+
+        const QStringList expected = {QStringLiteral("org.freedesktop.Notifications"),
+                                      QStringLiteral("org.example.Custom")};
+        QCOMPARE(mgr.dlpDbusAllowedNames(), expected);
+        QCOMPARE(mgr.dlpDbusAllowedNamesLocked(), true);
+    }
+
+    // -----------------------------------------------------------------
+    // 11. dlpDbusAllowedNames — explicitly empty array in MDM
+    // -----------------------------------------------------------------
+    void testDlpDbusAllowedNamesEmptyList() {
+        QTemporaryDir tmpDir;
+        QVERIFY(tmpDir.isValid());
+
+        QJsonObject allowedNames;
+        allowedNames[QStringLiteral("value")] = QJsonArray();
+
+        QJsonObject settings;
+        settings[QStringLiteral("dlpDbusAllowedNames")] = allowedNames;
+
+        const QString policyPath = writePolicyFile(tmpDir, settings);
+        SettingsManager mgr(policyPath, userSettingsPath(tmpDir));
+
+        QCOMPARE(mgr.dlpDbusAllowedNames(), QStringList());
     }
 };
 
