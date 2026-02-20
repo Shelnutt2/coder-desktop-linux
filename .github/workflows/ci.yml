@@ -36,8 +36,12 @@ jobs:
             -exec clang-format-21 --dry-run --Werror {} +
 
   build-and-test:
-    name: Build & Test
+    name: Build & Test (${{ matrix.xwayland && 'xwayland' || 'no-xwayland' }})
     runs-on: ubuntu-24.04
+    strategy:
+      fail-fast: false
+      matrix:
+        xwayland: [true, false]
     steps:
       - uses: actions/checkout@v4
 
@@ -98,7 +102,8 @@ jobs:
         run: |
           git clone --depth 1 --branch ${{ env.WLROOTS_VERSION }} https://gitlab.freedesktop.org/wlroots/wlroots.git /tmp/wlroots
           cd /tmp/wlroots
-          meson setup build --prefix=/usr --buildtype=release -Dxwayland=disabled --wrap-mode=default
+          XWAYLAND_OPT=${{ matrix.xwayland && 'enabled' || 'disabled' }}
+          meson setup build --prefix=/usr --buildtype=release -Dxwayland=$XWAYLAND_OPT --wrap-mode=default
           ninja -C build
           sudo ninja -C build install
           sudo ldconfig
@@ -106,7 +111,7 @@ jobs:
       - name: Set up ccache
         uses: hendrikmuhs/ccache-action@v1
         with:
-          key: build-ubuntu-24.04
+          key: build-ubuntu-24.04-xwayland-${{ matrix.xwayland }}
 
       - name: CMake configure
         run: |
