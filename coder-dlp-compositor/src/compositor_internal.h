@@ -67,6 +67,7 @@ struct dlp_dbus_proxy {
     pid_t pid;
     int pipe_write_fd;     /* close this to signal proxy to exit */
     char socket_path[256]; /* proxy socket path */
+    char dir_path[256];    /* directory containing socket, for cleanup */
 };
 
 struct coder_dlp_compositor {
