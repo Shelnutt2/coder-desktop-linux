@@ -489,19 +489,16 @@ char** dlp_build_bwrap_args(const coder_dlp_compositor* comp, const char* comman
         PUSH(x11_socket);
         PUSH(x11_socket);
 
-        /* Disable DRI3 for X11 clients going through Xwayland.
-         * Xwayland's DRI3/DMA-BUF GPU path can produce garbled output
-         * (black window with random colours) when buffer formats/modifiers
-         * from the client's GPU context are incompatible with the nested
-         * compositor's renderer (common with Chromium/Electron apps like
-         * VS Code).  Disabling DRI3 forces the DRI2 fallback, which goes
-         * through X11 pixmaps that Xwayland converts to wl_shm buffers —
-         * universally compatible.  Unlike LIBGL_ALWAYS_SOFTWARE, this
-         * preserves GPU rasterisation in the client (only the buffer
-         * transport changes).  The compositor itself still uses GPU
-         * compositing, and native Wayland clients are unaffected. */
+        /* When both DISPLAY and WAYLAND_DISPLAY are set, nudge Electron
+         * and Firefox to prefer native Wayland over X11.  This avoids
+         * Xwayland's DMA-BUF path entirely for apps that support Wayland
+         * natively.  In the no-Xwayland branch there is no DISPLAY, so
+         * these hints are redundant. */
         PUSH("--setenv");
-        PUSH("LIBGL_DRI3_DISABLE");
+        PUSH("ELECTRON_OZONE_PLATFORM_HINT");
+        PUSH("wayland");
+        PUSH("--setenv");
+        PUSH("MOZ_ENABLE_WAYLAND");
         PUSH("1");
 
         /* With Xwayland available, don't force Wayland backends.
@@ -527,14 +524,6 @@ char** dlp_build_bwrap_args(const coder_dlp_compositor* comp, const char* comman
      * namespace.  Disable it since bwrap already provides sandboxing. */
     PUSH("--setenv");
     PUSH("ELECTRON_NO_SANDBOX");
-    PUSH("1");
-
-    /* These hints are always useful regardless of Xwayland availability */
-    PUSH("--setenv");
-    PUSH("ELECTRON_OZONE_PLATFORM_HINT");
-    PUSH("wayland");
-    PUSH("--setenv");
-    PUSH("MOZ_ENABLE_WAYLAND");
     PUSH("1");
 
     PUSH("--die-with-parent");
