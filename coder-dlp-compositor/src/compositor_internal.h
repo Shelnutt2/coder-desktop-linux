@@ -14,7 +14,6 @@
 #include <wlr/types/wlr_compositor.h>
 #include <wlr/types/wlr_cursor.h>
 #include <wlr/types/wlr_data_device.h>
-#include <wlr/types/wlr_linux_dmabuf_v1.h>
 #include <wlr/types/wlr_output.h>
 #include <wlr/types/wlr_output_layout.h>
 #include <wlr/types/wlr_scene.h>
@@ -109,7 +108,6 @@ struct coder_dlp_compositor {
     struct wlr_scene_output_layout* scene_layout;
     struct wlr_xdg_shell* xdg_shell;
     struct wlr_data_device_manager* data_device_mgr;
-    struct wlr_linux_dmabuf_v1* linux_dmabuf;
 
     /* Output */
     struct wlr_output* output;
