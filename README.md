@@ -12,7 +12,7 @@ A native Linux desktop application for managing [Coder](https://coder.com) remot
 - **VPN Connectivity** — Seamless Tailscale/WireGuard tunnels to your Coder workspaces with DNS-based routing. Connect, disconnect, and monitor status from the system tray.
 - **Workspace Management** — Browse, start, stop, and monitor workspaces across one or more Coder deployments. View build logs and workspace agents in real time.
 - **AI Task Monitoring** — Track AI-powered coding tasks running inside your workspaces with live status updates.
-- **Data Loss Prevention (DLP)** — Optional Wayland compositor sandbox that enforces clipboard, screenshot, and file-access policies on workspace applications. Managed via MDM or user settings.
+- **Data Loss Prevention (DLP)** — Nested compositor sandbox that enforces clipboard, screenshot, and file-access policies on workspace applications. Works on both Wayland and X11 host desktops. Supports native Wayland apps and X11 apps (via Xwayland). Includes steganographic watermarking and D-Bus filtering. Managed via MDM or user settings.
 - **File Sync** — Bidirectional file synchronization between local and workspace directories, powered by [Mutagen](https://mutagen.io/). Create persistent sync sessions that survive app restarts.
 - **File Browser** — Graphical file explorer for workspace directories with breadcrumb navigation, upload, and download support. Transfers run over SCP through the VPN tunnel.
 - **DLP-Aware File Transfers** — File sync and transfers respect Data Loss Prevention policies. Administrators can restrict uploads, downloads, or both via MDM settings.
@@ -35,9 +35,11 @@ A native Linux desktop application for managing [Coder](https://coder.com) remot
 | Mutagen | ≥ 0.18.1 | File Sync | Bidirectional file synchronization engine (auto-fetched with `-DFETCH_MUTAGEN=ON`) |
 | libsecret | — | Recommended | Credential storage (GNOME Keyring / KWallet) |
 | bubblewrap | — | DLP only | Sandbox launcher for file/network isolation |
+| xdg-dbus-proxy | — | DLP only | D-Bus session bus filtering in sandbox |
+| xcb, xcb-ewmh, xcb-icccm | — | DLP + X11 | Required for Xwayland support in DLP compositor |
 | pkg-config | — | ✅ | Dependency resolution for C libraries |
 
-> **Wayland note:** DLP features require a Wayland session. On X11 sessions, the application runs normally but DLP enforcement is unavailable (X11 cannot enforce clipboard/screenshot restrictions due to its security model). The app gracefully degrades — all non-DLP features work everywhere.
+> **Desktop compatibility:** DLP works on both Wayland and X11 host desktops. On Wayland hosts, the compositor runs as a nested Wayland client with full security enforcement. On X11 hosts, it runs inside a host X11 window using the wlroots X11 backend — clipboard and screenshot policies are enforced within the sandbox, though the host X11 session cannot provide the same isolation guarantees as Wayland (the UI indicates this with a yellow security badge vs. green on Wayland).
 
 ## Quick Install
 
@@ -80,7 +82,8 @@ chmod +x Coder_Desktop-0.1.0-x86_64.AppImage
 sudo apt install build-essential cmake golang-go \
     qt6-base-dev qt6-declarative-dev qt6-webengine-dev \
     libwlroots-dev libwayland-dev libxkbcommon-dev \
-    libsecret-1-dev bubblewrap pkg-config
+    libxcb-ewmh-dev libxcb-icccm4-dev \
+    libsecret-1-dev bubblewrap xdg-dbus-proxy pkg-config
 ```
 
 </details>
@@ -91,7 +94,8 @@ sudo apt install build-essential cmake golang-go \
 ```bash
 sudo dnf install cmake golang qt6-qtbase-devel qt6-qtdeclarative-devel \
     qt6-qtwebengine-devel wlroots-devel wayland-devel libxkbcommon-devel \
-    libsecret-devel bubblewrap pkg-config
+    xcb-util-wm-devel \
+    libsecret-devel bubblewrap xdg-dbus-proxy pkg-config
 ```
 
 </details>
@@ -129,7 +133,9 @@ For the full architecture reference, see [`docs/architecture.md`](docs/architect
 graph TD
     APP["coder-desktop<br/><i>Qt 6 / C++20 — runs as user</i>"]
     HELPER["coder-desktop-helper<br/><i>Go — runs as root</i>"]
-    DLP["libcoderdlp.so<br/><i>C / wlroots</i>"]
+    DLP["libcoderdlp.so<br/><i>C / wlroots — Wayland or X11 backend</i>"]
+    XWL["Xwayland<br/><i>X11 compat layer</i>"]
+    SANDBOX["bubblewrap + xdg-dbus-proxy<br/><i>App sandbox</i>"]
     API["Coder Deployment<br/><i>REST API</i>"]
     DBUS["D-Bus System Bus<br/><i>com.coder.Desktop.Helper1</i>"]
 
@@ -138,12 +144,16 @@ graph TD
     HELPER -->|"StateChanged / PeerUpdated signals"| DBUS
     DBUS -->|"signals"| APP
     APP -->|dlopen| DLP
+    DLP -->|"spawns"| XWL
+    DLP -->|"launches via"| SANDBOX
     APP -->|HTTPS| API
     HELPER -->|WireGuard tunnel| API
 
     style APP fill:#0969da,color:#fff
     style HELPER fill:#2ea043,color:#fff
     style DLP fill:#8250df,color:#fff
+    style XWL fill:#bf8700,color:#fff
+    style SANDBOX fill:#cf222e,color:#fff
     style API fill:#656d76,color:#fff
     style DBUS fill:#cf222e,color:#fff
 ```
@@ -186,7 +196,16 @@ coder-desktop-linux/
 │       └── sdutil/             # systemd notify wrapper
 ├── coder-dlp-compositor/       # C / wlroots → libcoderdlp.so
 │   ├── include/coder_dlp.h     # Public C API
-│   └── src/                    # Compositor implementation
+│   └── src/
+│       ├── compositor.c        # Core compositor lifecycle
+│       ├── xwayland.c          # Xwayland support for X11 apps
+│       ├── watermark.c         # Steganographic watermarking
+│       ├── sandbox_launcher.c  # bubblewrap + dbus-proxy launcher
+│       ├── input.c             # Keyboard/mouse/touch handling
+│       ├── output.c            # Display output management
+│       ├── shell.c             # XDG shell protocol
+│       ├── clipboard.c         # Clipboard mediation
+│       └── security_context.c  # Wayland security context
 ├── dbus/                       # D-Bus interface XML, bus config, service files
 ├── packaging/                  # deb, rpm, flatpak, AppImage, polkit, systemd
 ├── docs/                       # Architecture and design documents
@@ -226,6 +245,9 @@ API tokens and session credentials are stored via the [Secret Service API](https
 | `dlpFileSandbox` | `false` | Restrict file paths to sandbox-allowed locations |
 | `notificationsEnabled` | `true` | Show desktop notifications |
 | `theme` | `system` | UI theme (`system`, `light`, `dark`) |
+| `dlpWatermarkEnabled` | `false` | Enable steganographic watermarking in DLP sandbox |
+| `dlpDbusFilter` | `false` | Filter D-Bus session bus in DLP sandbox |
+| `dlpDbusAllowedNames` | `[]` | D-Bus service names allowed through the filter (MDM-configurable) |
 
 ## Data Loss Prevention (DLP)
 
@@ -235,18 +257,30 @@ The DLP feature runs workspace applications inside a nested Wayland compositor (
 - **Screenshot prevention** — Prevents screen capture of workspace content
 - **File sandbox** — Restricts file system access via [bubblewrap](https://github.com/containers/bubblewrap)
 - **Network sandbox** — Limits network access to approved endpoints
+- **Xwayland support** — X11-only applications (JetBrains IDEs, legacy GTK2 apps) run inside the sandbox via Xwayland. Native Wayland apps connect directly to the compositor.
+- **Steganographic watermarking** — Invisible per-frame watermarks encode a user identity fingerprint into rendered output for forensic tracing of screenshots
+- **D-Bus filtering** — Session bus access inside the sandbox is filtered through `xdg-dbus-proxy`, restricting which D-Bus services sandboxed apps can talk to
+- **X11 host support** — The compositor runs on X11 desktops (not just Wayland) using the wlroots X11 backend, with a security level indicator showing the protection tier
 
 ### Requirements
 
-- **Wayland session** — DLP requires a Wayland compositor (GNOME on Wayland, KDE Plasma on Wayland, Sway, etc.)
+- **Wayland or X11 session** — DLP works on both Wayland and X11 host desktops
 - **wlroots ≥ 0.19** — Build dependency for the compositor
 - **bubblewrap** — Runtime dependency for file/network sandboxing
+- **xdg-dbus-proxy** — Runtime dependency for D-Bus session bus filtering
 
-### X11 Graceful Degradation
+### X11 Host Support
 
-On X11 sessions, DLP features are automatically disabled. The application detects the session type at startup and hides DLP-related UI elements. All other features (VPN, workspace management, settings) work normally.
+The DLP compositor supports both Wayland and X11 host desktops:
 
-> **Why not X11?** The X11 protocol allows any client to read any other client's windows and input. This makes clipboard isolation and screenshot prevention fundamentally impossible to enforce. Wayland's security model provides the per-client isolation required for DLP.
+| Host Session | Backend | Security Level | Notes |
+|-------------|---------|---------------|-------|
+| **Wayland** | wlroots Wayland backend | 🟢 Full | Clipboard/screenshot isolation enforced by Wayland protocol |
+| **X11** | wlroots X11 backend | 🟡 Reduced | Policies enforced within sandbox; host X11 cannot prevent external screen capture |
+
+On X11 hosts, the compositor opens as a regular X11 window. Sandboxed applications inside it are still isolated from each other and from host clipboard/screenshots *within the compositor's scope*. However, the host X11 session does not provide per-client isolation, so a screen capture tool running on the host could still capture the compositor window. The Qt app displays a security level indicator (green for Wayland, yellow for X11) so users and administrators understand the protection tier.
+
+> **When is DLP truly unavailable?** Only when neither Wayland nor X11 is available (e.g., headless/TTY-only environments). In this case, DLP UI elements are hidden and all other features work normally.
 
 ## Contributing
 
