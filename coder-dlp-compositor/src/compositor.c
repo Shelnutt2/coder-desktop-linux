@@ -270,7 +270,7 @@ coder_dlp_compositor* coder_dlp_create(void* parent_wl_surface, coder_dlp_log_le
     /* Security context protocol */
     dlp_security_context_init(comp);
 
-#if WLR_HAS_X11_BACKEND
+#if WLR_HAS_XWAYLAND
     /* Xwayland support for X11 apps */
     dlp_xwayland_init(comp);
 #endif
@@ -383,7 +383,7 @@ void coder_dlp_destroy(coder_dlp_compositor* comp) {
     /* D-Bus proxy cleanup */
     dlp_cleanup_dbus_proxies(comp);
 
-#if WLR_HAS_X11_BACKEND
+#if WLR_HAS_XWAYLAND
     /* Xwayland cleanup */
     dlp_xwayland_destroy(comp);
 #endif
@@ -489,7 +489,7 @@ void coder_dlp_set_watermark_identity(coder_dlp_compositor* comp, const char* id
     dlp_watermark_set_identity(&comp->watermark, identity);
 }
 
-#if !WLR_HAS_X11_BACKEND
+#if !WLR_HAS_XWAYLAND
 const char* coder_dlp_get_xwayland_display(const coder_dlp_compositor* comp) {
     (void)comp;
     return NULL;

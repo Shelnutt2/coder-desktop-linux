@@ -11,8 +11,11 @@ pkg_check_modules(XKBCOMMON REQUIRED xkbcommon)
 include(CheckSymbolExists)
 set(CMAKE_REQUIRED_INCLUDES ${WLROOTS_INCLUDE_DIRS})
 check_symbol_exists(WLR_HAS_X11_BACKEND "wlr/config.h" HAS_X11_BACKEND)
+check_symbol_exists(WLR_HAS_XWAYLAND "wlr/config.h" HAS_XWAYLAND)
 if(HAS_X11_BACKEND)
     pkg_check_modules(XCB REQUIRED xcb)
+endif()
+if(HAS_XWAYLAND)
     # Xwayland support — xcb-ewmh and xcb-icccm are needed by wlr/xwayland/xwayland.h
     pkg_check_modules(XCB_EWMH REQUIRED xcb-ewmh)
     pkg_check_modules(XCB_ICCCM REQUIRED xcb-icccm)
@@ -51,7 +54,7 @@ set(CODERDLP_SOURCES
     src/input.c
     src/watermark.c
 )
-if(HAS_X11_BACKEND)
+if(HAS_XWAYLAND)
     list(APPEND CODERDLP_SOURCES src/xwayland.c)
 endif()
 

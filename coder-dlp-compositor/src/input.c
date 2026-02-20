@@ -5,6 +5,8 @@
 #include <wlr/config.h>
 #if WLR_HAS_X11_BACKEND
 #include <wlr/backend/x11.h>
+#endif
+#if WLR_HAS_XWAYLAND
 #include <wlr/xwayland/xwayland.h>
 #endif
 #include <wlr/types/wlr_cursor.h>
@@ -164,7 +166,7 @@ void handle_cursor_button(struct wl_listener* listener, void* data) {
                     if (prev) {
                         wlr_xdg_toplevel_set_activated(prev, false);
                     }
-#if WLR_HAS_X11_BACKEND
+#if WLR_HAS_XWAYLAND
                     else {
                         struct wlr_xwayland_surface* prev_xsurface =
                             wlr_xwayland_surface_try_from_wlr_surface(prev_surface);
@@ -186,7 +188,7 @@ void handle_cursor_button(struct wl_listener* listener, void* data) {
                             keyboard->num_keycodes, &keyboard->modifiers);
                     }
                 }
-#if WLR_HAS_X11_BACKEND
+#if WLR_HAS_XWAYLAND
                 else if (*type == DLP_SURFACE_XWAYLAND) {
                     struct coder_dlp_xwayland_surface* xsurf = tree->node.data;
                     wlr_scene_node_raise_to_top(&xsurf->scene_tree->node);
@@ -271,7 +273,7 @@ static void touch_focus_at(struct coder_dlp_compositor* comp, double lx, double 
             if (prev) {
                 wlr_xdg_toplevel_set_activated(prev, false);
             }
-#if WLR_HAS_X11_BACKEND
+#if WLR_HAS_XWAYLAND
             else {
                 struct wlr_xwayland_surface* prev_xsurface =
                     wlr_xwayland_surface_try_from_wlr_surface(prev_surface);
@@ -293,7 +295,7 @@ static void touch_focus_at(struct coder_dlp_compositor* comp, double lx, double 
                                                &keyboard->modifiers);
             }
         }
-#if WLR_HAS_X11_BACKEND
+#if WLR_HAS_XWAYLAND
         else if (*type == DLP_SURFACE_XWAYLAND) {
             struct coder_dlp_xwayland_surface* xsurf = tree->node.data;
             wlr_scene_node_raise_to_top(&xsurf->scene_tree->node);
