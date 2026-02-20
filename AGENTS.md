@@ -32,8 +32,18 @@ coder-desktop-linux/
 │       └── sdutil/             # systemd notify wrapper
 ├── coder-dlp-compositor/       # C / wlroots → libcoderdlp.so
 │   ├── CMakeLists.txt
-│   ├── include/coderdlp.h      # Public C API
-│   └── src/                    # Compositor implementation
+│   ├── include/coder_dlp.h     # Public C API
+│   ├── src/
+│   │   ├── compositor.c        # Core compositor lifecycle
+│   │   ├── xwayland.c          # Xwayland support for X11 apps
+│   │   ├── watermark.c/.h      # Steganographic watermarking
+│   │   ├── sandbox_launcher.c  # bubblewrap + xdg-dbus-proxy launcher
+│   │   ├── input.c             # Keyboard/mouse/touch handling
+│   │   ├── output.c            # Display output management
+│   │   ├── shell.c             # XDG shell protocol
+│   │   ├── clipboard.c         # Clipboard mediation
+│   │   └── security_context.c  # Wayland security context
+│   └── tests/                  # Unit tests (test_policy.c)
 ├── app/                        # Qt 6 / C++ → coder-desktop
 │   ├── CMakeLists.txt
 │   ├── src/                    # C++ sources
@@ -180,7 +190,7 @@ cd coder-vpn-linux && go clean ./...
 | Component | Language | Build | Key Dependencies |
 |-----------|----------|-------|------------------|
 | `coder-vpn-linux/` | Go | `go build` | `coder/coder` SDK, `tailscale`, `godbus/dbus/v5` |
-| `coder-dlp-compositor/` | C | CMake / pkg-config | `wlroots 0.19`, `wayland`, `xkbcommon` |
+| `coder-dlp-compositor/` | C | CMake / pkg-config | `wlroots 0.19`, `wayland`, `xkbcommon`, `xcb-ewmh`, `xcb-icccm` (Xwayland), `xdg-dbus-proxy` (D-Bus filtering) |
 | `app/` | C++ / QML | CMake / Qt 6 | Qt 6.5+ (Widgets, Quick, Network, WebEngine), `libsecret` |
 
 ### Data flow
@@ -193,7 +203,12 @@ coder-desktop-helper (Go, runs as root)
 
 coder-desktop (Qt app, runs as user)
   ├── D-Bus → coder-desktop-helper (Start/Stop VPN, receive state signals)
-  ├── dlopen(libcoderdlp.so) → launches nested Wayland compositor
+  ├── dlopen(libcoderdlp.so) → launches nested compositor
+  │     ├── Wayland or X11 backend (auto-detected from host session)
+  │     ├── Xwayland (lazy, for X11 apps inside sandbox)
+  │     ├── bubblewrap sandbox launcher
+  │     ├── xdg-dbus-proxy (filtered D-Bus)
+  │     └── steganographic watermarking
   ├── REST → Coder deployment API
   ├── mutagen CLI subprocess → bidirectional file sync over SSH/VPN
   ├── AgentApiClient → HTTP POST :4/api/v0/list-directory (directory browsing)
@@ -297,6 +312,43 @@ is disabled, upload-only mode. Both disabled hides the File Sync tab entirely
 and makes the file browser read-only. See [`docs/file-sync.md`](docs/file-sync.md)
 for the full enforcement matrix.
 
+### X11 host and Xwayland support
+
+The DLP compositor supports both Wayland and X11 host desktops via wlroots
+backend auto-detection (`wlr_backend_autocreate`). On X11 hosts, it opens as a
+regular X11 window using `wlr_x11_backend`. The `is_x11_backend` flag in the
+compositor struct gates X11-specific behavior (Super key filtering, security
+level reporting).
+
+Xwayland runs in lazy mode — spawned only when an X11 client connects.
+`XWAYLAND_NO_GLAMOR=1` is set via `setenv()` before `wlr_xwayland_create()` to
+disable glamor/DRI3 and avoid DMA-BUF modifier incompatibility. The env var is
+cleaned up in `dlp_xwayland_destroy()`.
+
+### Sandbox process isolation
+
+Fork children (bwrap, xdg-dbus-proxy) call `setpgid(0, 0)` immediately after
+fork to move out of the terminal's foreground process group. This prevents
+Ctrl+C from reaching child processes. The Qt app handles SIGINT/SIGTERM via a
+`socketpair` + `QSocketNotifier` bridge to `QApplication::quit()`, ensuring
+orderly destructor-based cleanup.
+
+### Steganographic watermarking
+
+When `watermark_enabled` is set in the DLP policy, `watermark.c` embeds an
+invisible per-frame watermark into the compositor output. The watermark encodes
+a user identity fingerprint (set via `coder_dlp_set_watermark_identity()`) using
+the full 32-byte identity as PRNG seed. This enables forensic tracing of
+screenshots.
+
+### D-Bus filtering
+
+When `filter_dbus` is enabled in the sandbox config, `sandbox_launcher.c`
+spawns `xdg-dbus-proxy` with a `--talk` allowlist before launching the
+sandboxed app. The proxy socket is bind-mounted into the sandbox, replacing
+the real D-Bus session bus. The `dbus_talk_names` list is configurable via
+the `dlpDbusAllowedNames` MDM setting.
+
 ## Testing
 
 ```bash
@@ -309,8 +361,8 @@ cd coder-vpn-linux && go test ./...
 # File sync tests (22 tests)
 cd build && ctest --test-dir app --output-on-failure -R tst_filesync
 
-# DLP compositor tests (if any)
-cd build && ctest --test-dir coder-dlp-compositor --output-on-failure
+# DLP compositor tests (22 tests)
+cd build && ./coder-dlp-compositor/test_dlp_policy
 ```
 
 ### Testing Patterns
@@ -357,7 +409,7 @@ Use imperative mood in the subject line. Keep the subject under 72 characters.
 
 1. **Do NOT modify `coder/coder`** — The upstream Coder repository is a dependency, not part of this repo. Any VPN/tunnel SDK changes must be proposed upstream.
 
-2. **Do NOT use X11 for DLP** — The DLP compositor MUST use Wayland (wlroots). X11 cannot enforce clipboard/screenshot restrictions because any client can read any other client's windows. This is a fundamental security requirement.
+2. **Do NOT rely on X11 host isolation for DLP security** — The DLP compositor runs on both Wayland and X11 hosts, but X11 cannot enforce clipboard/screenshot restrictions at the host level. On X11 hosts, DLP policies are enforced *within* the compositor sandbox only. The security level indicator shows yellow (reduced) on X11 vs. green (full) on Wayland. Never claim full DLP enforcement on X11 hosts.
 
 3. **Do NOT run the helper as an unprivileged user** — It requires `CAP_NET_ADMIN` for TUN/route management and runs as root via D-Bus activation. Attempting to run it unprivileged will fail to create TUN devices and manage routes.
 
