@@ -82,7 +82,8 @@ public:
                               bool isolateIpc = true, bool isolateNetwork = false,
                               bool isolateFilesystem = false, bool bindHomeRw = false,
                               const QStringList& extraBindPaths = QStringList(),
-                              bool filterDbus = false);
+                              bool filterDbus = false,
+                              const QStringList& dbusAllowedNames = QStringList());
 
     /// Stop a specific app by PID.
     Q_INVOKABLE void stopApp(int pid);

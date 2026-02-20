@@ -692,7 +692,7 @@ Item {
     LaunchDialog {
         id: launchDialog
         onLaunchRequested: function(command, appName, workspacePath, pid, ipc, net, fs, homeRw) {
-            dlpCompositor.launchApp(command, appName, workspacePath, pid, ipc, net, fs, homeRw, [], settingsManager.dlpDbusFilter);
+            dlpCompositor.launchApp(command, appName, workspacePath, pid, ipc, net, fs, homeRw, [], settingsManager.dlpDbusFilter, settingsManager.dlpDbusAllowedNames);
         }
     }
 

@@ -65,7 +65,8 @@ void DlpCompositorManager::setLogLevel(const QString& level) {
 int DlpCompositorManager::launchApp(const QString& command, const QString& appName,
                                     const QString& workspacePath, bool isolatePid, bool isolateIpc,
                                     bool isolateNetwork, bool isolateFilesystem, bool bindHomeRw,
-                                    const QStringList& extraBindPaths, bool filterDbus) {
+                                    const QStringList& extraBindPaths, bool filterDbus,
+                                    const QStringList& dbusAllowedNames) {
     if (!isAvailable()) {
         emit errorOccurred(QStringLiteral("DLP compositor requires a Wayland or X11 session"));
         return -1;
@@ -126,6 +127,17 @@ int DlpCompositorManager::launchApp(const QString& command, const QString& appNa
         bindPathPtrs.isEmpty() ? nullptr : const_cast<const char**>(bindPathPtrs.data());
     sandbox.extra_bind_count = bindPathPtrs.size();
     sandbox.filter_dbus = filterDbus;
+
+    // Convert QStringList → C string array for the sandbox config
+    QList<QByteArray> talkNameBytes;
+    QList<const char*> talkNamePtrs;
+    for (const auto& name : dbusAllowedNames) {
+        talkNameBytes.append(name.toUtf8());
+        talkNamePtrs.append(talkNameBytes.last().constData());
+    }
+    sandbox.dbus_talk_names =
+        talkNamePtrs.isEmpty() ? nullptr : const_cast<const char**>(talkNamePtrs.data());
+    sandbox.dbus_talk_count = talkNamePtrs.size();
 
     const int pid = coder_dlp_launch_app(comp, cmdUtf8.constData(), &sandbox);
     if (pid < 0) {
