@@ -447,17 +447,19 @@ char** dlp_build_bwrap_args(const coder_dlp_compositor* comp, const char* comman
         PUSH(x11_socket);
         PUSH(x11_socket);
 
-        /* Force software rendering for X11 clients going through Xwayland.
+        /* Disable DRI3 for X11 clients going through Xwayland.
          * Xwayland's DRI3/DMA-BUF GPU path can produce garbled output
          * (black window with random colours) when buffer formats/modifiers
          * from the client's GPU context are incompatible with the nested
          * compositor's renderer (common with Chromium/Electron apps like
-         * VS Code).  Forcing the software rasteriser (llvmpipe/swrast)
-         * makes clients use SHM buffers that Xwayland always handles
-         * correctly.  The compositor itself still uses GPU compositing,
-         * and native Wayland clients are unaffected. */
+         * VS Code).  Disabling DRI3 forces the DRI2 fallback, which goes
+         * through X11 pixmaps that Xwayland converts to wl_shm buffers —
+         * universally compatible.  Unlike LIBGL_ALWAYS_SOFTWARE, this
+         * preserves GPU rasterisation in the client (only the buffer
+         * transport changes).  The compositor itself still uses GPU
+         * compositing, and native Wayland clients are unaffected. */
         PUSH("--setenv");
-        PUSH("LIBGL_ALWAYS_SOFTWARE");
+        PUSH("LIBGL_DRI3_DISABLE");
         PUSH("1");
 
         /* With Xwayland available, don't force Wayland backends.
