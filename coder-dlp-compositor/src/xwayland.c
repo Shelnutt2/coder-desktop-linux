@@ -376,6 +376,9 @@ void dlp_xwayland_init(struct coder_dlp_compositor* comp) {
 }
 
 void dlp_xwayland_destroy(struct coder_dlp_compositor* comp) {
+    /* Clean up the environment variable set in dlp_xwayland_init(). */
+    unsetenv("XWAYLAND_NO_GLAMOR");
+
     if (!comp->xwayland) {
         return;
     }

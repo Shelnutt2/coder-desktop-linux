@@ -99,6 +99,10 @@ static int dlp_start_dbus_proxy(struct dlp_dbus_proxy* proxy,
         sigaction(SIGINT, &sa, NULL);
         sigaction(SIGCHLD, &sa, NULL);
 
+        /* Move to own process group so terminal Ctrl+C doesn't kill us.
+         * The compositor manages our lifecycle via the pipe fd. */
+        setpgid(0, 0);
+
         close(pipe_fds[1]); /* close write end */
 
         /* Clear O_CLOEXEC on read end — xdg-dbus-proxy needs it via --fd */
@@ -631,6 +635,10 @@ int coder_dlp_launch_app(coder_dlp_compositor* comp, const char* command,
         sigaction(SIGTERM, &sa, NULL);
         sigaction(SIGINT, &sa, NULL);
         sigaction(SIGCHLD, &sa, NULL);
+
+        /* Move to own process group so terminal Ctrl+C doesn't kill us.
+         * bwrap's --die-with-parent handles cleanup when parent exits. */
+        setpgid(0, 0);
 
         /* Redirect stdout+stderr to a per-PID log file for debugging.
          * O_NOFOLLOW prevents symlink attacks on multi-user systems.
