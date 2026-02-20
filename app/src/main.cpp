@@ -8,6 +8,11 @@
 #include <QQuickStyle>
 #include <QQuickWindow>
 
+#include <QSocketNotifier>
+
+#include <signal.h>
+#include <sys/socket.h>
+#include <unistd.h>
 #include <cstdio>
 
 #include "apps/IconThemeProvider.h"
@@ -43,6 +48,14 @@
 #ifdef HAS_WEBENGINE
 #include <QtWebEngineQuick/qtwebenginequickglobal.h>
 #endif
+
+static int s_sigFd[2];  // socketpair for signal→Qt bridge
+
+static void unixSignalHandler(int /* sig */) {
+    // Async-signal-safe: write a single byte to wake the Qt notifier.
+    char c = 1;
+    (void)write(s_sigFd[0], &c, sizeof(c));
+}
 
 int main(int argc, char* argv[]) {
     // QtWebEngine requires initialization before QApplication is created.
@@ -383,6 +396,28 @@ int main(int argc, char* argv[]) {
     // If already authenticated from a saved session, start polling immediately.
     if (sessionManager.isAuthenticated()) {
         pollingController.start();
+    }
+
+    // Set up graceful shutdown on SIGINT/SIGTERM.
+    // Without this, Ctrl+C in the terminal calls _exit() immediately,
+    // skipping C++ destructors.  DLP compositors need orderly cleanup
+    // (wlr_backend_destroy, Xwayland teardown, GPU resource release)
+    // to avoid destabilizing the host display server.
+    if (socketpair(AF_UNIX, SOCK_STREAM, 0, s_sigFd) == 0) {
+        auto* sigNotifier = new QSocketNotifier(s_sigFd[1], QSocketNotifier::Read, &app);
+        QObject::connect(sigNotifier, &QSocketNotifier::activated, &app, [&]() {
+            char c;
+            (void)read(s_sigFd[1], &c, sizeof(c));
+            qInfo() << "Received termination signal, shutting down gracefully...";
+            QApplication::quit();
+        });
+
+        struct sigaction sa;
+        sa.sa_handler = unixSignalHandler;
+        sigemptyset(&sa.sa_mask);
+        sa.sa_flags = SA_RESTART;
+        sigaction(SIGINT, &sa, nullptr);
+        sigaction(SIGTERM, &sa, nullptr);
     }
 
     return app.exec();
