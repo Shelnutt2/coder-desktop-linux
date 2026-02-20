@@ -164,6 +164,11 @@ struct coder_dlp_compositor {
     /* Watermark */
     struct dlp_watermark_state watermark;
 
+    bool is_x11_backend; /* true when running on X11 host (wlr X11 backend) */
+
+    /* Zombie reaper for D-Bus proxy child processes */
+    struct wl_event_source* reap_timer;
+
     /* D-Bus proxy tracking */
     struct dlp_dbus_proxy* dbus_proxies;
     int dbus_proxy_count;
@@ -184,6 +189,7 @@ void dlp_free_bwrap_args(char** argv);
 
 /* D-Bus proxy lifecycle (sandbox_launcher.c) */
 void dlp_cleanup_dbus_proxies(struct coder_dlp_compositor* comp);
+void dlp_reap_dbus_proxies(struct coder_dlp_compositor* comp);
 
 /* Output event handlers (output.c) */
 void compositor_handle_new_output(struct wl_listener* listener, void* data);
