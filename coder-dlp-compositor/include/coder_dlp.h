@@ -18,6 +18,7 @@ typedef struct coder_dlp_policy {
     bool screenshot_block;         /* always true — we don't expose screencopy */
     bool file_sandbox;             /* enable filesystem sandbox via bwrap */
     bool network_sandbox;          /* force traffic through VPN tunnel */
+    bool watermark_enabled;        /* embed invisible watermark in output frames */
 } coder_dlp_policy;
 
 /* Sandbox config for launched apps */
@@ -68,6 +69,10 @@ void coder_dlp_set_log_callback(coder_dlp_compositor* comp, coder_dlp_log_cb cb,
 /* Surface callback */
 typedef void (*coder_dlp_surface_cb)(coder_dlp_compositor* comp, void* wlr_surface, void* data);
 void coder_dlp_on_new_surface(coder_dlp_compositor* comp, coder_dlp_surface_cb cb, void* data);
+
+/* Watermark — set session identity string for steganographic watermarking.
+ * Only effective when policy.watermark_enabled is true. */
+void coder_dlp_set_watermark_identity(coder_dlp_compositor* comp, const char* identity);
 
 /* Returns the Xwayland DISPLAY string (e.g. ":1") or NULL if not ready. */
 const char* coder_dlp_get_xwayland_display(const coder_dlp_compositor* comp);

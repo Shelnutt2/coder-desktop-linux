@@ -3,6 +3,8 @@
 
 #include <time.h>
 
+#include "watermark.h"
+
 #include <wlr/render/allocator.h>
 #include <wlr/types/wlr_cursor.h>
 #include <wlr/types/wlr_output.h>
@@ -20,8 +22,24 @@ static void handle_output_frame(struct wl_listener* listener, void* data) {
         return;
     }
 
-    if (!wlr_scene_output_commit(scene_output, NULL)) {
-        wlr_log(WLR_DEBUG, "scene output commit failed");
+    if (comp->policy.watermark_enabled && comp->watermark.has_identity) {
+        /* Watermark path: build output state, apply watermark, then commit */
+        struct wlr_output_state state;
+        wlr_output_state_init(&state);
+        if (wlr_scene_output_build_state(scene_output, &state, NULL)) {
+            if (state.buffer) {
+                dlp_watermark_apply(state.buffer, &comp->watermark);
+            }
+            wlr_output_commit_state(comp->output, &state);
+        } else {
+            wlr_log(WLR_DEBUG, "scene output build state failed");
+        }
+        wlr_output_state_finish(&state);
+    } else {
+        /* Fast path: no watermark overhead */
+        if (!wlr_scene_output_commit(scene_output, NULL)) {
+            wlr_log(WLR_DEBUG, "scene output commit failed");
+        }
     }
 
     struct timespec now;
