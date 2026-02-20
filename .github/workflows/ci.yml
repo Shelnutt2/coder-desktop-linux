@@ -87,7 +87,9 @@ jobs:
             libxcb-ewmh-dev \
             libxcb-xinput-dev \
             libxcb-icccm4-dev \
-            libxcb-res0-dev
+            libxcb-res0-dev \
+            libxcb-shm0-dev \
+            xwayland
 
       - name: Build wayland ${{ env.WAYLAND_VERSION }} from source
         run: |
