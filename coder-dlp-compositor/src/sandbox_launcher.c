@@ -16,12 +16,155 @@
 #include <sys/wait.h>
 #include <unistd.h>
 
+#include <signal.h>
 #include <wlr/util/log.h>
+
+/* Start xdg-dbus-proxy with filtering.  Returns 0 on success, -1 on failure.
+ * On success, fills in proxy->pid, proxy->pipe_write_fd, proxy->socket_path. */
+static int dlp_start_dbus_proxy(struct dlp_dbus_proxy* proxy,
+                                const coder_dlp_sandbox_config* sandbox) {
+    const char* dbus_addr = getenv("DBUS_SESSION_BUS_ADDRESS");
+    if (!dbus_addr) {
+        wlr_log(WLR_ERROR, "DBUS_SESSION_BUS_ADDRESS not set, cannot start D-Bus proxy");
+        return -1;
+    }
+
+    /* Check xdg-dbus-proxy exists */
+    if (access("/usr/bin/xdg-dbus-proxy", X_OK) != 0) {
+        wlr_log(WLR_ERROR, "xdg-dbus-proxy not found, D-Bus filtering unavailable");
+        return -1;
+    }
+
+    /* Create proxy socket path */
+    snprintf(proxy->socket_path, sizeof(proxy->socket_path), "/tmp/coder-dlp-dbus-XXXXXX");
+    int mkstemp_fd = mkstemp(proxy->socket_path);
+    if (mkstemp_fd < 0) {
+        return -1;
+    }
+    /* mkstemp creates the file; remove it so xdg-dbus-proxy can create its socket */
+    close(mkstemp_fd);
+    unlink(proxy->socket_path);
+
+    /* Create lifecycle pipe — closing the write end signals proxy to exit */
+    int pipe_fds[2];
+    if (pipe(pipe_fds) != 0) {
+        return -1;
+    }
+
+    pid_t pid = fork();
+    if (pid < 0) {
+        close(pipe_fds[0]);
+        close(pipe_fds[1]);
+        return -1;
+    }
+
+    if (pid == 0) {
+        /* Child: exec xdg-dbus-proxy */
+        close(pipe_fds[1]); /* close write end */
+
+        /* Build argv.  Max entries: base(4) + --fd(1) + default allows(~10)
+         * + user talks(talk_count) + NULL */
+        const char* av[64];
+        int ac = 0;
+        av[ac++] = "xdg-dbus-proxy";
+        av[ac++] = dbus_addr;
+        av[ac++] = proxy->socket_path;
+        av[ac++] = "--filter";
+
+        /* --fd=N keeps proxy alive until the pipe is closed */
+        char fd_arg[32];
+        snprintf(fd_arg, sizeof(fd_arg), "--fd=%d", pipe_fds[0]);
+        av[ac++] = fd_arg;
+
+        /* Default safe allowlist — fine-grained portal access */
+        av[ac++] =
+            "--call=org.freedesktop.portal.Desktop="
+            "org.freedesktop.portal.Settings.*@/org/freedesktop/portal/desktop";
+        av[ac++] =
+            "--call=org.freedesktop.portal.Desktop="
+            "org.freedesktop.portal.Inhibit.*@/org/freedesktop/portal/desktop";
+        /* Accessibility */
+        av[ac++] = "--talk=org.a11y.Bus";
+        /* Notifications — see + specific calls */
+        av[ac++] = "--see=org.freedesktop.Notifications";
+        av[ac++] =
+            "--call=org.freedesktop.Notifications="
+            "org.freedesktop.Notifications.Notify@/org/freedesktop/Notifications";
+        av[ac++] =
+            "--call=org.freedesktop.Notifications="
+            "org.freedesktop.Notifications.GetCapabilities@/org/freedesktop/Notifications";
+        av[ac++] =
+            "--call=org.freedesktop.Notifications="
+            "org.freedesktop.Notifications.GetServerInformation@/org/freedesktop/Notifications";
+
+        /* User-specified additional --talk names */
+        static char talk_bufs[16][256];
+        if (sandbox && sandbox->dbus_talk_names) {
+            for (int i = 0; i < sandbox->dbus_talk_count && i < 16 && ac < 60; i++) {
+                if (sandbox->dbus_talk_names[i]) {
+                    snprintf(talk_bufs[i], sizeof(talk_bufs[i]), "--talk=%s",
+                             sandbox->dbus_talk_names[i]);
+                    av[ac++] = talk_bufs[i];
+                }
+            }
+        }
+
+        av[ac] = NULL;
+        execvp("xdg-dbus-proxy", (char**)av);
+        _exit(127);
+    }
+
+    /* Parent */
+    close(pipe_fds[0]); /* close read end */
+    proxy->pid = pid;
+    proxy->pipe_write_fd = pipe_fds[1];
+
+    /* Wait for proxy socket to appear (max 2 seconds) */
+    for (int i = 0; i < 200; i++) {
+        if (access(proxy->socket_path, F_OK) == 0) {
+            return 0;
+        }
+        usleep(10000); /* 10ms */
+    }
+
+    /* Timeout — proxy didn't start */
+    wlr_log(WLR_ERROR, "xdg-dbus-proxy timed out waiting for socket");
+    kill(pid, SIGTERM);
+    waitpid(pid, NULL, 0);
+    close(pipe_fds[1]);
+    proxy->pid = -1;
+    proxy->pipe_write_fd = -1;
+    return -1;
+}
+
+void dlp_cleanup_dbus_proxies(coder_dlp_compositor* comp) {
+    if (!comp) {
+        return;
+    }
+    for (int i = 0; i < comp->dbus_proxy_count; i++) {
+        if (comp->dbus_proxies[i].pipe_write_fd >= 0) {
+            close(comp->dbus_proxies[i].pipe_write_fd);
+        }
+        if (comp->dbus_proxies[i].pid > 0) {
+            kill(comp->dbus_proxies[i].pid, SIGTERM);
+            waitpid(comp->dbus_proxies[i].pid, NULL, 0);
+        }
+        /* Remove socket file */
+        if (comp->dbus_proxies[i].socket_path[0]) {
+            unlink(comp->dbus_proxies[i].socket_path);
+        }
+    }
+    free(comp->dbus_proxies);
+    comp->dbus_proxies = NULL;
+    comp->dbus_proxy_count = 0;
+    comp->dbus_proxy_capacity = 0;
+}
 
 /* Visible for testing via the internal header — builds the NULL-terminated
  * argv array for bwrap.  Caller must free with dlp_free_bwrap_args(). */
 char** dlp_build_bwrap_args(const coder_dlp_compositor* comp, const char* command,
-                            const coder_dlp_sandbox_config* sandbox) {
+                            const coder_dlp_sandbox_config* sandbox,
+                            const char* dbus_proxy_socket) {
     if (!comp || !command) {
         return NULL;
     }
@@ -182,12 +325,24 @@ char** dlp_build_bwrap_args(const coder_dlp_compositor* comp, const char* comman
         PUSH(xdg_runtime);
     }
 
-    /* D-Bus session bus — bind the host bus socket into the sandbox tmpfs.
+    /* D-Bus session bus — bind either the xdg-dbus-proxy filtered socket or
+     * the host bus socket into the sandbox tmpfs.
      * Must come after the tmpfs overlay of XDG_RUNTIME_DIR above. */
     if (xdg_runtime) {
         char dbus_path[PATH_MAX];
         snprintf(dbus_path, sizeof(dbus_path), "%s/bus", xdg_runtime);
-        if (access(dbus_path, F_OK) == 0) {
+        if (dbus_proxy_socket) {
+            /* Filtered: bind the proxy socket to the standard bus path */
+            PUSH("--bind");
+            PUSH(dbus_proxy_socket);
+            PUSH(dbus_path);
+            PUSH("--setenv");
+            PUSH("DBUS_SESSION_BUS_ADDRESS");
+            char dbus_addr[PATH_MAX + 32];
+            snprintf(dbus_addr, sizeof(dbus_addr), "unix:path=%s", dbus_path);
+            PUSH(dbus_addr);
+        } else if (access(dbus_path, F_OK) == 0) {
+            /* Unfiltered: bind the real bus socket directly */
             PUSH("--bind");
             PUSH(dbus_path);
             PUSH(dbus_path);
@@ -298,14 +453,45 @@ int coder_dlp_launch_app(coder_dlp_compositor* comp, const char* command,
     wlr_log(WLR_INFO, "launching app: %s (socket=%s)", command,
             comp->socket ? comp->socket : "(null)");
 
-    char** argv = dlp_build_bwrap_args(comp, command, sandbox);
+    /* Optionally start a D-Bus filtering proxy */
+    struct dlp_dbus_proxy proxy;
+    memset(&proxy, 0, sizeof(proxy));
+    proxy.pid = -1;
+    proxy.pipe_write_fd = -1;
+    const char* proxy_socket = NULL;
+
+    if (sandbox && sandbox->filter_dbus) {
+        if (dlp_start_dbus_proxy(&proxy, sandbox) == 0) {
+            proxy_socket = proxy.socket_path;
+            wlr_log(WLR_INFO, "D-Bus proxy started (pid=%d, socket=%s)", proxy.pid,
+                    proxy.socket_path);
+        } else {
+            wlr_log(WLR_ERROR, "D-Bus proxy failed to start, falling back to unfiltered bus");
+        }
+    }
+
+    char** argv = dlp_build_bwrap_args(comp, command, sandbox, proxy_socket);
     if (!argv) {
+        /* Clean up proxy if we started one */
+        if (proxy.pid > 0) {
+            close(proxy.pipe_write_fd);
+            kill(proxy.pid, SIGTERM);
+            waitpid(proxy.pid, NULL, 0);
+            unlink(proxy.socket_path);
+        }
         return -1;
     }
 
     pid_t pid = fork();
     if (pid < 0) {
         dlp_free_bwrap_args(argv);
+        /* Clean up proxy if we started one */
+        if (proxy.pid > 0) {
+            close(proxy.pipe_write_fd);
+            kill(proxy.pid, SIGTERM);
+            waitpid(proxy.pid, NULL, 0);
+            unlink(proxy.socket_path);
+        }
         return -1;
     }
 
@@ -327,5 +513,24 @@ int coder_dlp_launch_app(coder_dlp_compositor* comp, const char* command,
     /* Parent */
     wlr_log(WLR_INFO, "app launched with pid %d (child logs: /tmp/coder-dlp-child.log)", pid);
     dlp_free_bwrap_args(argv);
+
+    /* Track the proxy for cleanup during compositor teardown */
+    if (proxy.pid > 0) {
+        if (comp->dbus_proxy_count >= comp->dbus_proxy_capacity) {
+            int new_cap = comp->dbus_proxy_capacity ? comp->dbus_proxy_capacity * 2 : 4;
+            struct dlp_dbus_proxy* tmp =
+                realloc(comp->dbus_proxies, (size_t)new_cap * sizeof(*tmp));
+            if (tmp) {
+                comp->dbus_proxies = tmp;
+                comp->dbus_proxy_capacity = new_cap;
+            } else {
+                wlr_log(WLR_ERROR, "failed to track D-Bus proxy, leaking pid %d", proxy.pid);
+            }
+        }
+        if (comp->dbus_proxy_count < comp->dbus_proxy_capacity) {
+            comp->dbus_proxies[comp->dbus_proxy_count++] = proxy;
+        }
+    }
+
     return (int)pid;
 }

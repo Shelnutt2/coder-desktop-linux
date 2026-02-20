@@ -31,6 +31,9 @@ typedef struct coder_dlp_sandbox_config {
     bool bind_home_rw;             /* bind $HOME rw even with fs isolation (instead of tmpfs) */
     const char** extra_bind_paths; /* NULL-terminated array of extra rw bind paths */
     int extra_bind_count;          /* number of entries in extra_bind_paths */
+    bool filter_dbus;              /* enable xdg-dbus-proxy D-Bus filtering */
+    const char** dbus_talk_names;  /* additional bus names to allow (--talk) */
+    int dbus_talk_count;           /* number of entries in dbus_talk_names */
 } coder_dlp_sandbox_config;
 
 /* Log verbosity (maps to wlroots log levels internally) */

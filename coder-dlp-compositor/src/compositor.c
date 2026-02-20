@@ -306,6 +306,9 @@ void coder_dlp_destroy(coder_dlp_compositor* comp) {
     wl_list_remove(&comp->cursor_frame.link);
     wl_list_remove(&comp->request_set_cursor.link);
 
+    /* D-Bus proxy cleanup */
+    dlp_cleanup_dbus_proxies(comp);
+
     /* Xwayland cleanup */
     dlp_xwayland_destroy(comp);
 
