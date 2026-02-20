@@ -30,13 +30,15 @@ bool DlpCompositorManager::isWaylandSession() const {
 }
 
 QString DlpCompositorManager::securityLevel() const {
+    if (!isAvailable()) {
+        return QStringLiteral("unavailable");
+    }
     if (qEnvironmentVariableIsSet("WAYLAND_DISPLAY")) {
         return QStringLiteral("full");
     }
-    if (qEnvironmentVariableIsSet("DISPLAY")) {
-        return QStringLiteral("partial");
-    }
-    return QStringLiteral("unavailable");
+    // If we got here, isAvailable()==true but no WAYLAND_DISPLAY,
+    // so we must be on X11 (coder_dlp_is_available checked DISPLAY).
+    return QStringLiteral("partial");
 }
 
 bool DlpCompositorManager::isRunning() const {
@@ -93,7 +95,8 @@ int DlpCompositorManager::launchApp(const QString& command, const QString& appNa
     // Set the compositor window title so it's identifiable in the taskbar.
     const QString title =
         QStringLiteral("Coder Secure - %1").arg(appName.isEmpty() ? command : appName);
-    coder_dlp_set_output_title(comp, title.toUtf8().constData());
+    const QByteArray titleUtf8 = title.toUtf8();
+    coder_dlp_set_output_title(comp, titleUtf8.constData());
 
     // Integrate the wlroots event loop with Qt via QSocketNotifier.
     // Do NOT dispatch on a separate thread — wlroots is not thread-safe.
@@ -290,7 +293,9 @@ void DlpCompositorManager::onCompositorLog(const char* message, void* /*data*/) 
         qCCritical(lcDlpMgr).noquote() << msg.mid(12);
     } else if (msg.startsWith("[wlr INFO]")) {
         qCInfo(lcDlpMgr).noquote() << msg.mid(11);
-    } else {
+    } else if (msg.startsWith("[wlr DEBUG]")) {
         qCDebug(lcDlpMgr).noquote() << msg.mid(12);
+    } else {
+        qCDebug(lcDlpMgr).noquote() << msg;
     }
 }
