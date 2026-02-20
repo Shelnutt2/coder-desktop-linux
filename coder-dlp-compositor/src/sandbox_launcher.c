@@ -4,6 +4,8 @@
  * sandbox with WAYLAND_DISPLAY pointing at the nested compositor
  * socket and DISPLAY unset to prevent X11 escape. */
 
+#define _GNU_SOURCE /* pipe2, inotify_init1 */
+
 #include "coder_dlp.h"
 #include "compositor_internal.h"
 
@@ -14,9 +16,11 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
+#include <sys/inotify.h>
 #include <sys/wait.h>
 #include <unistd.h>
 
+#include <poll.h>
 #include <signal.h>
 #include <wlr/util/log.h>
 
@@ -69,9 +73,10 @@ static int dlp_start_dbus_proxy(struct dlp_dbus_proxy* proxy,
     }
     snprintf(proxy->socket_path, sizeof(proxy->socket_path), "%s/bus", proxy->dir_path);
 
-    /* Create lifecycle pipe — closing the write end signals proxy to exit */
+    /* Create lifecycle pipe — closing the write end signals proxy to exit.
+     * O_CLOEXEC prevents child processes from inheriting both ends. */
     int pipe_fds[2];
-    if (pipe(pipe_fds) != 0) {
+    if (pipe2(pipe_fds, O_CLOEXEC) != 0) {
         return -1;
     }
 
@@ -84,11 +89,25 @@ static int dlp_start_dbus_proxy(struct dlp_dbus_proxy* proxy,
 
     if (pid == 0) {
         /* Child: exec xdg-dbus-proxy */
+
+        /* Reset signal mask and handlers inherited from parent */
+        sigset_t empty;
+        sigemptyset(&empty);
+        sigprocmask(SIG_SETMASK, &empty, NULL);
+        struct sigaction sa = {.sa_handler = SIG_DFL};
+        sigaction(SIGTERM, &sa, NULL);
+        sigaction(SIGINT, &sa, NULL);
+        sigaction(SIGCHLD, &sa, NULL);
+
         close(pipe_fds[1]); /* close write end */
+
+        /* Clear O_CLOEXEC on read end — xdg-dbus-proxy needs it via --fd */
+        int flags = fcntl(pipe_fds[0], F_GETFD);
+        fcntl(pipe_fds[0], F_SETFD, flags & ~FD_CLOEXEC);
 
         /* Build argv.  Max entries: base(4) + --fd(1) + default allows(~10)
          * + user talks(talk_count) + NULL */
-        const char* av[64];
+        const char* av[128];
         int ac = 0;
         av[ac++] = "xdg-dbus-proxy";
         av[ac++] = dbus_addr;
@@ -133,6 +152,9 @@ static int dlp_start_dbus_proxy(struct dlp_dbus_proxy* proxy,
             }
         }
 
+        if (ac >= 127) { /* overflow guard — leave room for NULL */
+            _exit(125);
+        }
         av[ac] = NULL;
         execvp("xdg-dbus-proxy", (char**)av);
         _exit(127);
@@ -143,24 +165,44 @@ static int dlp_start_dbus_proxy(struct dlp_dbus_proxy* proxy,
     proxy->pid = pid;
     proxy->pipe_write_fd = pipe_fds[1];
 
-    /* Wait for proxy socket to appear (max 2 seconds) */
-    for (int i = 0; i < 200; i++) {
-        if (access(proxy->socket_path, F_OK) == 0) {
-            return 0;
+    /* Wait for proxy socket to appear (max 2 seconds).
+     * Prefer inotify+poll to avoid busy-waiting that blocks the
+     * compositor event loop.  Fall back to brief usleep loop if
+     * inotify is unavailable. */
+    bool socket_ready = (access(proxy->socket_path, F_OK) == 0);
+    if (!socket_ready) {
+        int ifd = inotify_init1(IN_NONBLOCK | IN_CLOEXEC);
+        if (ifd >= 0) {
+            inotify_add_watch(ifd, proxy->dir_path, IN_CREATE);
+            /* Re-check after watch is armed (race with fast proxy start) */
+            if (access(proxy->socket_path, F_OK) != 0) {
+                struct pollfd pfd = {.fd = ifd, .events = POLLIN};
+                poll(&pfd, 1, 2000); /* 2 second timeout */
+            }
+            close(ifd);
+            socket_ready = (access(proxy->socket_path, F_OK) == 0);
+        } else {
+            /* Fallback: brief poll loop */
+            for (int i = 0; i < 200 && !socket_ready; i++) {
+                usleep(10000); /* 10ms */
+                socket_ready = (access(proxy->socket_path, F_OK) == 0);
+            }
         }
-        usleep(10000); /* 10ms */
     }
 
-    /* Timeout — proxy didn't start */
-    wlr_log(WLR_ERROR, "xdg-dbus-proxy timed out waiting for socket");
-    kill(pid, SIGTERM);
-    waitpid(pid, NULL, 0);
-    close(pipe_fds[1]);
-    /* Clean up the directory we created */
-    rmdir(proxy->dir_path);
-    proxy->pid = -1;
-    proxy->pipe_write_fd = -1;
-    return -1;
+    if (!socket_ready) {
+        /* Timeout — proxy didn't start */
+        wlr_log(WLR_ERROR, "xdg-dbus-proxy timed out waiting for socket");
+        kill(pid, SIGTERM);
+        waitpid(pid, NULL, 0);
+        proxy->pid = 0;
+        close(pipe_fds[1]);
+        proxy->pipe_write_fd = -1;
+        unlink(proxy->socket_path);
+        rmdir(proxy->dir_path);
+        return -1;
+    }
+    return 0;
 }
 
 void dlp_reap_dbus_proxies(coder_dlp_compositor* comp) {
@@ -592,9 +634,21 @@ int coder_dlp_launch_app(coder_dlp_compositor* comp, const char* command,
     }
 
     if (pid == 0) {
-        /* Redirect stdout+stderr to a log file for debugging.
-         * The fd is inherited through bwrap to the child process. */
-        int log_fd = open("/tmp/coder-dlp-child.log", O_WRONLY | O_CREAT | O_APPEND, 0600);
+        /* Reset signal mask and handlers inherited from parent */
+        sigset_t empty;
+        sigemptyset(&empty);
+        sigprocmask(SIG_SETMASK, &empty, NULL);
+        struct sigaction sa = {.sa_handler = SIG_DFL};
+        sigaction(SIGTERM, &sa, NULL);
+        sigaction(SIGINT, &sa, NULL);
+        sigaction(SIGCHLD, &sa, NULL);
+
+        /* Redirect stdout+stderr to a per-PID log file for debugging.
+         * O_NOFOLLOW prevents symlink attacks on multi-user systems.
+         * O_CLOEXEC ensures the fd doesn't leak through exec after dup2. */
+        char logpath[64];
+        snprintf(logpath, sizeof(logpath), "/tmp/coder-dlp-child-%d.log", getpid());
+        int log_fd = open(logpath, O_WRONLY | O_CREAT | O_APPEND | O_NOFOLLOW | O_CLOEXEC, 0600);
         if (log_fd >= 0) {
             dup2(log_fd, STDOUT_FILENO);
             dup2(log_fd, STDERR_FILENO);
@@ -607,7 +661,7 @@ int coder_dlp_launch_app(coder_dlp_compositor* comp, const char* command,
     }
 
     /* Parent */
-    wlr_log(WLR_INFO, "app launched with pid %d (child logs: /tmp/coder-dlp-child.log)", pid);
+    wlr_log(WLR_INFO, "app launched with pid %d (child logs: /tmp/coder-dlp-child-*.log)", pid);
     dlp_free_bwrap_args(argv);
 
     /* Track the proxy for cleanup during compositor teardown */
