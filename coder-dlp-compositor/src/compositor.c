@@ -9,6 +9,10 @@
 #include <wlr/util/log.h>
 
 #include <wlr/backend/wayland.h>
+#include <wlr/config.h>
+#if WLR_HAS_X11_BACKEND
+#include <wlr/backend/x11.h>
+#endif
 #include <wlr/types/wlr_cursor_shape_v1.h>
 #include <wlr/types/wlr_fractional_scale_v1.h>
 #include <wlr/types/wlr_linux_dmabuf_v1.h>
@@ -87,7 +91,14 @@ void coder_dlp_set_output_title(coder_dlp_compositor* comp, const char* title) {
     if (!comp || !comp->output || !title) {
         return;
     }
-    wlr_wl_output_set_title(comp->output, title);
+    if (wlr_backend_is_wl(comp->backend)) {
+        wlr_wl_output_set_title(comp->output, title);
+    }
+#if WLR_HAS_X11_BACKEND
+    else if (wlr_backend_is_x11(comp->backend)) {
+        wlr_x11_output_set_title(comp->output, title);
+    }
+#endif
 }
 
 /* ------------------------------------------------------------------------ */
@@ -336,7 +347,15 @@ void coder_dlp_destroy(coder_dlp_compositor* comp) {
 }
 
 bool coder_dlp_is_available(void) {
-    return getenv("WAYLAND_DISPLAY") != NULL;
+    if (getenv("WAYLAND_DISPLAY") != NULL) {
+        return true;
+    }
+#if WLR_HAS_X11_BACKEND
+    if (getenv("DISPLAY") != NULL) {
+        return true;
+    }
+#endif
+    return false;
 }
 
 void coder_dlp_on_new_surface(coder_dlp_compositor* comp, coder_dlp_surface_cb cb, void* data) {

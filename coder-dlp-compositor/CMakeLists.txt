@@ -7,6 +7,14 @@ project(coder-dlp-compositor C)
 # xkbcommon is needed for keyboard XKB keymap setup in input.c.
 pkg_check_modules(XKBCOMMON REQUIRED xkbcommon)
 
+# Optional X11 backend support — wlroots may be compiled with WLR_HAS_X11_BACKEND
+include(CheckSymbolExists)
+set(CMAKE_REQUIRED_INCLUDES ${WLROOTS_INCLUDE_DIRS})
+check_symbol_exists(WLR_HAS_X11_BACKEND "wlr/config.h" HAS_X11_BACKEND)
+if(HAS_X11_BACKEND)
+    pkg_check_modules(XCB REQUIRED xcb)
+endif()
+
 # Generate xdg-shell protocol header (required by wlroots xdg_shell.h)
 set(XDG_SHELL_XML "${WAYLAND_PROTOCOLS_DIR}/stable/xdg-shell/xdg-shell.xml")
 set(XDG_SHELL_HEADER "${CMAKE_CURRENT_BINARY_DIR}/xdg-shell-protocol.h")
@@ -43,9 +51,9 @@ add_dependencies(coderdlp xdg_shell_protocol cursor_shape_protocol)
 target_include_directories(coderdlp
     PUBLIC include
     PRIVATE ${WLROOTS_INCLUDE_DIRS} ${WAYLAND_INCLUDE_DIRS} ${XKBCOMMON_INCLUDE_DIRS}
-            ${CMAKE_CURRENT_BINARY_DIR}
+            ${XCB_INCLUDE_DIRS} ${CMAKE_CURRENT_BINARY_DIR}
 )
-target_link_libraries(coderdlp PRIVATE ${WLROOTS_LIBRARIES} ${WAYLAND_LIBRARIES} ${XKBCOMMON_LIBRARIES})
+target_link_libraries(coderdlp PRIVATE ${WLROOTS_LIBRARIES} ${WAYLAND_LIBRARIES} ${XKBCOMMON_LIBRARIES} ${XCB_LIBRARIES})
 target_compile_definitions(coderdlp PRIVATE WLR_USE_UNSTABLE)
 
 # Tests  (disable with -DBUILD_TESTING=OFF at top level)
