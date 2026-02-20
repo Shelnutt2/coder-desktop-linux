@@ -14,15 +14,31 @@
 #include <wlr/util/log.h>
 #include <xkbcommon/xkbcommon.h>
 
-/* --- Keyboard handling --- */
+/* --- Keyboard handling ---
+ *
+ * Known limitation (X11 backend): when the compositor runs inside an X11
+ * window (e.g. under i3/Sway on Xorg), the host window manager's key
+ * grabs (Mod+Enter, Mod+d, etc.) should intercept key events before they
+ * reach the DLP window.  In practice this works for most WMs because they
+ * install passive grabs on the root window with GrabModeSync.  However,
+ * some modifier-only shortcuts may still leak into the compositor because
+ * the X11 backend receives all key events for its focused window.  This
+ * is a fundamental X11 limitation — Wayland sessions are not affected
+ * because the host compositor controls keyboard focus natively. */
 
 static void handle_keyboard_key(struct wl_listener* listener, void* data) {
     struct coder_dlp_compositor* comp = wl_container_of(listener, comp, keyboard_key);
     struct wlr_keyboard_key_event* event = data;
     struct wlr_keyboard* keyboard = comp->keyboard;
 
+    /* Only forward key events when a client surface has keyboard focus.
+     * This prevents stale key events from being sent to the seat when
+     * no Wayland client is active (e.g. compositor just started, all
+     * windows closed). */
     wlr_seat_set_keyboard(comp->seat, keyboard);
-    wlr_seat_keyboard_notify_key(comp->seat, event->time_msec, event->keycode, event->state);
+    if (comp->seat->keyboard_state.focused_surface) {
+        wlr_seat_keyboard_notify_key(comp->seat, event->time_msec, event->keycode, event->state);
+    }
 }
 
 static void handle_keyboard_modifiers(struct wl_listener* listener, void* data) {

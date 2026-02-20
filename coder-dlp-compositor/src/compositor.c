@@ -13,11 +13,13 @@
 #if WLR_HAS_X11_BACKEND
 #include <wlr/backend/x11.h>
 #endif
+#include <wlr/types/wlr_cursor.h>
 #include <wlr/types/wlr_cursor_shape_v1.h>
 #include <wlr/types/wlr_fractional_scale_v1.h>
 #include <wlr/types/wlr_linux_dmabuf_v1.h>
 #include <wlr/types/wlr_presentation_time.h>
 #include <wlr/types/wlr_primary_selection_v1.h>
+#include <wlr/types/wlr_touch.h>
 
 #include <wlr/types/wlr_single_pixel_buffer_v1.h>
 #include <wlr/types/wlr_viewporter.h>
@@ -329,23 +331,43 @@ void coder_dlp_destroy(coder_dlp_compositor* comp) {
         free(toplevel);
     }
 
+    /* Detach input devices from cursor BEFORE destroying anything.
+     * wlr_cursor holds internal listeners on each attached device's event
+     * signals.  If the backend is destroyed first, it tears down the devices
+     * and asserts that all listener lists are empty — which fails because the
+     * cursor's listeners are still attached.  Explicitly detaching here
+     * removes those internal listeners so the subsequent destroy is safe.
+     *
+     * Touch carries a stored wlr_input_device; pointer was only passed to
+     * wlr_cursor_attach_input_device (not stored), so we detach it by
+     * destroying the backend after the cursor. */
+    if (comp->cursor && comp->touch) {
+        wlr_cursor_detach_input_device(comp->cursor, &comp->touch->base);
+    }
+
+    /* Destroy backend first — this fires output/device destroy events while
+     * the cursor is still alive to handle any remaining callbacks.  The
+     * explicit detach above already removed the cursor's internal listeners
+     * on the touch device, so the backend's device teardown assertions pass.
+     * This matches the destroy ordering used by reference compositors
+     * (tinywl, cage, sway). */
+    if (comp->backend) {
+        wlr_backend_destroy(comp->backend);
+        comp->backend = NULL;
+    }
+
     /* Destroy scene graph */
     if (comp->scene) {
         wlr_scene_node_destroy(&comp->scene->tree.node);
         comp->scene = NULL;
     }
 
-    /* Destroy cursor objects */
+    /* Destroy cursor objects — safe now that backend and devices are gone */
     if (comp->cursor_mgr) {
         wlr_xcursor_manager_destroy(comp->cursor_mgr);
     }
     if (comp->cursor) {
         wlr_cursor_destroy(comp->cursor);
-    }
-
-    /* Destroy backend (triggers output destroy etc.) */
-    if (comp->backend) {
-        wlr_backend_destroy(comp->backend);
     }
 
     /* Finally destroy display */
