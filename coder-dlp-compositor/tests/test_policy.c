@@ -469,7 +469,7 @@ static void test_surface_type_tag(void) {
     assert(*tag == DLP_SURFACE_XDG);
     free(t);
 
-#if WLR_HAS_X11_BACKEND
+#if WLR_HAS_XWAYLAND
     struct coder_dlp_xwayland_surface* xs = calloc(1, sizeof(*xs));
     assert(xs != NULL);
     xs->type = DLP_SURFACE_XWAYLAND;
