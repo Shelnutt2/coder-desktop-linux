@@ -5,6 +5,7 @@
 #include <wlr/config.h>
 #if WLR_HAS_X11_BACKEND
 #include <wlr/backend/x11.h>
+#include <wlr/xwayland/xwayland.h>
 #endif
 #include <wlr/types/wlr_cursor.h>
 #include <wlr/types/wlr_input_device.h>
@@ -40,7 +41,7 @@ static void handle_keyboard_key(struct wl_listener* listener, void* data) {
      * window — suppressing them here prevents dual-action in both the
      * host WM and the sandboxed app.  Wayland sessions are unaffected. */
 #if WLR_HAS_X11_BACKEND
-    if (comp->is_x11_backend && event->state == WL_KEYBOARD_KEY_STATE_PRESSED) {
+    if (comp->is_x11_backend) {
         uint32_t modifiers = wlr_keyboard_get_modifiers(keyboard);
         if (modifiers & WLR_MODIFIER_LOGO) {
             return;
@@ -153,7 +154,7 @@ void handle_cursor_button(struct wl_listener* listener, void* data) {
                 tree = tree->node.parent;
             }
             if (tree && tree->node.data) {
-                struct coder_dlp_toplevel* toplevel = tree->node.data;
+                enum dlp_surface_type* type = tree->node.data;
 
                 /* Deactivate previously focused toplevel */
                 struct wlr_surface* prev_surface = comp->seat->keyboard_state.focused_surface;
@@ -163,17 +164,44 @@ void handle_cursor_button(struct wl_listener* listener, void* data) {
                     if (prev) {
                         wlr_xdg_toplevel_set_activated(prev, false);
                     }
+#if WLR_HAS_X11_BACKEND
+                    else {
+                        struct wlr_xwayland_surface* prev_xsurface =
+                            wlr_xwayland_surface_try_from_wlr_surface(prev_surface);
+                        if (prev_xsurface) {
+                            wlr_xwayland_surface_activate(prev_xsurface, false);
+                        }
+                    }
+#endif
                 }
 
-                wlr_scene_node_raise_to_top(&toplevel->scene_tree->node);
-                wlr_xdg_toplevel_set_activated(toplevel->xdg_toplevel, true);
-
-                struct wlr_keyboard* keyboard = wlr_seat_get_keyboard(comp->seat);
-                if (keyboard) {
-                    wlr_seat_keyboard_notify_enter(
-                        comp->seat, toplevel->xdg_toplevel->base->surface, keyboard->keycodes,
-                        keyboard->num_keycodes, &keyboard->modifiers);
+                if (*type == DLP_SURFACE_XDG) {
+                    struct coder_dlp_toplevel* toplevel = tree->node.data;
+                    wlr_scene_node_raise_to_top(&toplevel->scene_tree->node);
+                    wlr_xdg_toplevel_set_activated(toplevel->xdg_toplevel, true);
+                    struct wlr_keyboard* keyboard = wlr_seat_get_keyboard(comp->seat);
+                    if (keyboard) {
+                        wlr_seat_keyboard_notify_enter(
+                            comp->seat, toplevel->xdg_toplevel->base->surface, keyboard->keycodes,
+                            keyboard->num_keycodes, &keyboard->modifiers);
+                    }
                 }
+#if WLR_HAS_X11_BACKEND
+                else if (*type == DLP_SURFACE_XWAYLAND) {
+                    struct coder_dlp_xwayland_surface* xsurf = tree->node.data;
+                    wlr_scene_node_raise_to_top(&xsurf->scene_tree->node);
+                    struct wlr_xwayland_surface* xsurface = xsurf->xwayland_surface;
+                    wlr_xwayland_surface_activate(xsurface, true);
+                    if (xsurface->surface) {
+                        struct wlr_keyboard* keyboard = wlr_seat_get_keyboard(comp->seat);
+                        if (keyboard) {
+                            wlr_seat_keyboard_notify_enter(
+                                comp->seat, xsurface->surface, keyboard->keycodes,
+                                keyboard->num_keycodes, &keyboard->modifiers);
+                        }
+                    }
+                }
+#endif
             }
         }
     }
@@ -234,7 +262,7 @@ static void touch_focus_at(struct coder_dlp_compositor* comp, double lx, double 
         tree = tree->node.parent;
     }
     if (tree && tree->node.data) {
-        struct coder_dlp_toplevel* toplevel = tree->node.data;
+        enum dlp_surface_type* type = tree->node.data;
 
         /* Deactivate previously focused toplevel */
         struct wlr_surface* prev_surface = comp->seat->keyboard_state.focused_surface;
@@ -243,17 +271,44 @@ static void touch_focus_at(struct coder_dlp_compositor* comp, double lx, double 
             if (prev) {
                 wlr_xdg_toplevel_set_activated(prev, false);
             }
+#if WLR_HAS_X11_BACKEND
+            else {
+                struct wlr_xwayland_surface* prev_xsurface =
+                    wlr_xwayland_surface_try_from_wlr_surface(prev_surface);
+                if (prev_xsurface) {
+                    wlr_xwayland_surface_activate(prev_xsurface, false);
+                }
+            }
+#endif
         }
 
-        wlr_scene_node_raise_to_top(&toplevel->scene_tree->node);
-        wlr_xdg_toplevel_set_activated(toplevel->xdg_toplevel, true);
-
-        struct wlr_keyboard* keyboard = wlr_seat_get_keyboard(comp->seat);
-        if (keyboard) {
-            wlr_seat_keyboard_notify_enter(comp->seat, toplevel->xdg_toplevel->base->surface,
-                                           keyboard->keycodes, keyboard->num_keycodes,
-                                           &keyboard->modifiers);
+        if (*type == DLP_SURFACE_XDG) {
+            struct coder_dlp_toplevel* toplevel = tree->node.data;
+            wlr_scene_node_raise_to_top(&toplevel->scene_tree->node);
+            wlr_xdg_toplevel_set_activated(toplevel->xdg_toplevel, true);
+            struct wlr_keyboard* keyboard = wlr_seat_get_keyboard(comp->seat);
+            if (keyboard) {
+                wlr_seat_keyboard_notify_enter(comp->seat, toplevel->xdg_toplevel->base->surface,
+                                               keyboard->keycodes, keyboard->num_keycodes,
+                                               &keyboard->modifiers);
+            }
         }
+#if WLR_HAS_X11_BACKEND
+        else if (*type == DLP_SURFACE_XWAYLAND) {
+            struct coder_dlp_xwayland_surface* xsurf = tree->node.data;
+            wlr_scene_node_raise_to_top(&xsurf->scene_tree->node);
+            struct wlr_xwayland_surface* xsurface = xsurf->xwayland_surface;
+            wlr_xwayland_surface_activate(xsurface, true);
+            if (xsurface->surface) {
+                struct wlr_keyboard* keyboard = wlr_seat_get_keyboard(comp->seat);
+                if (keyboard) {
+                    wlr_seat_keyboard_notify_enter(comp->seat, xsurface->surface,
+                                                   keyboard->keycodes, keyboard->num_keycodes,
+                                                   &keyboard->modifiers);
+                }
+            }
+        }
+#endif
     }
 }
 
