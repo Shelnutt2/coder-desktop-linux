@@ -13,11 +13,10 @@ set(CMAKE_REQUIRED_INCLUDES ${WLROOTS_INCLUDE_DIRS})
 check_symbol_exists(WLR_HAS_X11_BACKEND "wlr/config.h" HAS_X11_BACKEND)
 if(HAS_X11_BACKEND)
     pkg_check_modules(XCB REQUIRED xcb)
+    # Xwayland support — xcb-ewmh and xcb-icccm are needed by wlr/xwayland/xwayland.h
+    pkg_check_modules(XCB_EWMH REQUIRED xcb-ewmh)
+    pkg_check_modules(XCB_ICCCM REQUIRED xcb-icccm)
 endif()
-
-# Xwayland support — xcb-ewmh and xcb-icccm are needed by wlr/xwayland/xwayland.h
-pkg_check_modules(XCB_EWMH REQUIRED xcb-ewmh)
-pkg_check_modules(XCB_ICCCM REQUIRED xcb-icccm)
 
 # Generate xdg-shell protocol header (required by wlroots xdg_shell.h)
 set(XDG_SHELL_XML "${WAYLAND_PROTOCOLS_DIR}/stable/xdg-shell/xdg-shell.xml")
@@ -41,7 +40,7 @@ add_custom_command(
 )
 add_custom_target(cursor_shape_protocol DEPENDS "${CURSOR_SHAPE_HEADER}")
 
-add_library(coderdlp SHARED
+set(CODERDLP_SOURCES
     src/compositor.c
     src/shell.c
     src/clipboard.c
@@ -51,8 +50,12 @@ add_library(coderdlp SHARED
     src/output.c
     src/input.c
     src/watermark.c
-    src/xwayland.c
 )
+if(HAS_X11_BACKEND)
+    list(APPEND CODERDLP_SOURCES src/xwayland.c)
+endif()
+
+add_library(coderdlp SHARED ${CODERDLP_SOURCES})
 add_dependencies(coderdlp xdg_shell_protocol cursor_shape_protocol)
 target_include_directories(coderdlp
     PUBLIC include
