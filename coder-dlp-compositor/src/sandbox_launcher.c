@@ -424,6 +424,19 @@ char** dlp_build_bwrap_args(const coder_dlp_compositor* comp, const char* comman
         PUSH(x11_socket);
         PUSH(x11_socket);
 
+        /* Force software rendering for X11 clients going through Xwayland.
+         * Xwayland's DRI3/DMA-BUF GPU path can produce garbled output
+         * (black window with random colours) when buffer formats/modifiers
+         * from the client's GPU context are incompatible with the nested
+         * compositor's renderer (common with Chromium/Electron apps like
+         * VS Code).  Forcing the software rasteriser (llvmpipe/swrast)
+         * makes clients use SHM buffers that Xwayland always handles
+         * correctly.  The compositor itself still uses GPU compositing,
+         * and native Wayland clients are unaffected. */
+        PUSH("--setenv");
+        PUSH("LIBGL_ALWAYS_SOFTWARE");
+        PUSH("1");
+
         /* With Xwayland available, don't force Wayland backends.
          * Native Wayland apps auto-detect WAYLAND_DISPLAY; X11-only apps
          * fall back to DISPLAY.  Both paths go through DLP compositor. */
