@@ -133,6 +133,7 @@ void compositor_handle_new_xdg_toplevel(struct wl_listener* listener, void* data
         return;
     }
 
+    toplevel->type = DLP_SURFACE_XDG;
     toplevel->xdg_toplevel = xdg_toplevel;
     toplevel->compositor = comp;
     toplevel->scene_tree = wlr_scene_xdg_surface_create(&comp->scene->tree, xdg_toplevel->base);

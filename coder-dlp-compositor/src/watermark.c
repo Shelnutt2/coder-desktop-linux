@@ -91,9 +91,16 @@ bool dlp_watermark_apply(struct wlr_buffer* buffer, const struct dlp_watermark_s
     int width = buffer->width;
     int height = buffer->height;
 
-    /* Seed PRNG from fingerprint */
+    /* Seed PRNG from full fingerprint — XOR both 16-byte halves so all 32
+     * bytes contribute to the 128-bit PRNG state. */
     struct xorshift128 rng;
-    memcpy(rng.s, state->fingerprint, 16);
+    uint32_t a[4], b[4];
+    memcpy(a, state->fingerprint, 16);
+    memcpy(b, state->fingerprint + 16, 16);
+    rng.s[0] = a[0] ^ b[0];
+    rng.s[1] = a[1] ^ b[1];
+    rng.s[2] = a[2] ^ b[2];
+    rng.s[3] = a[3] ^ b[3];
     /* Ensure non-zero state */
     if (!rng.s[0] && !rng.s[1] && !rng.s[2] && !rng.s[3]) {
         rng.s[0] = 1;

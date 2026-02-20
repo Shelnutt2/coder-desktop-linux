@@ -1,6 +1,7 @@
 #include "coder_dlp.h"
 #include "compositor_internal.h"
 
+#include <stdbool.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
@@ -37,16 +38,17 @@ static struct {
     int capacity;
 } s_active_compositors = {0};
 
-static void compositor_list_add(coder_dlp_compositor* comp) {
+static bool compositor_list_add(coder_dlp_compositor* comp) {
     if (s_active_compositors.count >= s_active_compositors.capacity) {
         int cap = s_active_compositors.capacity ? s_active_compositors.capacity * 2 : 4;
         coder_dlp_compositor** tmp =
             realloc(s_active_compositors.entries, (size_t)cap * sizeof(*tmp));
-        if (!tmp) return;
+        if (!tmp) return false;
         s_active_compositors.entries = tmp;
         s_active_compositors.capacity = cap;
     }
     s_active_compositors.entries[s_active_compositors.count++] = comp;
+    return true;
 }
 
 static void compositor_list_remove(coder_dlp_compositor* comp) {
@@ -174,10 +176,11 @@ coder_dlp_compositor* coder_dlp_create(void* parent_wl_surface, coder_dlp_log_le
     if (!comp) {
         return NULL;
     }
-    compositor_list_add(comp);
+    if (!compositor_list_add(comp)) {
+        LOG_ERR("failed to add compositor to active list (OOM)");
+    }
 
     wl_list_init(&comp->toplevels);
-    wl_list_init(&comp->xwayland_surfaces);
 
     /* Wayland display */
     comp->wl_display = wl_display_create();
@@ -260,8 +263,10 @@ coder_dlp_compositor* coder_dlp_create(void* parent_wl_surface, coder_dlp_log_le
     /* Security context protocol */
     dlp_security_context_init(comp);
 
+#if WLR_HAS_X11_BACKEND
     /* Xwayland support for X11 apps */
     dlp_xwayland_init(comp);
+#endif
 
     /* Cursor event listeners — cursor aggregates all pointer devices */
     comp->cursor_motion.notify = handle_cursor_motion;
@@ -307,6 +312,7 @@ coder_dlp_compositor* coder_dlp_create(void* parent_wl_surface, coder_dlp_log_le
     return comp;
 
 err_display:
+    compositor_list_remove(comp);
     wl_display_destroy(comp->wl_display);
 err_free:
     free(comp);
@@ -370,8 +376,10 @@ void coder_dlp_destroy(coder_dlp_compositor* comp) {
     /* D-Bus proxy cleanup */
     dlp_cleanup_dbus_proxies(comp);
 
+#if WLR_HAS_X11_BACKEND
     /* Xwayland cleanup */
     dlp_xwayland_destroy(comp);
+#endif
 
     /* Clean up any remaining toplevels — remove their listeners so wlroots
      * assertions don't fire during display teardown. */

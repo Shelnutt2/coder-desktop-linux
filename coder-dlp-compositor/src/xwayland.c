@@ -146,6 +146,8 @@ static void handle_xwayland_surface_destroy(struct wl_listener* listener, void* 
     wlr_log(WLR_INFO, "xwayland surface destroyed: class=%s",
             xsurf->xwayland_surface->class ? xsurf->xwayland_surface->class : "(null)");
 
+    wl_list_remove(&xsurf->map.link);
+    wl_list_remove(&xsurf->unmap.link);
     wl_list_remove(&xsurf->associate.link);
     wl_list_remove(&xsurf->dissociate.link);
     wl_list_remove(&xsurf->destroy.link);
@@ -266,8 +268,14 @@ static void handle_xwayland_new_surface(struct wl_listener* listener, void* data
         return;
     }
 
+    xsurf->type = DLP_SURFACE_XWAYLAND;
     xsurf->xwayland_surface = xsurface;
     xsurf->compositor = comp;
+
+    /* Init map/unmap links so they are always safe to wl_list_remove() even
+     * if the surface is destroyed before associate fires. */
+    wl_list_init(&xsurf->map.link);
+    wl_list_init(&xsurf->unmap.link);
 
     /* Scene tree is created later in the associate handler once the
      * wlr_surface is valid.  Store a placeholder empty tree for now. */
@@ -368,6 +376,8 @@ void dlp_xwayland_destroy(struct coder_dlp_compositor* comp) {
     struct coder_dlp_xwayland_surface* xsurf;
     struct coder_dlp_xwayland_surface* tmp;
     wl_list_for_each_safe(xsurf, tmp, &comp->xwayland_surfaces, link) {
+        wl_list_remove(&xsurf->map.link);
+        wl_list_remove(&xsurf->unmap.link);
         wl_list_remove(&xsurf->associate.link);
         wl_list_remove(&xsurf->dissociate.link);
         wl_list_remove(&xsurf->destroy.link);

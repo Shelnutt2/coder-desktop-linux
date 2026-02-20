@@ -8,6 +8,7 @@
 
 #include <wayland-server-core.h>
 #include <wlr/backend.h>
+#include <wlr/config.h>
 #include <wlr/render/allocator.h>
 #include <wlr/render/wlr_renderer.h>
 #include <wlr/types/wlr_compositor.h>
@@ -21,9 +22,17 @@
 #include <wlr/types/wlr_subcompositor.h>
 #include <wlr/types/wlr_xcursor_manager.h>
 #include <wlr/types/wlr_xdg_shell.h>
+#if WLR_HAS_X11_BACKEND
 #include <wlr/xwayland/xwayland.h>
+#endif
+
+enum dlp_surface_type {
+    DLP_SURFACE_XDG,
+    DLP_SURFACE_XWAYLAND,
+};
 
 struct coder_dlp_toplevel {
+    enum dlp_surface_type type;
     struct wlr_xdg_toplevel* xdg_toplevel;
     struct coder_dlp_compositor* compositor;
     struct wlr_scene_tree* scene_tree;
@@ -40,7 +49,9 @@ struct coder_dlp_toplevel {
     struct wl_list link; /* coder_dlp_compositor.toplevels */
 };
 
+#if WLR_HAS_X11_BACKEND
 struct coder_dlp_xwayland_surface {
+    enum dlp_surface_type type;
     struct wlr_xwayland_surface* xwayland_surface;
     struct coder_dlp_compositor* compositor;
     struct wlr_scene_tree* scene_tree;
@@ -62,6 +73,7 @@ struct coder_dlp_xwayland_surface {
 
     struct wl_list link; /* coder_dlp_compositor.xwayland_surfaces */
 };
+#endif
 
 struct dlp_dbus_proxy {
     pid_t pid;
@@ -108,11 +120,13 @@ struct coder_dlp_compositor {
     struct wl_listener new_xdg_popup;
     struct wl_list toplevels; /* coder_dlp_toplevel.link */
 
+#if WLR_HAS_X11_BACKEND
     /* Xwayland */
     struct wlr_xwayland* xwayland;
     struct wl_listener xwayland_surface;
     struct wl_listener xwayland_ready;
     struct wl_list xwayland_surfaces; /* coder_dlp_xwayland_surface.link */
+#endif
 
     /* Backend */
     struct wl_listener new_output;
@@ -164,7 +178,9 @@ struct coder_dlp_compositor {
     /* Watermark */
     struct dlp_watermark_state watermark;
 
+#if WLR_HAS_X11_BACKEND
     bool is_x11_backend; /* true when running on X11 host (wlr X11 backend) */
+#endif
 
     /* Zombie reaper for D-Bus proxy child processes */
     struct wl_event_source* reap_timer;
@@ -216,8 +232,10 @@ void handle_request_set_cursor(struct wl_listener* listener, void* data);
 void compositor_handle_new_xdg_toplevel(struct wl_listener* listener, void* data);
 void compositor_handle_new_xdg_popup(struct wl_listener* listener, void* data);
 
+#if WLR_HAS_X11_BACKEND
 /* Xwayland support (xwayland.c) */
 void dlp_xwayland_init(struct coder_dlp_compositor* comp);
 void dlp_xwayland_destroy(struct coder_dlp_compositor* comp);
+#endif
 
 #endif /* CODER_DLP_COMPOSITOR_INTERNAL_H */
