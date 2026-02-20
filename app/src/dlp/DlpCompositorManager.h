@@ -32,6 +32,8 @@ struct RunningApp {
 class DlpCompositorManager : public QObject {
     Q_OBJECT
     Q_PROPERTY(bool available READ isAvailable CONSTANT)
+    Q_PROPERTY(bool isWaylandSession READ isWaylandSession CONSTANT)
+    Q_PROPERTY(QString securityLevel READ securityLevel CONSTANT)
     Q_PROPERTY(bool running READ isRunning NOTIFY runningChanged)
     Q_PROPERTY(int launchedAppCount READ launchedAppCount NOTIFY appCountChanged)
     Q_PROPERTY(RunningAppModel* runningApps READ runningApps CONSTANT)
@@ -40,8 +42,17 @@ public:
     explicit DlpCompositorManager(QObject* parent = nullptr);
     ~DlpCompositorManager() override;
 
-    /// Returns true when the DLP compositor can run (Wayland session detected).
+    /// Returns true when the DLP compositor can run (Wayland or X11 session detected).
     [[nodiscard]] bool isAvailable() const;
+
+    /// Returns true when the host session is native Wayland (full DLP protection).
+    [[nodiscard]] bool isWaylandSession() const;
+
+    /// Returns the DLP security level based on the host display server:
+    /// - "full"        — native Wayland host (all protections enforced)
+    /// - "partial"     — X11 host (clipboard isolated, screenshot protection limited)
+    /// - "unavailable" — no display server detected
+    [[nodiscard]] QString securityLevel() const;
 
     /// Returns true when any compositor is currently active.
     [[nodiscard]] bool isRunning() const;

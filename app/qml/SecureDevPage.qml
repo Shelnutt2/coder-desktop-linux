@@ -58,15 +58,49 @@ Item {
 
                     Label {
                         text: dlpCompositor.available
-                            ? "✓ Wayland session detected — Secure Development is available"
-                            : "⚠ Secure Development requires a Wayland session"
+                            ? "✓ Display session detected — Secure Development is available"
+                            : "⚠ Secure Development requires a Wayland or X11 session"
                         font.bold: true
                         color: dlpCompositor.available ? CoderTheme.success : CoderTheme.warning
                     }
                     Label {
                         text: dlpCompositor.available
                             ? "The nested compositor can enforce clipboard, screenshot, and sandbox policies."
-                            : "You are running under X11 or a non-Wayland display server. Secure Development features are disabled."
+                            : "No display server detected. Secure Development features are disabled."
+                        wrapMode: Text.WordWrap
+                        Layout.fillWidth: true
+                        color: CoderTheme.textSecondary
+                    }
+                }
+            }
+
+            // ---- Security level indicator ----
+            Rectangle {
+                Layout.fillWidth: true
+                Layout.leftMargin: 16
+                Layout.rightMargin: 16
+                height: secLevelCol.implicitHeight + 24
+                radius: CoderTheme.radius
+                color: dlpCompositor.securityLevel === "full" ? CoderTheme.successSurface : CoderTheme.warningSurface
+                visible: dlpCompositor.available
+
+                ColumnLayout {
+                    id: secLevelCol
+                    anchors.fill: parent
+                    anchors.margins: 12
+                    spacing: 4
+
+                    Label {
+                        text: dlpCompositor.securityLevel === "full"
+                            ? "🛡 Full DLP protection — Wayland session"
+                            : "⚠ Partial DLP protection — X11 host"
+                        font.bold: true
+                        color: dlpCompositor.securityLevel === "full" ? CoderTheme.success : CoderTheme.warning
+                    }
+                    Label {
+                        text: dlpCompositor.securityLevel === "full"
+                            ? "All DLP protections are fully enforced on this Wayland session."
+                            : "Clipboard isolation is enforced. Screenshot protection is limited on X11 hosts."
                         wrapMode: Text.WordWrap
                         Layout.fillWidth: true
                         color: CoderTheme.textSecondary
