@@ -196,6 +196,13 @@ Item {
                             color: settingsManager.dlpNetworkSandbox ? CoderTheme.success : CoderTheme.textSecondary
                         }
 
+                        Label { text: "Watermark:"; color: CoderTheme.textPrimary }
+                        Label {
+                            text: settingsManager.dlpWatermark ? "Enabled" : "Disabled"
+                            font.bold: true
+                            color: settingsManager.dlpWatermark ? CoderTheme.success : CoderTheme.textSecondary
+                        }
+
                         Label { text: "In-app browser:"; color: CoderTheme.textPrimary }
                         Label {
                             text: settingsManager.dlpForceInAppBrowser ? "Forced" : "Optional"

@@ -91,7 +91,12 @@ public:
 
     /// Update DLP policy on all active compositors.
     Q_INVOKABLE void updatePolicy(bool clipboardBlockOutgoing, bool clipboardBlockIncoming,
-                                  bool screenshotBlock, bool fileSandbox, bool networkSandbox);
+                                  bool screenshotBlock, bool fileSandbox, bool networkSandbox,
+                                  bool watermarkEnabled);
+
+    /// Set the watermark identity string on all active compositors.
+    /// Only effective when policy.watermark_enabled is true.
+    Q_INVOKABLE void setWatermarkIdentity(const QString& identity);
 
 signals:
     void runningChanged();
@@ -110,6 +115,7 @@ private:
     QTimer m_processMonitor;  // 1s timer to check waitpid
     coder_dlp_log_level m_logLevel = CODER_DLP_LOG_ERROR;
     coder_dlp_policy m_currentPolicy{};
+    QByteArray m_watermarkIdentity;
 };
 
 #endif  // DLPCOMPOSITORMANAGER_H
