@@ -174,6 +174,7 @@ static void test_bwrap_args_no_fs_isolation(void) {
 
 static void test_bwrap_args_bind_home_rw(void) {
     /* Verify bind_home_rw controls whether $HOME is bound rw or tmpfs'd. */
+    const char* old_home = getenv("HOME");
     setenv("HOME", "/home/testuser", 1);
 
     coder_dlp_compositor* comp = calloc(1, sizeof(*comp));
@@ -237,6 +238,10 @@ static void test_bwrap_args_bind_home_rw(void) {
     }
 
     free(comp);
+    if (old_home)
+        setenv("HOME", old_home, 1);
+    else
+        unsetenv("HOME");
     printf("test_bwrap_args_bind_home_rw: PASSED\n");
 }
 
@@ -379,6 +384,150 @@ static void test_bwrap_args_dbus_filter_config(void) {
     printf("test_bwrap_args_dbus_filter_config: PASSED\n");
 }
 
+static void test_watermark_set_identity(void) {
+    struct dlp_watermark_state state;
+    memset(&state, 0, sizeof(state));
+    dlp_watermark_set_identity(&state, "user@example.com");
+    assert(state.has_identity == true);
+    /* fingerprint must be non-zero */
+    int nonzero = 0;
+    for (int i = 0; i < 32; i++) {
+        if (state.fingerprint[i] != 0) nonzero = 1;
+    }
+    assert(nonzero);
+    printf("test_watermark_set_identity: PASSED\n");
+}
+
+static void test_watermark_set_identity_null(void) {
+    struct dlp_watermark_state state;
+    memset(&state, 0, sizeof(state));
+    /* NULL identity should be a no-op (has_identity stays false) */
+    dlp_watermark_set_identity(&state, NULL);
+    assert(state.has_identity == false);
+    /* NULL state should not crash */
+    dlp_watermark_set_identity(NULL, "test");
+    printf("test_watermark_set_identity_null: PASSED\n");
+}
+
+static void test_watermark_set_identity_empty(void) {
+    struct dlp_watermark_state state;
+    memset(&state, 0, sizeof(state));
+    dlp_watermark_set_identity(&state, "");
+    assert(state.has_identity == true);
+    /* Even empty string hashes the prefix byte, so fingerprint != 0 */
+    int nonzero = 0;
+    for (int i = 0; i < 32; i++) {
+        if (state.fingerprint[i] != 0) nonzero = 1;
+    }
+    assert(nonzero);
+    printf("test_watermark_set_identity_empty: PASSED\n");
+}
+
+static void test_watermark_different_identities(void) {
+    struct dlp_watermark_state s1, s2;
+    memset(&s1, 0, sizeof(s1));
+    memset(&s2, 0, sizeof(s2));
+    dlp_watermark_set_identity(&s1, "alice@example.com");
+    dlp_watermark_set_identity(&s2, "bob@example.com");
+    assert(memcmp(s1.fingerprint, s2.fingerprint, 32) != 0);
+    printf("test_watermark_different_identities: PASSED\n");
+}
+
+static void test_watermark_same_identity(void) {
+    struct dlp_watermark_state s1, s2;
+    memset(&s1, 0, sizeof(s1));
+    memset(&s2, 0, sizeof(s2));
+    dlp_watermark_set_identity(&s1, "user@example.com");
+    dlp_watermark_set_identity(&s2, "user@example.com");
+    assert(memcmp(s1.fingerprint, s2.fingerprint, 32) == 0);
+    printf("test_watermark_same_identity: PASSED\n");
+}
+
+static void test_set_policy_watermark(void) {
+    coder_dlp_compositor* comp = calloc(1, sizeof(*comp));
+    assert(comp != NULL);
+    coder_dlp_policy policy;
+    memset(&policy, 0, sizeof(policy));
+    policy.watermark_enabled = true;
+    coder_dlp_set_policy(comp, &policy);
+    assert(comp->policy.watermark_enabled == true);
+    /* Flip it off */
+    policy.watermark_enabled = false;
+    coder_dlp_set_policy(comp, &policy);
+    assert(comp->policy.watermark_enabled == false);
+    free(comp);
+    printf("test_set_policy_watermark: PASSED\n");
+}
+
+static void test_surface_type_tag(void) {
+    /* The 'type' field is the first member of both coder_dlp_toplevel and
+     * coder_dlp_xwayland_surface, so a generic pointer cast can read it. */
+    struct coder_dlp_toplevel* t = calloc(1, sizeof(*t));
+    assert(t != NULL);
+    t->type = DLP_SURFACE_XDG;
+    enum dlp_surface_type* tag = (enum dlp_surface_type*)t;
+    assert(*tag == DLP_SURFACE_XDG);
+    free(t);
+
+#if WLR_HAS_X11_BACKEND
+    struct coder_dlp_xwayland_surface* xs = calloc(1, sizeof(*xs));
+    assert(xs != NULL);
+    xs->type = DLP_SURFACE_XWAYLAND;
+    tag = (enum dlp_surface_type*)xs;
+    assert(*tag == DLP_SURFACE_XWAYLAND);
+    free(xs);
+#endif
+
+    printf("test_surface_type_tag: PASSED\n");
+}
+
+#if WLR_HAS_X11_BACKEND
+static void test_is_x11_backend_default(void) {
+    coder_dlp_compositor* comp = calloc(1, sizeof(*comp));
+    assert(comp != NULL);
+    assert(comp->is_x11_backend == false);
+    free(comp);
+    printf("test_is_x11_backend_default: PASSED\n");
+}
+#endif
+
+static void test_reap_timer_default(void) {
+    coder_dlp_compositor* comp = calloc(1, sizeof(*comp));
+    assert(comp != NULL);
+    assert(comp->reap_timer == NULL);
+    free(comp);
+    printf("test_reap_timer_default: PASSED\n");
+}
+
+static void test_bwrap_args_dbus_talk_names(void) {
+    /* dbus_talk_names are used by dlp_start_dbus_proxy(), NOT by
+     * dlp_build_bwrap_args(). Verify bwrap args builder ignores them. */
+    coder_dlp_compositor* comp = calloc(1, sizeof(*comp));
+    assert(comp != NULL);
+    comp->socket = "wayland-test";
+
+    const char* talk_names[] = {"org.example.Foo", "org.example.Bar"};
+    coder_dlp_sandbox_config sandbox;
+    memset(&sandbox, 0, sizeof(sandbox));
+    sandbox.filter_dbus = true;
+    sandbox.dbus_talk_names = talk_names;
+    sandbox.dbus_talk_count = 2;
+
+    /* proxy_socket=NULL → no D-Bus proxy binding in bwrap args */
+    char** argv = dlp_build_bwrap_args(comp, "echo hi", &sandbox, NULL);
+    assert(argv != NULL);
+
+    /* talk names should NOT appear in bwrap args */
+    for (int i = 0; argv[i]; i++) {
+        assert(strcmp(argv[i], "org.example.Foo") != 0);
+        assert(strcmp(argv[i], "org.example.Bar") != 0);
+    }
+
+    dlp_free_bwrap_args(argv);
+    free(comp);
+    printf("test_bwrap_args_dbus_talk_names: PASSED\n");
+}
+
 int main(void) {
     test_set_policy();
     test_null_safety();
@@ -392,6 +541,18 @@ int main(void) {
     test_bwrap_args_null_returns_null();
     test_bwrap_args_dbus_proxy_socket();
     test_bwrap_args_dbus_filter_config();
+    test_watermark_set_identity();
+    test_watermark_set_identity_null();
+    test_watermark_set_identity_empty();
+    test_watermark_different_identities();
+    test_watermark_same_identity();
+    test_set_policy_watermark();
+    test_surface_type_tag();
+#if WLR_HAS_X11_BACKEND
+    test_is_x11_backend_default();
+#endif
+    test_reap_timer_default();
+    test_bwrap_args_dbus_talk_names();
     printf("All tests passed.\n");
     return 0;
 }
