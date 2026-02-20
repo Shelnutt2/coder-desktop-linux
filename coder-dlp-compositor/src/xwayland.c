@@ -16,6 +16,8 @@
 #include <wlr/util/log.h>
 #include <wlr/xwayland/xwayland.h>
 
+#if WLR_HAS_X11_BACKEND
+
 /* --- Focus helper -------------------------------------------------------- */
 
 static void focus_xwayland_surface(struct coder_dlp_xwayland_surface* xsurf) {
@@ -411,3 +413,5 @@ void dlp_xwayland_destroy(struct coder_dlp_compositor* comp) {
     wlr_xwayland_destroy(comp->xwayland);
     comp->xwayland = NULL;
 }
+
+#endif /* WLR_HAS_X11_BACKEND */
