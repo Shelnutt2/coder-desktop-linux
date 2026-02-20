@@ -22,7 +22,7 @@
 #include <wlr/types/wlr_subcompositor.h>
 #include <wlr/types/wlr_xcursor_manager.h>
 #include <wlr/types/wlr_xdg_shell.h>
-#if WLR_HAS_X11_BACKEND
+#if WLR_HAS_XWAYLAND
 #include <wlr/xwayland/xwayland.h>
 #endif
 
@@ -49,7 +49,7 @@ struct coder_dlp_toplevel {
     struct wl_list link; /* coder_dlp_compositor.toplevels */
 };
 
-#if WLR_HAS_X11_BACKEND
+#if WLR_HAS_XWAYLAND
 struct coder_dlp_xwayland_surface {
     enum dlp_surface_type type;
     struct wlr_xwayland_surface* xwayland_surface;
@@ -120,7 +120,7 @@ struct coder_dlp_compositor {
     struct wl_listener new_xdg_popup;
     struct wl_list toplevels; /* coder_dlp_toplevel.link */
 
-#if WLR_HAS_X11_BACKEND
+#if WLR_HAS_XWAYLAND
     /* Xwayland */
     struct wlr_xwayland* xwayland;
     struct wl_listener xwayland_surface;
@@ -235,7 +235,7 @@ void handle_request_set_cursor(struct wl_listener* listener, void* data);
 void compositor_handle_new_xdg_toplevel(struct wl_listener* listener, void* data);
 void compositor_handle_new_xdg_popup(struct wl_listener* listener, void* data);
 
-#if WLR_HAS_X11_BACKEND
+#if WLR_HAS_XWAYLAND
 /* Xwayland support (xwayland.c) */
 void dlp_xwayland_init(struct coder_dlp_compositor* comp);
 void dlp_xwayland_destroy(struct coder_dlp_compositor* comp);
