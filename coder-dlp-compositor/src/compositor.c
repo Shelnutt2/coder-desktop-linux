@@ -28,9 +28,36 @@
 
 #define LOG_ERR(fmt, ...) fprintf(stderr, "coder-dlp: " fmt "\n", ##__VA_ARGS__)
 
-/* Global pointer used by the wlr_log callback — wlr_log is process-global so
- * we cannot pass per-compositor context through it directly. */
-static coder_dlp_compositor* s_log_comp = NULL;
+/* Active compositor list — wlr_log is process-global so we track all
+ * live compositors and deliver log messages to the first one with a
+ * callback registered. */
+static struct {
+    coder_dlp_compositor** entries;
+    int count;
+    int capacity;
+} s_active_compositors = {0};
+
+static void compositor_list_add(coder_dlp_compositor* comp) {
+    if (s_active_compositors.count >= s_active_compositors.capacity) {
+        int cap = s_active_compositors.capacity ? s_active_compositors.capacity * 2 : 4;
+        coder_dlp_compositor** tmp =
+            realloc(s_active_compositors.entries, (size_t)cap * sizeof(*tmp));
+        if (!tmp) return;
+        s_active_compositors.entries = tmp;
+        s_active_compositors.capacity = cap;
+    }
+    s_active_compositors.entries[s_active_compositors.count++] = comp;
+}
+
+static void compositor_list_remove(coder_dlp_compositor* comp) {
+    for (int i = 0; i < s_active_compositors.count; i++) {
+        if (s_active_compositors.entries[i] == comp) {
+            s_active_compositors.entries[i] =
+                s_active_compositors.entries[--s_active_compositors.count];
+            return;
+        }
+    }
+}
 
 static void custom_wlr_log(enum wlr_log_importance importance, const char* fmt, va_list args) {
     char buf[1024];
@@ -43,14 +70,18 @@ static void custom_wlr_log(enum wlr_log_importance importance, const char* fmt, 
         level = "INFO";
     }
 
-    if (s_log_comp && s_log_comp->log_cb) {
-        char full[1100];
-        snprintf(full, sizeof(full), "[wlr %s] %s", level, buf);
-        s_log_comp->log_cb(full, s_log_comp->log_cb_data);
-    } else {
-        /* Fallback: no Qt callback registered yet (during coder_dlp_create) */
-        fprintf(stderr, "[wlr %s] %s\n", level, buf);
+    char full[1100];
+    snprintf(full, sizeof(full), "[wlr %s] %s", level, buf);
+
+    /* Deliver to the first active compositor with a log callback. */
+    for (int i = 0; i < s_active_compositors.count; i++) {
+        coder_dlp_compositor* c = s_active_compositors.entries[i];
+        if (c && c->log_cb) {
+            c->log_cb(full, c->log_cb_data);
+            return;
+        }
     }
+    fprintf(stderr, "[wlr %s] %s\n", level, buf);
 }
 
 /* --- Wayland client tracking -------------------------------------------- */
@@ -105,6 +136,17 @@ void coder_dlp_set_output_title(coder_dlp_compositor* comp, const char* title) {
 
 /* ------------------------------------------------------------------------ */
 
+/* Timer callback for periodic D-Bus proxy zombie reaping. */
+static int reap_timer_cb(void* data) {
+    coder_dlp_compositor* comp = data;
+    dlp_reap_dbus_proxies(comp);
+    /* Re-arm the timer for another 30 seconds. */
+    if (comp->reap_timer) {
+        wl_event_source_timer_update(comp->reap_timer, 30000);
+    }
+    return 0;
+}
+
 coder_dlp_compositor* coder_dlp_create(void* parent_wl_surface, coder_dlp_log_level log_level) {
     /* parent_wl_surface is reserved for future use with
      * wlr_wl_output_create_from_surface() for embedded rendering.
@@ -123,13 +165,16 @@ coder_dlp_compositor* coder_dlp_create(void* parent_wl_surface, coder_dlp_log_le
             wlr_level = WLR_ERROR;
             break;
     }
-    wlr_log_init(wlr_level, custom_wlr_log);
+    /* Only initialise wlr_log once — it is process-global. */
+    if (s_active_compositors.count == 0) {
+        wlr_log_init(wlr_level, custom_wlr_log);
+    }
 
     coder_dlp_compositor* comp = calloc(1, sizeof(*comp));
     if (!comp) {
         return NULL;
     }
-    s_log_comp = comp;
+    compositor_list_add(comp);
 
     wl_list_init(&comp->toplevels);
     wl_list_init(&comp->xwayland_surfaces);
@@ -153,6 +198,9 @@ coder_dlp_compositor* coder_dlp_create(void* parent_wl_surface, coder_dlp_log_le
         LOG_ERR("failed to create wlr_backend");
         goto err_display;
     }
+#if WLR_HAS_X11_BACKEND
+    comp->is_x11_backend = wlr_backend_is_x11(comp->backend);
+#endif
 
     /* Renderer + allocator */
     comp->renderer = wlr_renderer_autocreate(comp->backend);
@@ -243,6 +291,12 @@ coder_dlp_compositor* coder_dlp_create(void* parent_wl_surface, coder_dlp_log_le
         goto err_display;
     }
 
+    /* Periodic reaper for D-Bus proxy zombie processes (every 30s). */
+    comp->reap_timer = wl_event_loop_add_timer(comp->wl_event_loop, reap_timer_cb, comp);
+    if (comp->reap_timer) {
+        wl_event_source_timer_update(comp->reap_timer, 30000);
+    }
+
     /* Create a Wayland socket for client connections */
     comp->socket = wl_display_add_socket_auto(comp->wl_display);
     if (!comp->socket) {
@@ -264,10 +318,9 @@ void coder_dlp_destroy(coder_dlp_compositor* comp) {
         return;
     }
 
-    /* Clear global log pointer so the callback is not invoked after free. */
-    if (s_log_comp == comp) {
-        s_log_comp = NULL;
-    }
+    /* Remove from global compositor list so the log callback is not invoked
+     * after free. */
+    compositor_list_remove(comp);
 
     /* Remove all signal listeners BEFORE tearing down wlroots objects.
      * wlroots asserts that listener lists are empty during destroy. */
@@ -307,6 +360,12 @@ void coder_dlp_destroy(coder_dlp_compositor* comp) {
     wl_list_remove(&comp->cursor_axis.link);
     wl_list_remove(&comp->cursor_frame.link);
     wl_list_remove(&comp->request_set_cursor.link);
+
+    /* Remove the zombie reaper timer before cleanup. */
+    if (comp->reap_timer) {
+        wl_event_source_remove(comp->reap_timer);
+        comp->reap_timer = NULL;
+    }
 
     /* D-Bus proxy cleanup */
     dlp_cleanup_dbus_proxies(comp);

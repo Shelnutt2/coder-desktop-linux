@@ -163,11 +163,37 @@ static int dlp_start_dbus_proxy(struct dlp_dbus_proxy* proxy,
     return -1;
 }
 
+void dlp_reap_dbus_proxies(coder_dlp_compositor* comp) {
+    if (!comp || !comp->dbus_proxies) return;
+    for (int i = 0; i < comp->dbus_proxy_count; i++) {
+        if (comp->dbus_proxies[i].pid <= 0) continue;
+        int status;
+        pid_t ret = waitpid(comp->dbus_proxies[i].pid, &status, WNOHANG);
+        if (ret > 0) {
+            /* Proxy exited — clean up its resources. */
+            if (comp->dbus_proxies[i].pipe_write_fd >= 0) {
+                close(comp->dbus_proxies[i].pipe_write_fd);
+                comp->dbus_proxies[i].pipe_write_fd = -1;
+            }
+            if (comp->dbus_proxies[i].socket_path[0]) {
+                unlink(comp->dbus_proxies[i].socket_path);
+            }
+            if (comp->dbus_proxies[i].dir_path[0]) {
+                rmdir(comp->dbus_proxies[i].dir_path);
+            }
+            comp->dbus_proxies[i].pid = 0; /* mark as reaped */
+        }
+    }
+}
+
 void dlp_cleanup_dbus_proxies(coder_dlp_compositor* comp) {
     if (!comp) {
         return;
     }
     for (int i = 0; i < comp->dbus_proxy_count; i++) {
+        /* Skip entries already reaped by dlp_reap_dbus_proxies(). */
+        if (comp->dbus_proxies[i].pid == 0) continue;
+
         /* Close the lifecycle pipe first — this signals the proxy to exit
          * gracefully via EOF on its --fd pipe. */
         if (comp->dbus_proxies[i].pipe_write_fd >= 0) {
@@ -183,9 +209,6 @@ void dlp_cleanup_dbus_proxies(coder_dlp_compositor* comp) {
                 kill(comp->dbus_proxies[i].pid, SIGTERM);
                 waitpid(comp->dbus_proxies[i].pid, NULL, 0);
             }
-            /* NOTE: zombie proxies from long-running sessions are reaped here
-             * during coder_dlp_destroy().  If the compositor runs for a very
-             * long time, zombies accumulate until teardown. */
         }
         /* Remove socket file and directory */
         if (comp->dbus_proxies[i].socket_path[0]) {

@@ -2,6 +2,10 @@
 
 #include <stdlib.h>
 
+#include <wlr/config.h>
+#if WLR_HAS_X11_BACKEND
+#include <wlr/backend/x11.h>
+#endif
 #include <wlr/types/wlr_cursor.h>
 #include <wlr/types/wlr_input_device.h>
 #include <wlr/types/wlr_keyboard.h>
@@ -30,6 +34,19 @@ static void handle_keyboard_key(struct wl_listener* listener, void* data) {
     struct coder_dlp_compositor* comp = wl_container_of(listener, comp, keyboard_key);
     struct wlr_keyboard_key_event* event = data;
     struct wlr_keyboard* keyboard = comp->keyboard;
+
+    /* On X11 backend: suppress key events when Super (Mod4) is held.
+     * Host WM keybindings using Super may leak through the X11 backend
+     * window — suppressing them here prevents dual-action in both the
+     * host WM and the sandboxed app.  Wayland sessions are unaffected. */
+#if WLR_HAS_X11_BACKEND
+    if (comp->is_x11_backend && event->state == WL_KEYBOARD_KEY_STATE_PRESSED) {
+        uint32_t modifiers = wlr_keyboard_get_modifiers(keyboard);
+        if (modifiers & WLR_MODIFIER_LOGO) {
+            return;
+        }
+    }
+#endif
 
     /* Only forward key events when a client surface has keyboard focus.
      * This prevents stale key events from being sent to the seat when
