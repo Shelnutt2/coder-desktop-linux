@@ -64,7 +64,9 @@ ExternalProject_Add(wlroots_external
         "${WLROOTS_INSTALL_PREFIX}/${_wlr_libdir}/libwlroots-0.19.a"
 )
 
-# Set variables matching what pkg_check_modules would produce
+# Set variables matching what pkg_check_modules would produce.
+# Include the wlroots install prefix AND all transitive dependency include dirs
+# (wlroots headers like wlr/types/wlr_output.h include <pixman.h>, <wayland-server.h>, etc.)
 set(WLROOTS_INCLUDE_DIRS "${WLROOTS_INSTALL_PREFIX}/include/wlroots-0.19")
 set(WLROOTS_VERSION "${WLROOTS_VERSION}")
 set(WLROOTS_BUILT_FROM_SOURCE TRUE)
@@ -84,6 +86,24 @@ pkg_check_modules(_WLR_SEAT QUIET libseat)
 pkg_check_modules(_WLR_INPUT QUIET libinput)
 pkg_check_modules(_WLR_DISPLAY_INFO QUIET libdisplay-info)
 pkg_check_modules(_WLR_LIFTOFF QUIET libliftoff)
+
+# Append transitive dependency include dirs so that wlroots public headers
+# (which #include <pixman.h>, <wayland-server-core.h>, <drm_fourcc.h>, etc.)
+# can find them.
+list(APPEND WLROOTS_INCLUDE_DIRS
+    ${_WLR_WAYLAND_INCLUDE_DIRS}
+    ${_WLR_DRM_INCLUDE_DIRS}
+    ${_WLR_GBM_INCLUDE_DIRS}
+    ${_WLR_PIXMAN_INCLUDE_DIRS}
+    ${_WLR_XKBCOMMON_INCLUDE_DIRS}
+    ${_WLR_EGL_INCLUDE_DIRS}
+    ${_WLR_GLES_INCLUDE_DIRS}
+    ${_WLR_SEAT_INCLUDE_DIRS}
+    ${_WLR_INPUT_INCLUDE_DIRS}
+    ${_WLR_DISPLAY_INFO_INCLUDE_DIRS}
+    ${_WLR_LIFTOFF_INCLUDE_DIRS}
+)
+list(REMOVE_DUPLICATES WLROOTS_INCLUDE_DIRS)
 
 set(WLROOTS_LIBRARIES
     "${WLROOTS_INSTALL_PREFIX}/${_wlr_libdir}/libwlroots-0.19.a"
