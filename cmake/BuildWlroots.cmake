@@ -96,7 +96,7 @@ pkg_check_modules(_WLR_LIFTOFF QUIET libliftoff)
 pkg_check_modules(_WLR_LCMS2 QUIET lcms2)
 # XCB extensions (used by wlroots X11 backend and Xwayland support):
 pkg_check_modules(_WLR_XCB QUIET xcb)
-pkg_check_modules(_WLR_XCB_RENDER_UTIL QUIET xcb-render-util)
+pkg_check_modules(_WLR_XCB_RENDER_UTIL QUIET xcb-renderutil)
 pkg_check_modules(_WLR_XCB_RENDER QUIET xcb-render)
 pkg_check_modules(_WLR_XCB_XFIXES QUIET xcb-xfixes)
 pkg_check_modules(_WLR_XCB_COMPOSITE QUIET xcb-composite)
