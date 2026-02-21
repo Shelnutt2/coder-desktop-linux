@@ -74,49 +74,90 @@ set(WLROOTS_STATIC_LIB "${WLROOTS_INSTALL_PREFIX}/${_wlr_libdir}/libwlroots-0.19
 set(WLROOTS_EXTERNAL_TARGET "wlroots_external")
 
 # Transitive deps — these are the same system libs that wlroots links against.
-# Found via pkg-config at configure time (they must be installed as build deps).
-pkg_check_modules(_WLR_WAYLAND REQUIRED wayland-server)
+# When wlroots is statically linked, ALL of its transitive dependencies must be
+# supplied to the linker.  Found via pkg-config at configure time (they must be
+# installed as build deps).
+#
+# Core (always required):
+pkg_check_modules(_WLR_WAYLAND_SERVER REQUIRED wayland-server)
+pkg_check_modules(_WLR_WAYLAND_CLIENT REQUIRED wayland-client)
 pkg_check_modules(_WLR_DRM REQUIRED libdrm)
 pkg_check_modules(_WLR_GBM REQUIRED gbm)
 pkg_check_modules(_WLR_PIXMAN REQUIRED pixman-1)
 pkg_check_modules(_WLR_XKBCOMMON REQUIRED xkbcommon)
 pkg_check_modules(_WLR_EGL REQUIRED egl)
 pkg_check_modules(_WLR_GLES REQUIRED glesv2)
+# Optional (present on most desktop systems):
+pkg_check_modules(_WLR_VULKAN QUIET vulkan)
 pkg_check_modules(_WLR_SEAT QUIET libseat)
 pkg_check_modules(_WLR_INPUT QUIET libinput)
 pkg_check_modules(_WLR_DISPLAY_INFO QUIET libdisplay-info)
 pkg_check_modules(_WLR_LIFTOFF QUIET libliftoff)
+pkg_check_modules(_WLR_LCMS2 QUIET lcms2)
+# XCB extensions (used by wlroots X11 backend and Xwayland support):
+pkg_check_modules(_WLR_XCB QUIET xcb)
+pkg_check_modules(_WLR_XCB_RENDER_UTIL QUIET xcb-render-util)
+pkg_check_modules(_WLR_XCB_RENDER QUIET xcb-render)
+pkg_check_modules(_WLR_XCB_XFIXES QUIET xcb-xfixes)
+pkg_check_modules(_WLR_XCB_COMPOSITE QUIET xcb-composite)
+pkg_check_modules(_WLR_XCB_PRESENT QUIET xcb-present)
+pkg_check_modules(_WLR_XCB_XINPUT QUIET xcb-xinput)
+pkg_check_modules(_WLR_XCB_SHM QUIET xcb-shm)
+pkg_check_modules(_WLR_XCB_RES QUIET xcb-res)
+pkg_check_modules(_WLR_XCB_DRI3 QUIET xcb-dri3)
+pkg_check_modules(_WLR_XCB_SHAPE QUIET xcb-shape)
+pkg_check_modules(_WLR_XCB_EWMH QUIET xcb-ewmh)
+pkg_check_modules(_WLR_XCB_ICCCM QUIET xcb-icccm)
 
 # Append transitive dependency include dirs so that wlroots public headers
 # (which #include <pixman.h>, <wayland-server-core.h>, <drm_fourcc.h>, etc.)
 # can find them.
 list(APPEND WLROOTS_INCLUDE_DIRS
-    ${_WLR_WAYLAND_INCLUDE_DIRS}
+    ${_WLR_WAYLAND_SERVER_INCLUDE_DIRS}
+    ${_WLR_WAYLAND_CLIENT_INCLUDE_DIRS}
     ${_WLR_DRM_INCLUDE_DIRS}
     ${_WLR_GBM_INCLUDE_DIRS}
     ${_WLR_PIXMAN_INCLUDE_DIRS}
     ${_WLR_XKBCOMMON_INCLUDE_DIRS}
     ${_WLR_EGL_INCLUDE_DIRS}
     ${_WLR_GLES_INCLUDE_DIRS}
+    ${_WLR_VULKAN_INCLUDE_DIRS}
     ${_WLR_SEAT_INCLUDE_DIRS}
     ${_WLR_INPUT_INCLUDE_DIRS}
     ${_WLR_DISPLAY_INFO_INCLUDE_DIRS}
     ${_WLR_LIFTOFF_INCLUDE_DIRS}
+    ${_WLR_LCMS2_INCLUDE_DIRS}
 )
 list(REMOVE_DUPLICATES WLROOTS_INCLUDE_DIRS)
 
 set(WLROOTS_LIBRARIES
     "${WLROOTS_INSTALL_PREFIX}/${_wlr_libdir}/libwlroots-0.19.a"
-    ${_WLR_WAYLAND_LIBRARIES}
+    ${_WLR_WAYLAND_SERVER_LIBRARIES}
+    ${_WLR_WAYLAND_CLIENT_LIBRARIES}
     ${_WLR_DRM_LIBRARIES}
     ${_WLR_GBM_LIBRARIES}
     ${_WLR_PIXMAN_LIBRARIES}
     ${_WLR_XKBCOMMON_LIBRARIES}
     ${_WLR_EGL_LIBRARIES}
     ${_WLR_GLES_LIBRARIES}
+    ${_WLR_VULKAN_LIBRARIES}
     ${_WLR_SEAT_LIBRARIES}
     ${_WLR_INPUT_LIBRARIES}
     ${_WLR_DISPLAY_INFO_LIBRARIES}
     ${_WLR_LIFTOFF_LIBRARIES}
+    ${_WLR_LCMS2_LIBRARIES}
+    ${_WLR_XCB_LIBRARIES}
+    ${_WLR_XCB_RENDER_UTIL_LIBRARIES}
+    ${_WLR_XCB_RENDER_LIBRARIES}
+    ${_WLR_XCB_XFIXES_LIBRARIES}
+    ${_WLR_XCB_COMPOSITE_LIBRARIES}
+    ${_WLR_XCB_PRESENT_LIBRARIES}
+    ${_WLR_XCB_XINPUT_LIBRARIES}
+    ${_WLR_XCB_SHM_LIBRARIES}
+    ${_WLR_XCB_RES_LIBRARIES}
+    ${_WLR_XCB_DRI3_LIBRARIES}
+    ${_WLR_XCB_SHAPE_LIBRARIES}
+    ${_WLR_XCB_EWMH_LIBRARIES}
+    ${_WLR_XCB_ICCCM_LIBRARIES}
     m
 )
