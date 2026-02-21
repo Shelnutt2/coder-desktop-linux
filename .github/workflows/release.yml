@@ -10,7 +10,6 @@ permissions:
 env:
   GO_VERSION: "1.25"
   WAYLAND_VERSION: "1.23.1"
-  WLROOTS_VERSION: "0.19.0"
 
 jobs:
   build-release:
@@ -75,21 +74,14 @@ jobs:
           sudo ninja -C build install
           sudo ldconfig
 
-      - name: Build wlroots ${{ env.WLROOTS_VERSION }} from source
-        run: |
-          git clone --depth 1 --branch ${{ env.WLROOTS_VERSION }} https://gitlab.freedesktop.org/wlroots/wlroots.git /tmp/wlroots
-          cd /tmp/wlroots
-          meson setup build --prefix=/usr --buildtype=release -Dxwayland=disabled --wrap-mode=default
-          ninja -C build
-          sudo ninja -C build install
-          sudo ldconfig
-
       - name: CMake configure (Release)
         run: |
           cmake -B build \
             -G Ninja \
             -DCMAKE_BUILD_TYPE=Release \
-            -DCMAKE_INSTALL_PREFIX=/usr
+            -DCMAKE_INSTALL_PREFIX=/usr \
+            -DWLROOTS_FROM_SOURCE=ON \
+            -DWLROOTS_XWAYLAND=OFF
 
       - name: Build all targets
         run: cmake --build build -j$(nproc)

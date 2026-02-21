@@ -12,7 +12,6 @@ concurrency:
 env:
   GO_VERSION: "1.25"
   WAYLAND_VERSION: "1.23.1"
-  WLROOTS_VERSION: "0.19.0"
 
 jobs:
   lint:
@@ -100,16 +99,6 @@ jobs:
           sudo ninja -C build install
           sudo ldconfig
 
-      - name: Build wlroots ${{ env.WLROOTS_VERSION }} from source
-        run: |
-          git clone --depth 1 --branch ${{ env.WLROOTS_VERSION }} https://gitlab.freedesktop.org/wlroots/wlroots.git /tmp/wlroots
-          cd /tmp/wlroots
-          XWAYLAND_OPT=${{ matrix.xwayland && 'enabled' || 'disabled' }}
-          meson setup build --prefix=/usr --buildtype=release -Dxwayland=$XWAYLAND_OPT --wrap-mode=default
-          ninja -C build
-          sudo ninja -C build install
-          sudo ldconfig
-
       - name: Set up ccache
         uses: hendrikmuhs/ccache-action@v1
         with:
@@ -121,7 +110,9 @@ jobs:
             -G Ninja \
             -DCMAKE_BUILD_TYPE=Debug \
             -DCMAKE_C_COMPILER_LAUNCHER=ccache \
-            -DCMAKE_CXX_COMPILER_LAUNCHER=ccache
+            -DCMAKE_CXX_COMPILER_LAUNCHER=ccache \
+            -DWLROOTS_FROM_SOURCE=ON \
+            -DWLROOTS_XWAYLAND=${{ matrix.xwayland && 'ON' || 'OFF' }}
 
       - name: Build all targets
         run: cmake --build build -j$(nproc)
