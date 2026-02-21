@@ -28,15 +28,23 @@ GridLayout {
             Layout.fillWidth: true
             height: appItemCol.implicitHeight + 16
             radius: CoderTheme.radius
-            color: tileMouseArea.containsMouse ? CoderTheme.hoverBg : CoderTheme.surface
             border.color: CoderTheme.border
             border.width: 1
+            opacity: tileMouseArea.tileEnabled ? 1.0 : 0.45
+
+            color: {
+                if (!tileMouseArea.tileEnabled)
+                    return CoderTheme.surface
+                return tileMouseArea.containsMouse ? CoderTheme.hoverBg : CoderTheme.surface
+            }
 
             MouseArea {
                 id: tileMouseArea
                 anchors.fill: parent
                 hoverEnabled: true
-                enabled: {
+
+                // Whether this tile's action is currently available.
+                readonly property bool tileEnabled: {
                     if (modelData.isDisplayApp === true) {
                         var daType = modelData.displayAppType
                         if (daType === "ssh_helper" || daType === "port_forwarding_helper")
@@ -45,8 +53,49 @@ GridLayout {
                     }
                     return (modelData.appUrl || "").length > 0
                 }
-                cursorShape: enabled ? Qt.PointingHandCursor : Qt.ArrowCursor
-                onClicked: appsGrid.appClicked(modelData)
+
+                cursorShape: tileEnabled ? Qt.PointingHandCursor : Qt.ArrowCursor
+                onClicked: {
+                    if (tileEnabled) {
+                        appsGrid.appClicked(modelData)
+                    } else {
+                        vpnRequiredTip.show()
+                    }
+                }
+            }
+
+            // "Requires VPN" badge shown on hover when tile is disabled
+            Rectangle {
+                id: vpnRequiredBadge
+                anchors.bottom: parent.bottom
+                anchors.horizontalCenter: parent.horizontalCenter
+                anchors.bottomMargin: -4
+                width: vpnBadgeLabel.implicitWidth + 12
+                height: vpnBadgeLabel.implicitHeight + 4
+                radius: CoderTheme.radiusSm
+                color: CoderTheme.warning
+                visible: !tileMouseArea.tileEnabled && tileMouseArea.containsMouse
+                z: 10
+
+                Label {
+                    id: vpnBadgeLabel
+                    anchors.centerIn: parent
+                    text: "Requires VPN"
+                    font.pixelSize: 10
+                    font.bold: true
+                    color: "#fff"
+                }
+            }
+
+            // Transient tooltip when user clicks a disabled tile
+            ToolTip {
+                id: vpnRequiredTip
+                text: "Connect VPN to use this"
+                timeout: 2000
+
+                function show() {
+                    visible = true
+                }
             }
 
             ColumnLayout {
