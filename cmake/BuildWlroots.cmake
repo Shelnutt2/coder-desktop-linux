@@ -39,6 +39,31 @@ else()
     set(_wlr_buildtype "release")
 endif()
 
+# Post-install script: merge all .a files (wlroots + any meson subprojects like
+# pixman, libliftoff, etc.) into a single combined archive.  This avoids needing
+# to know which subprojects meson decided to build.
+set(_wlr_merge_script "${CMAKE_BINARY_DIR}/_deps/merge-wlroots-archives.sh")
+set(_wlr_merged_lib "${WLROOTS_INSTALL_PREFIX}/${_wlr_libdir}/libwlroots-merged.a")
+file(WRITE "${_wlr_merge_script}"
+"#!/bin/sh
+set -e
+LIBDIR=\"${WLROOTS_INSTALL_PREFIX}/${_wlr_libdir}\"
+MERGED=\"${_wlr_merged_lib}\"
+TMPDIR=\"$LIBDIR/_merge_tmp\"
+rm -rf \"$TMPDIR\" \"$MERGED\"
+mkdir -p \"$TMPDIR\"
+# Extract all .o files from every .a in the lib dir
+for archive in \"$LIBDIR\"/*.a; do
+    [ -f \"$archive\" ] || continue
+    cd \"$TMPDIR\"
+    ar x \"$archive\"
+done
+# Create merged archive
+ar crs \"$MERGED\" \"$TMPDIR\"/*.o
+rm -rf \"$TMPDIR\"
+echo \"Merged wlroots archives into $MERGED\"
+")
+
 ExternalProject_Add(wlroots_external
     GIT_REPOSITORY https://gitlab.freedesktop.org/wlroots/wlroots.git
     GIT_TAG        "${WLROOTS_VERSION}"
@@ -55,13 +80,14 @@ ExternalProject_Add(wlroots_external
         -Dxwayland=${_wlr_xwayland}
         -Dbackends=${_wlr_backends}
         -Drenderers=auto
-        --wrap-mode=nofallback
+        --wrap-mode=default
 
     BUILD_COMMAND ${NINJA_EXECUTABLE} -C <BINARY_DIR>/meson-build
     INSTALL_COMMAND ${NINJA_EXECUTABLE} -C <BINARY_DIR>/meson-build install
+        COMMAND sh "${_wlr_merge_script}"
 
     BUILD_BYPRODUCTS
-        "${WLROOTS_INSTALL_PREFIX}/${_wlr_libdir}/libwlroots-0.19.a"
+        "${_wlr_merged_lib}"
 )
 
 # Set variables matching what pkg_check_modules would produce.
@@ -70,20 +96,19 @@ ExternalProject_Add(wlroots_external
 set(WLROOTS_INCLUDE_DIRS "${WLROOTS_INSTALL_PREFIX}/include/wlroots-0.19")
 set(WLROOTS_VERSION "${WLROOTS_VERSION}")
 set(WLROOTS_BUILT_FROM_SOURCE TRUE)
-set(WLROOTS_STATIC_LIB "${WLROOTS_INSTALL_PREFIX}/${_wlr_libdir}/libwlroots-0.19.a")
+set(WLROOTS_STATIC_LIB "${_wlr_merged_lib}")
 set(WLROOTS_EXTERNAL_TARGET "wlroots_external")
 
-# Transitive deps — these are the same system libs that wlroots links against.
-# When wlroots is statically linked, ALL of its transitive dependencies must be
-# supplied to the linker.  Found via pkg-config at configure time (they must be
-# installed as build deps).
+# Transitive deps — system shared libraries that wlroots (and any meson
+# subprojects) link against at runtime.  The merged static archive contains all
+# wlroots + subproject code, but still needs these system libs at link time.
 #
 # Core (always required):
 pkg_check_modules(_WLR_WAYLAND_SERVER REQUIRED wayland-server)
 pkg_check_modules(_WLR_WAYLAND_CLIENT REQUIRED wayland-client)
 pkg_check_modules(_WLR_DRM REQUIRED libdrm)
 pkg_check_modules(_WLR_GBM REQUIRED gbm)
-pkg_check_modules(_WLR_PIXMAN REQUIRED pixman-1)
+pkg_check_modules(_WLR_PIXMAN QUIET pixman-1)   # may be built as meson subproject
 pkg_check_modules(_WLR_XKBCOMMON REQUIRED xkbcommon)
 pkg_check_modules(_WLR_EGL REQUIRED egl)
 pkg_check_modules(_WLR_GLES REQUIRED glesv2)
@@ -111,8 +136,10 @@ pkg_check_modules(_WLR_XCB_ICCCM QUIET xcb-icccm)
 
 # Append transitive dependency include dirs so that wlroots public headers
 # (which #include <pixman.h>, <wayland-server-core.h>, <drm_fourcc.h>, etc.)
-# can find them.
+# can find them.  Also include the wlroots install prefix for headers installed
+# by meson subprojects (e.g. pixman built from source).
 list(APPEND WLROOTS_INCLUDE_DIRS
+    "${WLROOTS_INSTALL_PREFIX}/include"
     ${_WLR_WAYLAND_SERVER_INCLUDE_DIRS}
     ${_WLR_WAYLAND_CLIENT_INCLUDE_DIRS}
     ${_WLR_DRM_INCLUDE_DIRS}
@@ -130,8 +157,10 @@ list(APPEND WLROOTS_INCLUDE_DIRS
 )
 list(REMOVE_DUPLICATES WLROOTS_INCLUDE_DIRS)
 
+# Link the merged archive (wlroots + all subproject .a files combined) plus
+# system shared libraries for remaining transitive deps.
 set(WLROOTS_LIBRARIES
-    "${WLROOTS_INSTALL_PREFIX}/${_wlr_libdir}/libwlroots-0.19.a"
+    "${_wlr_merged_lib}"
     ${_WLR_WAYLAND_SERVER_LIBRARIES}
     ${_WLR_WAYLAND_CLIENT_LIBRARIES}
     ${_WLR_DRM_LIBRARIES}
