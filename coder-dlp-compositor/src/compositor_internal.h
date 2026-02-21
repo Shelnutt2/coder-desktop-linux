@@ -201,10 +201,11 @@ void dlp_clipboard_init(struct coder_dlp_compositor* comp);
 void dlp_security_context_init(struct coder_dlp_compositor* comp);
 
 /* Sandbox launcher helpers (sandbox_launcher.c) — exposed for testing */
-char** dlp_build_bwrap_args(const struct coder_dlp_compositor* comp, const char* command,
-                            const struct coder_dlp_sandbox_config* sandbox,
-                            const char* dbus_proxy_socket);
-void dlp_free_bwrap_args(char** argv);
+CODERDLP_EXPORT char** dlp_build_bwrap_args(const struct coder_dlp_compositor* comp,
+                                            const char* command,
+                                            const struct coder_dlp_sandbox_config* sandbox,
+                                            const char* dbus_proxy_socket);
+CODERDLP_EXPORT void dlp_free_bwrap_args(char** argv);
 
 /* D-Bus proxy lifecycle (sandbox_launcher.c) */
 void dlp_cleanup_dbus_proxies(struct coder_dlp_compositor* comp);
