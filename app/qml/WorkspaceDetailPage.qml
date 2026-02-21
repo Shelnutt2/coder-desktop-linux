@@ -112,20 +112,6 @@ Item {
                                 isDisplayApp: true,
                                 displayAppType: da
                             })
-                        } else if (da === "web_terminal") {
-                            appsModel.append({
-                                appName: "Terminal",
-                                appUrl: "",
-                                appIcon: "",
-                                appCommand: "",
-                                appSlug: "web_terminal",
-                                agentId: agent["id"] || "",
-                                agentName: agent["name"] || "",
-                                appSubdomain: false,
-                                appExternal: false,
-                                isDisplayApp: true,
-                                displayAppType: "web_terminal"
-                            })
                         } else if (da === "ssh_helper") {
                             appsModel.append({
                                 appName: "SSH",
@@ -492,7 +478,7 @@ Item {
                             CoderButton {
                                 text: "Terminal"
                                 variant: "outline"
-                                visible: model.agentDisplayApps.indexOf("web_terminal") >= 0
+                                visible: model.agentDisplayApps.length === 0 || ("," + model.agentDisplayApps + ",").indexOf(",web_terminal,") >= 0
                                 enabled: model.agentStatus === "connected"
                                 font.pixelSize: 12
                                 onClicked: {
@@ -560,7 +546,15 @@ Item {
                                 id: appMouseArea
                                 anchors.fill: parent
                                 hoverEnabled: true
-                                enabled: model.appUrl.length > 0 || (model.isDisplayApp === true)
+                                enabled: {
+                                    if (model.isDisplayApp === true) {
+                                        var daType = model.displayAppType
+                                        if (daType === "ssh_helper" || daType === "port_forwarding_helper")
+                                            return vpnBridge.isRunning
+                                        return true
+                                    }
+                                    return model.appUrl.length > 0
+                                }
                                 cursorShape: enabled ? Qt.PointingHandCursor
                                                      : Qt.ArrowCursor
                                 onClicked: {
@@ -573,9 +567,6 @@ Item {
                                             vscodeLaunchDialog.agentId = model.agentId
                                             vscodeLaunchDialog.displayAppType = daType
                                             vscodeLaunchDialog.open()
-                                        } else if (daType === "web_terminal") {
-                                            workspaceDetailPage.selectedTerminalAgentId = model.agentId
-                                            workspaceDetailPage.selectedTerminalAgentName = model.agentName
                                         } else if (daType === "ssh_helper") {
                                             sshHelperDialog.agentName = model.agentName
                                             sshHelperDialog.workspaceName = workspaceDetailPage.workspaceName

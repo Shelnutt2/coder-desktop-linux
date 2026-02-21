@@ -6,6 +6,7 @@
 #include <QList>
 #include <QMetaType>
 #include <QString>
+#include <QStringList>
 
 // ---------------------------------------------------------------------------
 // Enums

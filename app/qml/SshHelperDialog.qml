@@ -22,6 +22,13 @@ Dialog {
 
     Material.background: CoderTheme.surface
 
+    property bool copied: false
+
+    onOpened: {
+        dialog.copied = false
+        copyTimer.stop()
+    }
+
     contentItem: ColumnLayout {
         spacing: 12
 
@@ -84,28 +91,22 @@ Dialog {
             }
 
             CoderButton {
-                text: copyLabel.visible ? "Copied!" : "Copy"
+                text: dialog.copied ? "Copied!" : "Copy"
                 variant: "outline"
                 onClicked: {
                     sshField.selectAll()
                     sshField.copy()
                     sshField.deselect()
-                    copyLabel.visible = true
+                    dialog.copied = true
                     copyTimer.restart()
                 }
             }
         }
 
-        Label {
-            id: copyLabel
-            text: ""
-            visible: false
-        }
-
         Timer {
             id: copyTimer
             interval: 2000
-            onTriggered: copyLabel.visible = false
+            onTriggered: dialog.copied = false
         }
 
         Label {

@@ -22,6 +22,13 @@ Dialog {
 
     Material.background: CoderTheme.surface
 
+    property bool copied: false
+
+    onOpened: {
+        dialog.copied = false
+        pfCopyTimer.stop()
+    }
+
     contentItem: ColumnLayout {
         spacing: 12
 
@@ -84,28 +91,22 @@ Dialog {
             }
 
             CoderButton {
-                text: pfCopyLabel.visible ? "Copied!" : "Copy"
+                text: dialog.copied ? "Copied!" : "Copy"
                 variant: "outline"
                 onClicked: {
                     hostField.selectAll()
                     hostField.copy()
                     hostField.deselect()
-                    pfCopyLabel.visible = true
+                    dialog.copied = true
                     pfCopyTimer.restart()
                 }
             }
         }
 
-        Label {
-            id: pfCopyLabel
-            text: ""
-            visible: false
-        }
-
         Timer {
             id: pfCopyTimer
             interval: 2000
-            onTriggered: pfCopyLabel.visible = false
+            onTriggered: dialog.copied = false
         }
 
         Label {
