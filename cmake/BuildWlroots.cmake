@@ -55,7 +55,7 @@ ExternalProject_Add(wlroots_external
         -Dxwayland=${_wlr_xwayland}
         -Dbackends=${_wlr_backends}
         -Drenderers=auto
-        --wrap-mode=default
+        --wrap-mode=nofallback
 
     BUILD_COMMAND ${NINJA_EXECUTABLE} -C <BINARY_DIR>/meson-build
     INSTALL_COMMAND ${NINJA_EXECUTABLE} -C <BINARY_DIR>/meson-build install
