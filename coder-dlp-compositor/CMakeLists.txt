@@ -84,7 +84,11 @@ target_include_directories(coderdlp
 )
 target_link_libraries(coderdlp PRIVATE ${WLROOTS_LIBRARIES} ${WAYLAND_LIBRARIES} ${XKBCOMMON_LIBRARIES}
     ${XCB_LIBRARIES} ${XCB_EWMH_LIBRARIES} ${XCB_ICCCM_LIBRARIES})
-target_compile_definitions(coderdlp PRIVATE WLR_USE_UNSTABLE)
+# Hide all symbols by default; only CODERDLP_EXPORT functions are visible.
+# This prevents wlroots internals (when statically linked) and our own private
+# functions from leaking into the .so's dynamic symbol table.
+set_target_properties(coderdlp PROPERTIES C_VISIBILITY_PRESET hidden)
+target_compile_definitions(coderdlp PRIVATE WLR_USE_UNSTABLE CODERDLP_BUILDING)
 
 # Tests  (disable with -DBUILD_TESTING=OFF at top level)
 if(BUILD_TESTING)
