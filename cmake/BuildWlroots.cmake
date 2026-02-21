@@ -12,10 +12,12 @@ find_program(NINJA_EXECUTABLE ninja REQUIRED)
 set(WLROOTS_INSTALL_PREFIX "${CMAKE_BINARY_DIR}/_deps/wlroots-install")
 
 # Map CMake options to meson -D flags
+# Build meson -Dbackends value
 if(WLROOTS_X11_BACKEND)
-    set(_wlr_x11_backend "enabled")
+    set(_wlr_backends "auto")
 else()
-    set(_wlr_x11_backend "disabled")
+    # Explicitly list backends without x11
+    set(_wlr_backends "drm,libinput,wayland")
 endif()
 if(WLROOTS_XWAYLAND)
     set(_wlr_xwayland "enabled")
@@ -51,7 +53,7 @@ ExternalProject_Add(wlroots_external
         -Db_staticpic=true
         -Dexamples=false
         -Dxwayland=${_wlr_xwayland}
-        -Dbackends=auto
+        -Dbackends=${_wlr_backends}
         -Drenderers=auto
         --wrap-mode=default
 
@@ -63,11 +65,11 @@ ExternalProject_Add(wlroots_external
 )
 
 # Set variables matching what pkg_check_modules would produce
-set(WLROOTS_INCLUDE_DIRS "${WLROOTS_INSTALL_PREFIX}/include/wlroots-0.19" PARENT_SCOPE)
-set(WLROOTS_VERSION "${WLROOTS_VERSION}" PARENT_SCOPE)
-set(WLROOTS_BUILT_FROM_SOURCE TRUE PARENT_SCOPE)
-set(WLROOTS_STATIC_LIB "${WLROOTS_INSTALL_PREFIX}/${_wlr_libdir}/libwlroots-0.19.a" PARENT_SCOPE)
-set(WLROOTS_EXTERNAL_TARGET "wlroots_external" PARENT_SCOPE)
+set(WLROOTS_INCLUDE_DIRS "${WLROOTS_INSTALL_PREFIX}/include/wlroots-0.19")
+set(WLROOTS_VERSION "${WLROOTS_VERSION}")
+set(WLROOTS_BUILT_FROM_SOURCE TRUE)
+set(WLROOTS_STATIC_LIB "${WLROOTS_INSTALL_PREFIX}/${_wlr_libdir}/libwlroots-0.19.a")
+set(WLROOTS_EXTERNAL_TARGET "wlroots_external")
 
 # Transitive deps — these are the same system libs that wlroots links against.
 # Found via pkg-config at configure time (they must be installed as build deps).
@@ -97,5 +99,4 @@ set(WLROOTS_LIBRARIES
     ${_WLR_DISPLAY_INFO_LIBRARIES}
     ${_WLR_LIFTOFF_LIBRARIES}
     m
-    PARENT_SCOPE
 )
