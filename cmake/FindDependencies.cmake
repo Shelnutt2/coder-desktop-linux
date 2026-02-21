@@ -30,13 +30,32 @@ cmake_print_variables(Qt6_VERSION Qt6WebSockets_FOUND Qt6WebEngineQuick_FOUND Qt
 
 # ── wlroots + Wayland (required for DLP compositor) ──────────────────────
 if(ENABLE_DLP)
-    pkg_check_modules(WLROOTS REQUIRED wlroots-0.19)
+    set(_wlroots_found FALSE)
+
+    # Try system pkg-config first (unless forced to build from source)
+    if(NOT WLROOTS_FROM_SOURCE STREQUAL "ON")
+        pkg_check_modules(WLROOTS wlroots-0.19)
+        if(WLROOTS_FOUND)
+            set(_wlroots_found TRUE)
+            set(WLROOTS_BUILT_FROM_SOURCE FALSE)
+            message(STATUS "wlroots: ${WLROOTS_VERSION} (system)")
+        endif()
+    endif()
+
+    # Build from source if not found (or forced)
+    if(NOT _wlroots_found)
+        if(WLROOTS_FROM_SOURCE STREQUAL "OFF")
+            message(FATAL_ERROR "wlroots-0.19 not found and WLROOTS_FROM_SOURCE=OFF")
+        endif()
+        message(STATUS "wlroots: building ${WLROOTS_VERSION} from source (static)")
+        include(cmake/BuildWlroots.cmake)
+    endif()
+
     pkg_check_modules(WAYLAND REQUIRED wayland-server)
     pkg_check_modules(WAYLAND_PROTOCOLS REQUIRED wayland-protocols)
     pkg_get_variable(WAYLAND_PROTOCOLS_DIR wayland-protocols pkgdatadir)
     pkg_get_variable(WAYLAND_SCANNER_BIN wayland-scanner wayland_scanner)
 
-    message(STATUS "wlroots: ${WLROOTS_VERSION}")
     message(STATUS "Wayland protocols dir: ${WAYLAND_PROTOCOLS_DIR}")
     message(STATUS "wayland-scanner: ${WAYLAND_SCANNER_BIN}")
 else()

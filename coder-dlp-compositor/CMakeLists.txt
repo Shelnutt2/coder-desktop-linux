@@ -7,11 +7,24 @@ project(coder-dlp-compositor C)
 # xkbcommon is needed for keyboard XKB keymap setup in input.c.
 pkg_check_modules(XKBCOMMON REQUIRED xkbcommon)
 
-# Optional X11 backend support — wlroots may be compiled with WLR_HAS_X11_BACKEND
-include(CheckSymbolExists)
-set(CMAKE_REQUIRED_INCLUDES ${WLROOTS_INCLUDE_DIRS})
-check_symbol_exists(WLR_HAS_X11_BACKEND "wlr/config.h" HAS_X11_BACKEND)
-check_symbol_exists(WLR_HAS_XWAYLAND "wlr/config.h" HAS_XWAYLAND)
+# Detect wlroots feature flags
+if(WLROOTS_BUILT_FROM_SOURCE)
+    # When building wlroots ourselves, we know exactly which features are enabled
+    # from the CMake options — no need to probe headers.
+    if(WLROOTS_X11_BACKEND)
+        set(HAS_X11_BACKEND TRUE)
+    endif()
+    if(WLROOTS_XWAYLAND)
+        set(HAS_XWAYLAND TRUE)
+    endif()
+else()
+    # System wlroots — probe wlr/config.h for feature defines
+    include(CheckSymbolExists)
+    set(CMAKE_REQUIRED_INCLUDES ${WLROOTS_INCLUDE_DIRS})
+    check_symbol_exists(WLR_HAS_X11_BACKEND "wlr/config.h" HAS_X11_BACKEND)
+    check_symbol_exists(WLR_HAS_XWAYLAND "wlr/config.h" HAS_XWAYLAND)
+endif()
+
 if(HAS_X11_BACKEND)
     pkg_check_modules(XCB REQUIRED xcb)
 endif()
@@ -60,6 +73,9 @@ endif()
 
 add_library(coderdlp SHARED ${CODERDLP_SOURCES})
 add_dependencies(coderdlp xdg_shell_protocol cursor_shape_protocol)
+if(WLROOTS_BUILT_FROM_SOURCE)
+    add_dependencies(coderdlp ${WLROOTS_EXTERNAL_TARGET})
+endif()
 target_include_directories(coderdlp
     PUBLIC include
     PRIVATE ${WLROOTS_INCLUDE_DIRS} ${WAYLAND_INCLUDE_DIRS} ${XKBCOMMON_INCLUDE_DIRS}
