@@ -71,7 +71,8 @@ Item {
                         agentName:   agent["name"] || "",
                         agentStatus: agent["status"] || "unknown",
                         agentOs:     agent["operating_system"] || "",
-                        agentArch:   agent["architecture"] || ""
+                        agentArch:   agent["architecture"] || "",
+                        agentDisplayApps: (agent["display_apps"] || []).join(",")
                     })
 
                     // Collect apps from each agent
@@ -110,6 +111,48 @@ Item {
                                 appExternal: false,
                                 isDisplayApp: true,
                                 displayAppType: da
+                            })
+                        } else if (da === "web_terminal") {
+                            appsModel.append({
+                                appName: "Terminal",
+                                appUrl: "",
+                                appIcon: "",
+                                appCommand: "",
+                                appSlug: "web_terminal",
+                                agentId: agent["id"] || "",
+                                agentName: agent["name"] || "",
+                                appSubdomain: false,
+                                appExternal: false,
+                                isDisplayApp: true,
+                                displayAppType: "web_terminal"
+                            })
+                        } else if (da === "ssh_helper") {
+                            appsModel.append({
+                                appName: "SSH",
+                                appUrl: "",
+                                appIcon: "",
+                                appCommand: "",
+                                appSlug: "ssh_helper",
+                                agentId: agent["id"] || "",
+                                agentName: agent["name"] || "",
+                                appSubdomain: false,
+                                appExternal: false,
+                                isDisplayApp: true,
+                                displayAppType: "ssh_helper"
+                            })
+                        } else if (da === "port_forwarding_helper") {
+                            appsModel.append({
+                                appName: "Ports",
+                                appUrl: "",
+                                appIcon: "",
+                                appCommand: "",
+                                appSlug: "port_forwarding_helper",
+                                agentId: agent["id"] || "",
+                                agentName: agent["name"] || "",
+                                appSubdomain: false,
+                                appExternal: false,
+                                isDisplayApp: true,
+                                displayAppType: "port_forwarding_helper"
                             })
                         }
                     }
@@ -445,10 +488,11 @@ Item {
                                 color: CoderTheme.textDisabled
                             }
 
-                            // Terminal button
+                            // Terminal button — only shown when web_terminal is in display_apps
                             CoderButton {
                                 text: "Terminal"
                                 variant: "outline"
+                                visible: model.agentDisplayApps.indexOf("web_terminal") >= 0
                                 enabled: model.agentStatus === "connected"
                                 font.pixelSize: 12
                                 onClicked: {
@@ -521,12 +565,28 @@ Item {
                                                      : Qt.ArrowCursor
                                 onClicked: {
                                     if (model.isDisplayApp === true) {
-                                        vscodeLaunchDialog.workspaceName = workspaceDetailPage.workspaceName
-                                        vscodeLaunchDialog.workspaceOwner = workspaceDetailPage.workspaceOwner
-                                        vscodeLaunchDialog.agentName = model.agentName
-                                        vscodeLaunchDialog.agentId = model.agentId
-                                        vscodeLaunchDialog.displayAppType = model.displayAppType
-                                        vscodeLaunchDialog.open()
+                                        var daType = model.displayAppType
+                                        if (daType === "vscode" || daType === "vscode_insiders") {
+                                            vscodeLaunchDialog.workspaceName = workspaceDetailPage.workspaceName
+                                            vscodeLaunchDialog.workspaceOwner = workspaceDetailPage.workspaceOwner
+                                            vscodeLaunchDialog.agentName = model.agentName
+                                            vscodeLaunchDialog.agentId = model.agentId
+                                            vscodeLaunchDialog.displayAppType = daType
+                                            vscodeLaunchDialog.open()
+                                        } else if (daType === "web_terminal") {
+                                            workspaceDetailPage.selectedTerminalAgentId = model.agentId
+                                            workspaceDetailPage.selectedTerminalAgentName = model.agentName
+                                        } else if (daType === "ssh_helper") {
+                                            sshHelperDialog.agentName = model.agentName
+                                            sshHelperDialog.workspaceName = workspaceDetailPage.workspaceName
+                                            sshHelperDialog.workspaceOwner = workspaceDetailPage.workspaceOwner
+                                            sshHelperDialog.open()
+                                        } else if (daType === "port_forwarding_helper") {
+                                            portForwardDialog.agentName = model.agentName
+                                            portForwardDialog.workspaceName = workspaceDetailPage.workspaceName
+                                            portForwardDialog.workspaceOwner = workspaceDetailPage.workspaceOwner
+                                            portForwardDialog.open()
+                                        }
                                     } else {
                                         workspaceDetailPage.selectedAppSlug = model.appSlug
                                         workspaceDetailPage.selectedAppUrl = model.appUrl
@@ -787,4 +847,15 @@ Item {
                                     [], settingsManager.dlpDbusFilter, settingsManager.dlpDbusAllowedNames)
         }
     }
+
+    // ---- SSH helper dialog ----
+    SshHelperDialog {
+        id: sshHelperDialog
+    }
+
+    // ---- Port forwarding dialog ----
+    PortForwardDialog {
+        id: portForwardDialog
+    }
+
 }
