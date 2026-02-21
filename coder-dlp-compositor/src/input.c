@@ -126,21 +126,21 @@ static void process_cursor_motion(struct coder_dlp_compositor* comp, uint32_t ti
     wlr_seat_pointer_clear_focus(comp->seat);
 }
 
-void handle_cursor_motion(struct wl_listener* listener, void* data) {
+void dlp_handle_cursor_motion(struct wl_listener* listener, void* data) {
     struct coder_dlp_compositor* comp = wl_container_of(listener, comp, cursor_motion);
     struct wlr_pointer_motion_event* event = data;
     wlr_cursor_move(comp->cursor, &event->pointer->base, event->delta_x, event->delta_y);
     process_cursor_motion(comp, event->time_msec);
 }
 
-void handle_cursor_motion_absolute(struct wl_listener* listener, void* data) {
+void dlp_handle_cursor_motion_absolute(struct wl_listener* listener, void* data) {
     struct coder_dlp_compositor* comp = wl_container_of(listener, comp, cursor_motion_absolute);
     struct wlr_pointer_motion_absolute_event* event = data;
     wlr_cursor_warp_absolute(comp->cursor, &event->pointer->base, event->x, event->y);
     process_cursor_motion(comp, event->time_msec);
 }
 
-void handle_cursor_button(struct wl_listener* listener, void* data) {
+void dlp_handle_cursor_button(struct wl_listener* listener, void* data) {
     struct coder_dlp_compositor* comp = wl_container_of(listener, comp, cursor_button);
     struct wlr_pointer_button_event* event = data;
 
@@ -209,20 +209,20 @@ void handle_cursor_button(struct wl_listener* listener, void* data) {
     }
 }
 
-void handle_cursor_axis(struct wl_listener* listener, void* data) {
+void dlp_handle_cursor_axis(struct wl_listener* listener, void* data) {
     struct coder_dlp_compositor* comp = wl_container_of(listener, comp, cursor_axis);
     struct wlr_pointer_axis_event* event = data;
     wlr_seat_pointer_notify_axis(comp->seat, event->time_msec, event->orientation, event->delta,
                                  event->delta_discrete, event->source, event->relative_direction);
 }
 
-void handle_cursor_frame(struct wl_listener* listener, void* data) {
+void dlp_handle_cursor_frame(struct wl_listener* listener, void* data) {
     struct coder_dlp_compositor* comp = wl_container_of(listener, comp, cursor_frame);
     (void)data;
     wlr_seat_pointer_notify_frame(comp->seat);
 }
 
-void handle_request_set_cursor(struct wl_listener* listener, void* data) {
+void dlp_handle_request_set_cursor(struct wl_listener* listener, void* data) {
     struct coder_dlp_compositor* comp = wl_container_of(listener, comp, request_set_cursor);
     struct wlr_seat_pointer_request_set_cursor_event* event = data;
     struct wlr_seat_client* focused = comp->seat->pointer_state.focused_client;
@@ -314,7 +314,7 @@ static void touch_focus_at(struct coder_dlp_compositor* comp, double lx, double 
     }
 }
 
-void handle_touch_down(struct wl_listener* listener, void* data) {
+void dlp_handle_touch_down(struct wl_listener* listener, void* data) {
     struct coder_dlp_compositor* comp = wl_container_of(listener, comp, touch_down);
     struct wlr_touch_down_event* event = data;
 
@@ -338,13 +338,13 @@ void handle_touch_down(struct wl_listener* listener, void* data) {
     }
 }
 
-void handle_touch_up(struct wl_listener* listener, void* data) {
+void dlp_handle_touch_up(struct wl_listener* listener, void* data) {
     struct coder_dlp_compositor* comp = wl_container_of(listener, comp, touch_up);
     struct wlr_touch_up_event* event = data;
     wlr_seat_touch_notify_up(comp->seat, event->time_msec, event->touch_id);
 }
 
-void handle_touch_motion(struct wl_listener* listener, void* data) {
+void dlp_handle_touch_motion(struct wl_listener* listener, void* data) {
     struct coder_dlp_compositor* comp = wl_container_of(listener, comp, touch_motion);
     struct wlr_touch_motion_event* event = data;
 
@@ -363,7 +363,7 @@ void handle_touch_motion(struct wl_listener* listener, void* data) {
     }
 }
 
-void handle_touch_cancel(struct wl_listener* listener, void* data) {
+void dlp_handle_touch_cancel(struct wl_listener* listener, void* data) {
     struct coder_dlp_compositor* comp = wl_container_of(listener, comp, touch_cancel);
     (void)data;
 
@@ -378,7 +378,7 @@ void handle_touch_cancel(struct wl_listener* listener, void* data) {
     }
 }
 
-void handle_touch_frame(struct wl_listener* listener, void* data) {
+void dlp_handle_touch_frame(struct wl_listener* listener, void* data) {
     struct coder_dlp_compositor* comp = wl_container_of(listener, comp, touch_frame);
     (void)data;
     wlr_seat_touch_notify_frame(comp->seat);
@@ -392,19 +392,19 @@ static void setup_touch(struct coder_dlp_compositor* comp, struct wlr_input_devi
     wlr_cursor_attach_input_device(comp->cursor, device);
 
     /* Wire listeners through the compositor struct for wl_container_of */
-    comp->touch_down.notify = handle_touch_down;
+    comp->touch_down.notify = dlp_handle_touch_down;
     wl_signal_add(&touch->events.down, &comp->touch_down);
 
-    comp->touch_up.notify = handle_touch_up;
+    comp->touch_up.notify = dlp_handle_touch_up;
     wl_signal_add(&touch->events.up, &comp->touch_up);
 
-    comp->touch_motion.notify = handle_touch_motion;
+    comp->touch_motion.notify = dlp_handle_touch_motion;
     wl_signal_add(&touch->events.motion, &comp->touch_motion);
 
-    comp->touch_cancel.notify = handle_touch_cancel;
+    comp->touch_cancel.notify = dlp_handle_touch_cancel;
     wl_signal_add(&touch->events.cancel, &comp->touch_cancel);
 
-    comp->touch_frame.notify = handle_touch_frame;
+    comp->touch_frame.notify = dlp_handle_touch_frame;
     wl_signal_add(&touch->events.frame, &comp->touch_frame);
 
     wlr_log(WLR_INFO, "touch device configured");
@@ -412,7 +412,7 @@ static void setup_touch(struct coder_dlp_compositor* comp, struct wlr_input_devi
 
 /* --- Backend new_input handler --- */
 
-void compositor_handle_new_input(struct wl_listener* listener, void* data) {
+void dlp_compositor_handle_new_input(struct wl_listener* listener, void* data) {
     struct coder_dlp_compositor* comp = wl_container_of(listener, comp, new_input);
     struct wlr_input_device* device = data;
 

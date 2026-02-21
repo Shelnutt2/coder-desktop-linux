@@ -211,29 +211,29 @@ void dlp_cleanup_dbus_proxies(struct coder_dlp_compositor* comp);
 void dlp_reap_dbus_proxies(struct coder_dlp_compositor* comp);
 
 /* Output event handlers (output.c) */
-void compositor_handle_new_output(struct wl_listener* listener, void* data);
+void dlp_compositor_handle_new_output(struct wl_listener* listener, void* data);
 
 /* Input event handlers (input.c) */
-void compositor_handle_new_input(struct wl_listener* listener, void* data);
+void dlp_compositor_handle_new_input(struct wl_listener* listener, void* data);
 
 /* Touch event handlers (input.c) */
-void handle_touch_down(struct wl_listener* listener, void* data);
-void handle_touch_up(struct wl_listener* listener, void* data);
-void handle_touch_motion(struct wl_listener* listener, void* data);
-void handle_touch_cancel(struct wl_listener* listener, void* data);
-void handle_touch_frame(struct wl_listener* listener, void* data);
+void dlp_handle_touch_down(struct wl_listener* listener, void* data);
+void dlp_handle_touch_up(struct wl_listener* listener, void* data);
+void dlp_handle_touch_motion(struct wl_listener* listener, void* data);
+void dlp_handle_touch_cancel(struct wl_listener* listener, void* data);
+void dlp_handle_touch_frame(struct wl_listener* listener, void* data);
 
 /* Cursor event handlers (input.c) */
-void handle_cursor_motion(struct wl_listener* listener, void* data);
-void handle_cursor_motion_absolute(struct wl_listener* listener, void* data);
-void handle_cursor_button(struct wl_listener* listener, void* data);
-void handle_cursor_axis(struct wl_listener* listener, void* data);
-void handle_cursor_frame(struct wl_listener* listener, void* data);
-void handle_request_set_cursor(struct wl_listener* listener, void* data);
+void dlp_handle_cursor_motion(struct wl_listener* listener, void* data);
+void dlp_handle_cursor_motion_absolute(struct wl_listener* listener, void* data);
+void dlp_handle_cursor_button(struct wl_listener* listener, void* data);
+void dlp_handle_cursor_axis(struct wl_listener* listener, void* data);
+void dlp_handle_cursor_frame(struct wl_listener* listener, void* data);
+void dlp_handle_request_set_cursor(struct wl_listener* listener, void* data);
 
 /* Shell event handlers (shell.c) */
-void compositor_handle_new_xdg_toplevel(struct wl_listener* listener, void* data);
-void compositor_handle_new_xdg_popup(struct wl_listener* listener, void* data);
+void dlp_compositor_handle_new_xdg_toplevel(struct wl_listener* listener, void* data);
+void dlp_compositor_handle_new_xdg_popup(struct wl_listener* listener, void* data);
 
 #if WLR_HAS_XWAYLAND
 /* Xwayland support (xwayland.c) */

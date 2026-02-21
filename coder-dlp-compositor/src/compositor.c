@@ -253,9 +253,9 @@ coder_dlp_compositor* coder_dlp_create(void* parent_wl_surface, coder_dlp_log_le
 
     /* XDG shell (version 3) */
     comp->xdg_shell = wlr_xdg_shell_create(comp->wl_display, 3);
-    comp->new_xdg_toplevel.notify = compositor_handle_new_xdg_toplevel;
+    comp->new_xdg_toplevel.notify = dlp_compositor_handle_new_xdg_toplevel;
     wl_signal_add(&comp->xdg_shell->events.new_toplevel, &comp->new_xdg_toplevel);
-    comp->new_xdg_popup.notify = compositor_handle_new_xdg_popup;
+    comp->new_xdg_popup.notify = dlp_compositor_handle_new_xdg_popup;
     wl_signal_add(&comp->xdg_shell->events.new_popup, &comp->new_xdg_popup);
 
     /* Seat (needed for keyboard/pointer/clipboard) */
@@ -276,25 +276,25 @@ coder_dlp_compositor* coder_dlp_create(void* parent_wl_surface, coder_dlp_log_le
 #endif
 
     /* Cursor event listeners — cursor aggregates all pointer devices */
-    comp->cursor_motion.notify = handle_cursor_motion;
+    comp->cursor_motion.notify = dlp_handle_cursor_motion;
     wl_signal_add(&comp->cursor->events.motion, &comp->cursor_motion);
-    comp->cursor_motion_absolute.notify = handle_cursor_motion_absolute;
+    comp->cursor_motion_absolute.notify = dlp_handle_cursor_motion_absolute;
     wl_signal_add(&comp->cursor->events.motion_absolute, &comp->cursor_motion_absolute);
-    comp->cursor_button.notify = handle_cursor_button;
+    comp->cursor_button.notify = dlp_handle_cursor_button;
     wl_signal_add(&comp->cursor->events.button, &comp->cursor_button);
-    comp->cursor_axis.notify = handle_cursor_axis;
+    comp->cursor_axis.notify = dlp_handle_cursor_axis;
     wl_signal_add(&comp->cursor->events.axis, &comp->cursor_axis);
-    comp->cursor_frame.notify = handle_cursor_frame;
+    comp->cursor_frame.notify = dlp_handle_cursor_frame;
     wl_signal_add(&comp->cursor->events.frame, &comp->cursor_frame);
-    comp->request_set_cursor.notify = handle_request_set_cursor;
+    comp->request_set_cursor.notify = dlp_handle_request_set_cursor;
     wl_signal_add(&comp->seat->events.request_set_cursor, &comp->request_set_cursor);
 
     /* Listen for new outputs from the backend */
-    comp->new_output.notify = compositor_handle_new_output;
+    comp->new_output.notify = dlp_compositor_handle_new_output;
     wl_signal_add(&comp->backend->events.new_output, &comp->new_output);
 
     /* Listen for new input devices from the backend */
-    comp->new_input.notify = compositor_handle_new_input;
+    comp->new_input.notify = dlp_compositor_handle_new_input;
     wl_signal_add(&comp->backend->events.new_input, &comp->new_input);
 
     /* Start the backend — this triggers new_output for Wayland backend */
@@ -346,7 +346,7 @@ void coder_dlp_destroy(coder_dlp_compositor* comp) {
     wl_list_remove(&comp->security_context_commit.link);
     wl_list_remove(&comp->client_created.link);
 
-    /* Output listeners (wired in compositor_handle_new_output) */
+    /* Output listeners (wired in dlp_compositor_handle_new_output) */
     if (comp->output) {
         wl_list_remove(&comp->output_frame.link);
         wl_list_remove(&comp->output_request_state.link);

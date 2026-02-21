@@ -71,7 +71,7 @@ static void handle_output_destroy(struct wl_listener* listener, void* data) {
 
 /* Called when the backend creates a new output (e.g. the Wayland backend
  * creates one output automatically on start). */
-void compositor_handle_new_output(struct wl_listener* listener, void* data) {
+void dlp_compositor_handle_new_output(struct wl_listener* listener, void* data) {
     struct coder_dlp_compositor* comp = wl_container_of(listener, comp, new_output);
     struct wlr_output* output = data;
 
