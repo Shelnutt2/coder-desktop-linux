@@ -5,6 +5,8 @@
 #include <stddef.h>
 #include <stdint.h>
 
+#include "coder_dlp.h" /* CODERDLP_EXPORT */
+
 struct wlr_buffer;
 
 /* Watermark state — embedded in coder_dlp_compositor */
@@ -15,7 +17,8 @@ struct dlp_watermark_state {
 };
 
 /* Compute fingerprint from identity string, store in state */
-void dlp_watermark_set_identity(struct dlp_watermark_state* state, const char* identity);
+CODERDLP_EXPORT void dlp_watermark_set_identity(struct dlp_watermark_state* state,
+                                                const char* identity);
 
 /* Apply watermark to a wlr_buffer (modifies blue channel LSBs).
  * Returns true on success, false if buffer format unsupported. */
