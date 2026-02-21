@@ -87,8 +87,31 @@ Item {
                             agentId:    agent["id"] || "",
                             agentName:  agent["name"] || "",
                             appSubdomain: app["subdomain"] || false,
-                            appExternal:  app["external"] || false
+                            appExternal:  app["external"] || false,
+                            isDisplayApp: false,
+                            displayAppType: ""
                         })
+                    }
+
+                    // Display apps (built-in client-side actions like VS Code Desktop)
+                    var displayApps = agent["display_apps"] || []
+                    for (var d = 0; d < displayApps.length; d++) {
+                        var da = displayApps[d]
+                        if (da === "vscode" || da === "vscode_insiders") {
+                            appsModel.append({
+                                appName: da === "vscode" ? "VS Code Desktop" : "VS Code Insiders",
+                                appUrl: "",
+                                appIcon: "/icon/code.svg",
+                                appCommand: "",
+                                appSlug: da,
+                                agentId: agent["id"] || "",
+                                agentName: agent["name"] || "",
+                                appSubdomain: false,
+                                appExternal: false,
+                                isDisplayApp: true,
+                                displayAppType: da
+                            })
+                        }
                     }
                 }
             }
@@ -493,16 +516,25 @@ Item {
                                 id: appMouseArea
                                 anchors.fill: parent
                                 hoverEnabled: true
-                                enabled: model.appUrl.length > 0
+                                enabled: model.appUrl.length > 0 || (model.isDisplayApp === true)
                                 cursorShape: enabled ? Qt.PointingHandCursor
                                                      : Qt.ArrowCursor
                                 onClicked: {
-                                    workspaceDetailPage.selectedAppSlug = model.appSlug
-                                    workspaceDetailPage.selectedAppUrl = model.appUrl
-                                    workspaceDetailPage.selectedAppName = model.appName
-                                    workspaceDetailPage.selectedAgentId = model.agentId
-                                    workspaceDetailPage.selectedAgentName = model.agentName
-                                    workspaceDetailPage.selectedAppExternal = model.appExternal
+                                    if (model.isDisplayApp === true) {
+                                        vscodeLaunchDialog.workspaceName = workspaceDetailPage.workspaceName
+                                        vscodeLaunchDialog.workspaceOwner = workspaceDetailPage.workspaceOwner
+                                        vscodeLaunchDialog.agentName = model.agentName
+                                        vscodeLaunchDialog.agentId = model.agentId
+                                        vscodeLaunchDialog.displayAppType = model.displayAppType
+                                        vscodeLaunchDialog.open()
+                                    } else {
+                                        workspaceDetailPage.selectedAppSlug = model.appSlug
+                                        workspaceDetailPage.selectedAppUrl = model.appUrl
+                                        workspaceDetailPage.selectedAppName = model.appName
+                                        workspaceDetailPage.selectedAgentId = model.agentId
+                                        workspaceDetailPage.selectedAgentName = model.agentName
+                                        workspaceDetailPage.selectedAppExternal = model.appExternal
+                                    }
                                 }
                             }
 
@@ -712,6 +744,47 @@ Item {
             item.agentHostname = Qt.binding(function() { return workspaceDetailPage.selectedFileBrowserAgentHost; });
             item.workspaceName = Qt.binding(function() { return workspaceDetailPage.selectedFileBrowserWorkspaceName; });
             item.backClicked.connect(function() { workspaceDetailPage.selectedFileBrowserAgentHost = ""; });
+        }
+    }
+
+    // ---- VS Code launch mode dialog ----
+    VsCodeLaunchDialog {
+        id: vscodeLaunchDialog
+
+        onLaunchNormal: {
+            // Build the vscode:// URI
+            var scheme = vscodeLaunchDialog.displayAppType === "vscode_insiders"
+                ? "vscode-insiders" : "vscode"
+            var baseUrl = sessionManager.currentUrl.replace(/\/+$/, "")
+            var token = sessionManager.sessionToken()
+            var uri = scheme + "://coder.coder-remote/open"
+                + "?url=" + encodeURIComponent(baseUrl)
+                + "&owner=" + encodeURIComponent(workspaceDetailPage.workspaceOwner)
+                + "&workspace=" + encodeURIComponent(workspaceDetailPage.workspaceName)
+                + "&agent=" + encodeURIComponent(vscodeLaunchDialog.agentName)
+                + "&token=" + encodeURIComponent(token)
+            Qt.openUrlExternally(uri)
+        }
+
+        onLaunchSecure: {
+            // Launch VS Code in DLP sandbox
+            var scheme = vscodeLaunchDialog.displayAppType === "vscode_insiders"
+                ? "vscode-insiders" : "vscode"
+            var binary = vscodeLaunchDialog.displayAppType === "vscode_insiders"
+                ? "code-insiders" : "code"
+            var baseUrl = sessionManager.currentUrl.replace(/\/+$/, "")
+            var token = sessionManager.sessionToken()
+            var openUrl = scheme + "://coder.coder-remote/open"
+                + "?url=" + encodeURIComponent(baseUrl)
+                + "&owner=" + encodeURIComponent(workspaceDetailPage.workspaceOwner)
+                + "&workspace=" + encodeURIComponent(workspaceDetailPage.workspaceName)
+                + "&agent=" + encodeURIComponent(vscodeLaunchDialog.agentName)
+                + "&token=" + encodeURIComponent(token)
+            var command = binary + " --open-url '" + openUrl + "'"
+            var appName = vscodeLaunchDialog.displayAppType === "vscode_insiders"
+                ? "VS Code Insiders" : "VS Code Desktop"
+            dlpCompositor.launchApp(command, appName, "", false, false, false, false, false,
+                                    [], settingsManager.dlpDbusFilter, settingsManager.dlpDbusAllowedNames)
         }
     }
 }

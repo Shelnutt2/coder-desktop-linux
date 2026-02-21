@@ -115,6 +115,7 @@ public:
     QString name;
     AgentStatus status = AgentStatus::Unknown;
     QList<WorkspaceApp> apps;
+    QStringList displayApps;
 
     static Agent fromJson(const QJsonObject& obj) {
         Agent a;
@@ -122,6 +123,9 @@ public:
         a.name = obj.value(QLatin1String("name")).toString();
         a.status = agentStatusFromString(obj.value(QLatin1String("status")).toString());
         a.apps = WorkspaceApp::listFromJson(obj.value(QLatin1String("apps")).toArray());
+        for (const auto& v : obj.value(QLatin1String("display_apps")).toArray()) {
+            a.displayApps.append(v.toString());
+        }
         return a;
     }
 

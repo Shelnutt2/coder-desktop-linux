@@ -122,6 +122,7 @@ qt_add_qml_module(coder-desktop
         qml/CoderTheme.qml
         qml/StatusChip.qml
         qml/CoderButton.qml
+        qml/VsCodeLaunchDialog.qml
 )
 if(ENABLE_DLP)
     qt_target_qml_sources(coder-desktop QML_FILES qml/SecureDevPage.qml)
