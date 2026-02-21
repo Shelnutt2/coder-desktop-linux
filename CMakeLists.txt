@@ -15,6 +15,14 @@ include(GNUInstallDirs)
 option(BUILD_TESTING "Build unit tests" ON)
 option(ENABLE_DLP "Build the DLP compositor (requires wlroots-0.19)" ON)
 
+# wlroots build options (only relevant when ENABLE_DLP=ON)
+set(WLROOTS_FROM_SOURCE "AUTO" CACHE STRING
+    "Build wlroots from source: AUTO (try system, fallback to build), ON, OFF")
+set_property(CACHE WLROOTS_FROM_SOURCE PROPERTY STRINGS AUTO ON OFF)
+set(WLROOTS_VERSION "0.19.0" CACHE STRING "wlroots version to build from source")
+option(WLROOTS_X11_BACKEND "Enable wlroots X11 backend" ON)
+option(WLROOTS_XWAYLAND "Enable Xwayland support in wlroots" ON)
+
 # Private library directory for bundled .so files
 set(CODER_LIB_DIR "${CMAKE_INSTALL_LIBDIR}/coder-desktop" CACHE PATH
     "Install directory for private shared libraries" FORCE)
@@ -153,7 +161,7 @@ if(DPKG_PROG)
     set(CPACK_DEBIAN_PACKAGE_SECTION "devel")
     set(CPACK_DEBIAN_PACKAGE_DEPENDS
         "libqt6core6 (>= 6.5), libqt6gui6 (>= 6.5), libqt6quick6 (>= 6.5), libqt6network6 (>= 6.5), libqt6widgets6 (>= 6.5), libsecret-1-0")
-    if(ENABLE_DLP)
+    if(ENABLE_DLP AND NOT WLROOTS_BUILT_FROM_SOURCE)
         set(CPACK_DEBIAN_PACKAGE_RECOMMENDS
             "libwlroots12 (>= 0.19) | libwlroots-0.19-0")
     endif()
@@ -167,7 +175,7 @@ if(RPMBUILD_PROG)
     set(CPACK_RPM_PACKAGE_GROUP "Development/Tools")
     set(CPACK_RPM_PACKAGE_REQUIRES
         "qt6-qtbase >= 6.5, qt6-qtdeclarative >= 6.5, libsecret")
-    if(ENABLE_DLP)
+    if(ENABLE_DLP AND NOT WLROOTS_BUILT_FROM_SOURCE)
         set(CPACK_RPM_PACKAGE_RECOMMENDS "wlroots >= 0.19")
     endif()
 endif()
