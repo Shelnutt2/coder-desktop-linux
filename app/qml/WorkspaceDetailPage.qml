@@ -22,7 +22,6 @@ Item {
 
     // -- Local models populated from fetchWorkspaceDetail response ----------
     ListModel { id: agentsModel }
-    ListModel { id: appsModel }
 
     property bool detailLoading: false
     property string errorMessage: ""
@@ -42,6 +41,93 @@ Item {
     property string selectedFileBrowserAgentHost: ""
     property string selectedFileBrowserWorkspaceName: ""
 
+    // -- Helper: build apps list from a raw agent JSON object ----------------
+    function buildAppsList(agent) {
+        var list = []
+        var agentApps = agent["apps"] || []
+        for (var p = 0; p < agentApps.length; p++) {
+            var app = agentApps[p]
+            list.push({
+                appName: app["display_name"] || app["slug"] || "",
+                appUrl: app["url"] || "",
+                appIcon: app["icon"] || "",
+                appCommand: app["command"] || "",
+                appSlug: app["slug"] || "",
+                appSubdomain: app["subdomain"] || false,
+                appExternal: app["external"] || false,
+                isDisplayApp: false,
+                displayAppType: ""
+            })
+        }
+        var displayApps = agent["display_apps"] || []
+        for (var d = 0; d < displayApps.length; d++) {
+            var da = displayApps[d]
+            if (da === "vscode" || da === "vscode_insiders") {
+                list.push({
+                    appName: da === "vscode" ? "VS Code Desktop" : "VS Code Insiders",
+                    appUrl: "", appIcon: "/icon/code.svg", appCommand: "",
+                    appSlug: da, appSubdomain: false, appExternal: false,
+                    isDisplayApp: true, displayAppType: da
+                })
+            } else if (da === "ssh_helper") {
+                list.push({
+                    appName: "SSH", appUrl: "", appIcon: "", appCommand: "",
+                    appSlug: "ssh_helper", appSubdomain: false, appExternal: false,
+                    isDisplayApp: true, displayAppType: "ssh_helper"
+                })
+            } else if (da === "port_forwarding_helper") {
+                list.push({
+                    appName: "Ports", appUrl: "", appIcon: "", appCommand: "",
+                    appSlug: "port_forwarding_helper", appSubdomain: false, appExternal: false,
+                    isDisplayApp: true, displayAppType: "port_forwarding_helper"
+                })
+            }
+        }
+        return list
+    }
+
+    // -- Helper: handle app tile click ----------------------------------------
+    function handleAppClick(appData, agentId, agentName) {
+        if (appData.isDisplayApp === true) {
+            var daType = appData.displayAppType
+            if (daType === "vscode" || daType === "vscode_insiders") {
+                vscodeLaunchDialog.workspaceName = workspaceDetailPage.workspaceName
+                vscodeLaunchDialog.workspaceOwner = workspaceDetailPage.workspaceOwner
+                vscodeLaunchDialog.agentName = agentName
+                vscodeLaunchDialog.agentId = agentId
+                vscodeLaunchDialog.displayAppType = daType
+                vscodeLaunchDialog.open()
+            } else if (daType === "ssh_helper") {
+                sshHelperDialog.agentName = agentName
+                sshHelperDialog.workspaceName = workspaceDetailPage.workspaceName
+                sshHelperDialog.workspaceOwner = workspaceDetailPage.workspaceOwner
+                sshHelperDialog.open()
+            } else if (daType === "port_forwarding_helper") {
+                portForwardDialog.agentName = agentName
+                portForwardDialog.workspaceName = workspaceDetailPage.workspaceName
+                portForwardDialog.workspaceOwner = workspaceDetailPage.workspaceOwner
+                portForwardDialog.open()
+            }
+        } else {
+            workspaceDetailPage.selectedAppSlug = appData.appSlug
+            workspaceDetailPage.selectedAppUrl = appData.appUrl
+            workspaceDetailPage.selectedAppName = appData.appName
+            workspaceDetailPage.selectedAgentId = agentId
+            workspaceDetailPage.selectedAgentName = agentName
+            workspaceDetailPage.selectedAppExternal = appData.appExternal
+        }
+    }
+
+    // -- Helper: open app in external browser ---------------------------------
+    function handleOpenInBrowser(appData, agentName) {
+        var url = appBrowser.buildAppUrl(
+            sessionManager.currentUrl, appData.appUrl, appData.appSlug,
+            workspaceDetailPage.workspaceName, workspaceDetailPage.workspaceOwner,
+            agentName, vpnBridge.isRunning, appData.appExternal
+        )
+        Qt.openUrlExternally(url)
+    }
+
     function loadDetail() {
         detailLoading = true
         apiClient.fetchWorkspaceDetail(workspaceId)
@@ -57,97 +143,66 @@ Item {
             detailLoading = false
             workspaceDetailPage.errorMessage = ""
             agentsModel.clear()
-            appsModel.clear()
 
-            // Parse latest_build → resources → agents
             var build = workspace["latest_build"] || {}
             var resources = build["resources"] || []
+
+            // Collect all agents flat
+            var allAgents = []
             for (var r = 0; r < resources.length; r++) {
                 var agents = resources[r]["agents"] || []
                 for (var a = 0; a < agents.length; a++) {
-                    var agent = agents[a]
-                    agentsModel.append({
-                        agentId:     agent["id"] || "",
-                        agentName:   agent["name"] || "",
-                        agentStatus: agent["status"] || "unknown",
-                        agentOs:     agent["operating_system"] || "",
-                        agentArch:   agent["architecture"] || "",
-                        agentDisplayApps: (agent["display_apps"] || []).join(",")
-                    })
-
-                    // Collect apps from each agent
-                    var agentApps = agent["apps"] || []
-                    for (var p = 0; p < agentApps.length; p++) {
-                        var app = agentApps[p]
-                        appsModel.append({
-                            appName:    app["display_name"] || app["slug"] || "",
-                            appUrl:     app["url"] || "",
-                            appIcon:    app["icon"] || "",
-                            appCommand: app["command"] || "",
-                            appSlug:    app["slug"] || "",
-                            agentId:    agent["id"] || "",
-                            agentName:  agent["name"] || "",
-                            appSubdomain: app["subdomain"] || false,
-                            appExternal:  app["external"] || false,
-                            isDisplayApp: false,
-                            displayAppType: ""
-                        })
-                    }
-
-                    // Display apps (built-in client-side actions like VS Code Desktop)
-                    var displayApps = agent["display_apps"] || []
-                    for (var d = 0; d < displayApps.length; d++) {
-                        var da = displayApps[d]
-                        if (da === "vscode" || da === "vscode_insiders") {
-                            appsModel.append({
-                                appName: da === "vscode" ? "VS Code Desktop" : "VS Code Insiders",
-                                appUrl: "",
-                                appIcon: "/icon/code.svg",
-                                appCommand: "",
-                                appSlug: da,
-                                agentId: agent["id"] || "",
-                                agentName: agent["name"] || "",
-                                appSubdomain: false,
-                                appExternal: false,
-                                isDisplayApp: true,
-                                displayAppType: da
-                            })
-                        } else if (da === "ssh_helper") {
-                            appsModel.append({
-                                appName: "SSH",
-                                appUrl: "",
-                                appIcon: "",
-                                appCommand: "",
-                                appSlug: "ssh_helper",
-                                agentId: agent["id"] || "",
-                                agentName: agent["name"] || "",
-                                appSubdomain: false,
-                                appExternal: false,
-                                isDisplayApp: true,
-                                displayAppType: "ssh_helper"
-                            })
-                        } else if (da === "port_forwarding_helper") {
-                            appsModel.append({
-                                appName: "Ports",
-                                appUrl: "",
-                                appIcon: "",
-                                appCommand: "",
-                                appSlug: "port_forwarding_helper",
-                                agentId: agent["id"] || "",
-                                agentName: agent["name"] || "",
-                                appSubdomain: false,
-                                appExternal: false,
-                                isDisplayApp: true,
-                                displayAppType: "port_forwarding_helper"
-                            })
-                        }
-                    }
+                    allAgents.push(agents[a])
                 }
+            }
+
+            // Separate top-level agents from children (by parent_id)
+            var topLevel = []
+            var children = {}  // parentId -> [agent, ...]
+            for (var i = 0; i < allAgents.length; i++) {
+                var ag = allAgents[i]
+                var pid = ag["parent_id"] || ""
+                if (pid === "" || pid === null || pid === undefined) {
+                    topLevel.push(ag)
+                } else {
+                    if (!children[pid]) children[pid] = []
+                    children[pid].push(ag)
+                }
+            }
+
+            // Build model entries for top-level agents (with inline apps + children)
+            for (var t = 0; t < topLevel.length; t++) {
+                var agent = topLevel[t]
+                var agId = agent["id"] || ""
+                var kidAgents = children[agId] || []
+                var kidArray = []
+                for (var k = 0; k < kidAgents.length; k++) {
+                    var kid = kidAgents[k]
+                    kidArray.push({
+                        id: kid["id"] || "",
+                        name: kid["name"] || "",
+                        status: kid["status"] || "unknown",
+                        os: kid["operating_system"] || "",
+                        arch: kid["architecture"] || "",
+                        displayApps: (kid["display_apps"] || []).join(","),
+                        apps: JSON.stringify(buildAppsList(kid))
+                    })
+                }
+
+                agentsModel.append({
+                    agentId: agId,
+                    agentName: agent["name"] || "",
+                    agentStatus: agent["status"] || "unknown",
+                    agentOs: agent["operating_system"] || "",
+                    agentArch: agent["architecture"] || "",
+                    agentDisplayApps: (agent["display_apps"] || []).join(","),
+                    agentApps: JSON.stringify(buildAppsList(agent)),
+                    childAgents: JSON.stringify(kidArray)
+                })
             }
 
             // Update status from fresh data
             var latestStatus = (build["status"] || workspaceStatus)
-            // Capitalize first letter to match model convention
             if (latestStatus.length > 0) {
                 workspaceDetailPage.workspaceStatus =
                     latestStatus.charAt(0).toUpperCase() + latestStatus.slice(1)
@@ -414,7 +469,7 @@ Item {
 
                     Rectangle {
                         Layout.fillWidth: true
-                        height: agentLayout.implicitHeight + 24
+                        implicitHeight: agentLayout.implicitHeight + 24
                         radius: CoderTheme.radius
                         color: CoderTheme.surface
                         border.color: CoderTheme.border
@@ -510,185 +565,117 @@ Item {
                                     return "Browse workspace file system"
                                 }
                             }
-                        }
-                    }
-                }
 
-                // ---- Apps section ----
-                Label {
-                    text: "Apps"
-                    font.pixelSize: 14
-                    font.bold: true
-                    color: CoderTheme.textPrimary
-                    visible: appsModel.count > 0
-                }
-
-                GridLayout {
-                    Layout.fillWidth: true
-                    columns: 3
-                    columnSpacing: 8
-                    rowSpacing: 8
-                    visible: appsModel.count > 0
-
-                    Repeater {
-                        model: appsModel
-
-                        Rectangle {
-                            id: appCard
-                            Layout.fillWidth: true
-                            height: appItemLayout.implicitHeight + 16
-                            radius: CoderTheme.radius
-                            color: appMouseArea.containsMouse ? CoderTheme.hoverBg : CoderTheme.surface
-                            border.color: CoderTheme.border
-                            border.width: 1
-
-                            MouseArea {
-                                id: appMouseArea
-                                anchors.fill: parent
-                                hoverEnabled: true
-                                enabled: {
-                                    if (model.isDisplayApp === true) {
-                                        var daType = model.displayAppType
-                                        if (daType === "ssh_helper" || daType === "port_forwarding_helper")
-                                            return vpnBridge.isRunning
-                                        return true
-                                    }
-                                    return model.appUrl.length > 0
-                                }
-                                cursorShape: enabled ? Qt.PointingHandCursor
-                                                     : Qt.ArrowCursor
-                                onClicked: {
-                                    if (model.isDisplayApp === true) {
-                                        var daType = model.displayAppType
-                                        if (daType === "vscode" || daType === "vscode_insiders") {
-                                            vscodeLaunchDialog.workspaceName = workspaceDetailPage.workspaceName
-                                            vscodeLaunchDialog.workspaceOwner = workspaceDetailPage.workspaceOwner
-                                            vscodeLaunchDialog.agentName = model.agentName
-                                            vscodeLaunchDialog.agentId = model.agentId
-                                            vscodeLaunchDialog.displayAppType = daType
-                                            vscodeLaunchDialog.open()
-                                        } else if (daType === "ssh_helper") {
-                                            sshHelperDialog.agentName = model.agentName
-                                            sshHelperDialog.workspaceName = workspaceDetailPage.workspaceName
-                                            sshHelperDialog.workspaceOwner = workspaceDetailPage.workspaceOwner
-                                            sshHelperDialog.open()
-                                        } else if (daType === "port_forwarding_helper") {
-                                            portForwardDialog.agentName = model.agentName
-                                            portForwardDialog.workspaceName = workspaceDetailPage.workspaceName
-                                            portForwardDialog.workspaceOwner = workspaceDetailPage.workspaceOwner
-                                            portForwardDialog.open()
-                                        }
-                                    } else {
-                                        workspaceDetailPage.selectedAppSlug = model.appSlug
-                                        workspaceDetailPage.selectedAppUrl = model.appUrl
-                                        workspaceDetailPage.selectedAppName = model.appName
-                                        workspaceDetailPage.selectedAgentId = model.agentId
-                                        workspaceDetailPage.selectedAgentName = model.agentName
-                                        workspaceDetailPage.selectedAppExternal = model.appExternal
-                                    }
-                                }
+                            // ---- Inline apps for this agent ----
+                            AgentAppsGrid {
+                                Layout.fillWidth: true
+                                appsList: model.agentApps ? JSON.parse(model.agentApps) : []
+                                agentId: model.agentId
+                                agentName: model.agentName
+                                onAppClicked: (appData) => handleAppClick(appData, model.agentId, model.agentName)
+                                onOpenInBrowser: (appData) => handleOpenInBrowser(appData, model.agentName)
                             }
 
-                            ColumnLayout {
-                                id: appItemLayout
-                                anchors.fill: parent
-                                anchors.margins: 8
-                                spacing: 4
+                            // ---- Dev container children ----
+                            Repeater {
+                                model: {
+                                    try { return JSON.parse(childAgents) }
+                                    catch(e) { return [] }
+                                }
 
-                                // App icon — loaded from Coder deployment, with letter fallback
-                                Item {
-                                    width: 32; height: 32
-                                    Layout.alignment: Qt.AlignHCenter
+                                Rectangle {
+                                    Layout.fillWidth: true
+                                    implicitHeight: childLayout.implicitHeight + 20
+                                    Layout.topMargin: 8
+                                    radius: CoderTheme.radius
+                                    color: Qt.rgba(CoderTheme.primary.r, CoderTheme.primary.g,
+                                                   CoderTheme.primary.b, 0.05)
+                                    border.color: CoderTheme.primary
+                                    border.width: 1
 
-                                    Image {
-                                        id: appIconImage
+                                    ColumnLayout {
+                                        id: childLayout
                                         anchors.fill: parent
-                                        visible: status === Image.Ready
-                                        source: {
-                                            if (!model.appIcon || model.appIcon.length === 0)
-                                                return "";
-                                            // Relative paths (e.g. "/icon/code.svg") need the deployment base URL
-                                            if (model.appIcon.startsWith("/")) {
-                                                var base = sessionManager.currentUrl.replace(/\/+$/, "");
-                                                return base + model.appIcon;
-                                            }
-                                            return model.appIcon;
-                                        }
-                                        sourceSize: Qt.size(32, 32)
-                                        fillMode: Image.PreserveAspectFit
-                                        smooth: true
-                                        cache: true
-                                    }
-
-                                    // Fallback: letter initial in a colored rectangle
-                                    Rectangle {
-                                        anchors.fill: parent
-                                        radius: CoderTheme.radiusSm
-                                        color: CoderTheme.activeSurface
-                                        visible: appIconImage.status !== Image.Ready
+                                        anchors.margins: 10
+                                        spacing: 4
 
                                         Label {
-                                            anchors.centerIn: parent
-                                            text: model.appName.charAt(0).toUpperCase()
-                                            font.pixelSize: 16
+                                            text: "📦 Dev Container"
+                                            font.pixelSize: 11
                                             font.bold: true
                                             color: CoderTheme.primary
                                         }
-                                    }
-                                }
 
-                                Label {
-                                    text: model.appName
-                                    font.pixelSize: 12
-                                    color: CoderTheme.textPrimary
-                                    elide: Text.ElideRight
-                                    horizontalAlignment: Text.AlignHCenter
-                                    Layout.fillWidth: true
-                                }
-                            }
+                                        // Status row
+                                        RowLayout {
+                                            spacing: 8
+                                            Rectangle {
+                                                width: 10; height: 10; radius: 5
+                                                color: {
+                                                    var s = modelData.status
+                                                    if (s === "connected") return CoderTheme.success
+                                                    if (s === "disconnected") return CoderTheme.error
+                                                    if (s === "connecting") return CoderTheme.warning
+                                                    return CoderTheme.textDisabled
+                                                }
+                                            }
+                                            Label {
+                                                text: modelData.name
+                                                font.pixelSize: 13; font.bold: true
+                                                color: CoderTheme.textPrimary
+                                                Layout.fillWidth: true
+                                            }
+                                            Label {
+                                                text: modelData.status
+                                                font.pixelSize: 11
+                                                color: CoderTheme.textSecondary
+                                            }
+                                        }
 
-                            // Overflow menu — only shown when external browser is allowed
-                            Button {
-                                anchors.top: parent.top
-                                anchors.right: parent.right
-                                anchors.margins: 2
-                                flat: true
-                                text: "⋮"
-                                font.pixelSize: 14
-                                z: 2
-                                visible: settingsManager.externalBrowserAllowed
-                                onClicked: appOverflowMenu.open()
+                                        // Hostname
+                                        Label {
+                                            text: modelData.name + "." + workspaceDetailPage.workspaceName
+                                                  + "." + workspaceDetailPage.workspaceOwner + ".coder"
+                                            font.pixelSize: 11; font.family: "monospace"
+                                            color: CoderTheme.textDisabled
+                                        }
 
-                                contentItem: Text {
-                                    text: "⋮"
-                                    font.pixelSize: 14
-                                    color: CoderTheme.textSecondary
-                                    horizontalAlignment: Text.AlignHCenter
-                                    verticalAlignment: Text.AlignVCenter
-                                }
+                                        // Terminal button
+                                        CoderButton {
+                                            text: "Terminal"; variant: "outline"; font.pixelSize: 12
+                                            visible: modelData.displayApps.length === 0 ||
+                                                     ("," + modelData.displayApps + ",").indexOf(",web_terminal,") >= 0
+                                            enabled: modelData.status === "connected"
+                                            onClicked: {
+                                                workspaceDetailPage.selectedTerminalAgentId = modelData.id
+                                                workspaceDetailPage.selectedTerminalAgentName = modelData.name
+                                            }
+                                        }
 
-                                background: Rectangle {
-                                    implicitWidth: 28; implicitHeight: 28
-                                    radius: CoderTheme.radiusSm
-                                    color: parent.hovered ? CoderTheme.hoverBg : "transparent"
-                                }
+                                        // Browse Files button
+                                        CoderButton {
+                                            text: "Browse Files"; variant: "outline"; font.pixelSize: 12
+                                            enabled: modelData.status === "connected" && vpnBridge.state === "connected"
+                                            onClicked: {
+                                                workspaceDetailPage.selectedFileBrowserAgentHost =
+                                                    modelData.name + "." + workspaceDetailPage.workspaceName
+                                                    + "." + workspaceDetailPage.workspaceOwner + ".coder"
+                                                workspaceDetailPage.selectedFileBrowserWorkspaceName =
+                                                    workspaceDetailPage.workspaceName
+                                            }
+                                        }
 
-                                Menu {
-                                    id: appOverflowMenu
-                                    MenuItem {
-                                        text: qsTr("Open in Browser")
-                                        onTriggered: {
-                                            var url = appBrowser.buildAppUrl(
-                                                sessionManager.currentUrl,
-                                                model.appUrl,
-                                                model.appSlug,
-                                                workspaceDetailPage.workspaceName,
-                                                workspaceDetailPage.workspaceOwner,
-                                                model.agentName,
-                                                vpnBridge.isRunning,
-                                                model.appExternal
-                                            );
-                                            Qt.openUrlExternally(url);
+                                        // Child agent's apps
+                                        AgentAppsGrid {
+                                            Layout.fillWidth: true
+                                            appsList: {
+                                                try { return JSON.parse(modelData.apps) }
+                                                catch(e) { return [] }
+                                            }
+                                            agentId: modelData.id
+                                            agentName: modelData.name
+                                            onAppClicked: (appData) => handleAppClick(appData, modelData.id, modelData.name)
+                                            onOpenInBrowser: (appData) => handleOpenInBrowser(appData, modelData.name)
                                         }
                                     }
                                 }
@@ -733,7 +720,7 @@ Item {
                         }
 
                         Label {
-                            text: "Apps: " + appsModel.count
+                            text: "Template: " + workspaceDetailPage.workspaceTemplate
                             font.pixelSize: 12
                             color: CoderTheme.textSecondary
                         }
