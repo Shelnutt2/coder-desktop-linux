@@ -120,7 +120,7 @@ static void handle_toplevel_request_fullscreen(struct wl_listener* listener, voi
 
 /* --- XDG shell handlers (called from compositor.c signal setup) --- */
 
-void compositor_handle_new_xdg_toplevel(struct wl_listener* listener, void* data) {
+void dlp_compositor_handle_new_xdg_toplevel(struct wl_listener* listener, void* data) {
     struct coder_dlp_compositor* comp = wl_container_of(listener, comp, new_xdg_toplevel);
     struct wlr_xdg_toplevel* xdg_toplevel = data;
 
@@ -198,7 +198,7 @@ static void handle_popup_destroy(struct wl_listener* listener, void* data) {
     free(popup);
 }
 
-void compositor_handle_new_xdg_popup(struct wl_listener* listener, void* data) {
+void dlp_compositor_handle_new_xdg_popup(struct wl_listener* listener, void* data) {
     (void)listener;
     struct wlr_xdg_popup* xdg_popup = data;
 
