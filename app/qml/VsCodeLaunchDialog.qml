@@ -11,6 +11,7 @@ Dialog {
     property string workspaceOwner: ""
     property string agentName: ""
     property string agentId: ""
+    property string agentDirectory: ""
     property string displayAppType: "vscode"  // "vscode" or "vscode_insiders"
 
     signal launchNormal()
@@ -25,6 +26,7 @@ Dialog {
     Material.background: CoderTheme.surface
 
     contentItem: ColumnLayout {
+        width: dialog.availableWidth
         spacing: 12
 
         // Header

@@ -87,7 +87,7 @@ Item {
     }
 
     // -- Helper: handle app tile click ----------------------------------------
-    function handleAppClick(appData, agentId, agentName) {
+    function handleAppClick(appData, agentId, agentName, agentDirectory) {
         if (appData.isDisplayApp === true) {
             var daType = appData.displayAppType
             if (daType === "vscode" || daType === "vscode_insiders") {
@@ -95,6 +95,7 @@ Item {
                 vscodeLaunchDialog.workspaceOwner = workspaceDetailPage.workspaceOwner
                 vscodeLaunchDialog.agentName = agentName
                 vscodeLaunchDialog.agentId = agentId
+                vscodeLaunchDialog.agentDirectory = agentDirectory || ""
                 vscodeLaunchDialog.displayAppType = daType
                 vscodeLaunchDialog.open()
             } else if (daType === "ssh_helper") {
@@ -184,6 +185,7 @@ Item {
                         status: kid["status"] || "unknown",
                         os: kid["operating_system"] || "",
                         arch: kid["architecture"] || "",
+                        directory: kid["expanded_directory"] || kid["directory"] || "",
                         displayApps: (kid["display_apps"] || []).join(","),
                         apps: JSON.stringify(buildAppsList(kid))
                     })
@@ -195,6 +197,7 @@ Item {
                     agentStatus: agent["status"] || "unknown",
                     agentOs: agent["operating_system"] || "",
                     agentArch: agent["architecture"] || "",
+                    agentDirectory: agent["expanded_directory"] || agent["directory"] || "",
                     agentDisplayApps: (agent["display_apps"] || []).join(","),
                     agentApps: JSON.stringify(buildAppsList(agent)),
                     childAgents: JSON.stringify(kidArray)
@@ -572,7 +575,7 @@ Item {
                                 appsList: model.agentApps ? JSON.parse(model.agentApps) : []
                                 agentId: model.agentId
                                 agentName: model.agentName
-                                onAppClicked: (appData) => handleAppClick(appData, model.agentId, model.agentName)
+                                onAppClicked: (appData) => handleAppClick(appData, model.agentId, model.agentName, model.agentDirectory || "")
                                 onOpenInBrowser: (appData) => handleOpenInBrowser(appData, model.agentName)
                             }
 
@@ -674,7 +677,7 @@ Item {
                                             }
                                             agentId: modelData.id
                                             agentName: modelData.name
-                                            onAppClicked: (appData) => handleAppClick(appData, modelData.id, modelData.name)
+                                            onAppClicked: (appData) => handleAppClick(appData, modelData.id, modelData.name, modelData.directory || "")
                                             onOpenInBrowser: (appData) => handleOpenInBrowser(appData, modelData.name)
                                         }
                                     }
@@ -790,35 +793,31 @@ Item {
         id: vscodeLaunchDialog
 
         onLaunchNormal: {
-            // Build the vscode:// URI
+            // Use vscode-remote SSH URI to connect via VPN's SSH config directly,
+            // avoiding SSH config conflict with the Coder extension's ProxyCommand.
             var scheme = vscodeLaunchDialog.displayAppType === "vscode_insiders"
                 ? "vscode-insiders" : "vscode"
-            var baseUrl = sessionManager.currentUrl.replace(/\/+$/, "")
-            var token = sessionManager.sessionToken()
-            var uri = scheme + "://coder.coder-remote/open"
-                + "?url=" + encodeURIComponent(baseUrl)
-                + "&owner=" + encodeURIComponent(workspaceDetailPage.workspaceOwner)
-                + "&workspace=" + encodeURIComponent(workspaceDetailPage.workspaceName)
-                + "&agent=" + encodeURIComponent(vscodeLaunchDialog.agentName)
-                + "&token=" + encodeURIComponent(token)
+            var hostname = vscodeLaunchDialog.agentName + "."
+                + workspaceDetailPage.workspaceName + "."
+                + workspaceDetailPage.workspaceOwner + ".coder"
+            var folder = vscodeLaunchDialog.agentDirectory
+            if (folder.length === 0)
+                folder = "/home/" + workspaceDetailPage.workspaceOwner
+            var uri = scheme + "://vscode-remote/ssh-remote+" + hostname + folder
             Qt.openUrlExternally(uri)
         }
 
         onLaunchSecure: {
-            // Launch VS Code in DLP sandbox
-            var scheme = vscodeLaunchDialog.displayAppType === "vscode_insiders"
-                ? "vscode-insiders" : "vscode"
+            // Launch VS Code in DLP sandbox using direct SSH remote via VPN.
             var binary = vscodeLaunchDialog.displayAppType === "vscode_insiders"
                 ? "code-insiders" : "code"
-            var baseUrl = sessionManager.currentUrl.replace(/\/+$/, "")
-            var token = sessionManager.sessionToken()
-            var openUrl = scheme + "://coder.coder-remote/open"
-                + "?url=" + encodeURIComponent(baseUrl)
-                + "&owner=" + encodeURIComponent(workspaceDetailPage.workspaceOwner)
-                + "&workspace=" + encodeURIComponent(workspaceDetailPage.workspaceName)
-                + "&agent=" + encodeURIComponent(vscodeLaunchDialog.agentName)
-                + "&token=" + encodeURIComponent(token)
-            var command = binary + " --open-url '" + openUrl + "'"
+            var hostname = vscodeLaunchDialog.agentName + "."
+                + workspaceDetailPage.workspaceName + "."
+                + workspaceDetailPage.workspaceOwner + ".coder"
+            var folder = vscodeLaunchDialog.agentDirectory
+            if (folder.length === 0)
+                folder = "/home/" + workspaceDetailPage.workspaceOwner
+            var command = binary + " --remote ssh-remote+" + hostname + " " + folder
             var appName = vscodeLaunchDialog.displayAppType === "vscode_insiders"
                 ? "VS Code Insiders" : "VS Code Desktop"
             dlpCompositor.launchApp(command, appName, "", false, false, false, false, false,
