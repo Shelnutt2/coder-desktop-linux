@@ -94,8 +94,8 @@ QNetworkReply* CoderApiClient::getBuildInfo() {
 // High-level fetch methods (QML-callable)
 // ---------------------------------------------------------------------------
 
-void CoderApiClient::fetchWorkspaces() {
-    QNetworkReply* reply = listWorkspaces();
+void CoderApiClient::fetchWorkspaces(const QString& query) {
+    QNetworkReply* reply = listWorkspaces(query);
     connect(reply, &QNetworkReply::finished, this, [this, reply]() {
         reply->deleteLater();
         if (reply->error() != QNetworkReply::NoError)

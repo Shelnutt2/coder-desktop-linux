@@ -114,6 +114,171 @@ Item {
             }
         }
 
+        // ---- Owner filter row ----
+        RowLayout {
+            Layout.fillWidth: true
+            spacing: 8
+
+            Switch {
+                id: showAllToggle
+                text: "All workspaces"
+                checked: false
+
+                contentItem: Label {
+                    text: showAllToggle.text
+                    font.pixelSize: 13
+                    color: CoderTheme.textSecondary
+                    verticalAlignment: Text.AlignVCenter
+                    leftPadding: showAllToggle.indicator.width + showAllToggle.spacing
+                }
+
+                onCheckedChanged: {
+                    if (checked) {
+                        pollingController.workspaceQuery = "";
+                    } else {
+                        ownerFilterField.text = "";
+                        pollingController.workspaceQuery = "owner:me";
+                    }
+                }
+            }
+
+            TextField {
+                id: ownerFilterField
+                placeholderText: "Filter by owner…"
+                visible: showAllToggle.checked
+                Layout.preferredWidth: 200
+                selectByMouse: true
+                color: CoderTheme.textPrimary
+                placeholderTextColor: CoderTheme.textDisabled
+
+                background: Rectangle {
+                    implicitHeight: 36
+                    radius: CoderTheme.radius
+                    color: CoderTheme.surface
+                    border.color: ownerFilterField.activeFocus ? CoderTheme.primary : CoderTheme.border
+                    border.width: 1
+                }
+
+                onTextChanged: {
+                    if (text.length > 0) {
+                        pollingController.workspaceQuery = "owner:" + text;
+                    } else {
+                        pollingController.workspaceQuery = "";
+                    }
+                }
+            }
+        }
+
+        // ---- Owner filter row ----
+        RowLayout {
+            Layout.fillWidth: true
+            spacing: 8
+
+            Switch {
+                id: showAllToggle
+                text: "All workspaces"
+                checked: false
+
+                contentItem: Label {
+                    text: showAllToggle.text
+                    font.pixelSize: 13
+                    color: CoderTheme.textSecondary
+                    verticalAlignment: Text.AlignVCenter
+                    leftPadding: showAllToggle.indicator.width + showAllToggle.spacing
+                }
+
+                onCheckedChanged: {
+                    if (checked) {
+                        pollingController.workspaceQuery = "";
+                    } else {
+                        ownerFilterField.text = "";
+                        pollingController.workspaceQuery = "owner:me";
+                    }
+                }
+            }
+
+            TextField {
+                id: ownerFilterField
+                placeholderText: "Filter by owner…"
+                visible: showAllToggle.checked
+                Layout.preferredWidth: 200
+                selectByMouse: true
+                color: CoderTheme.textPrimary
+                placeholderTextColor: CoderTheme.textDisabled
+
+                background: Rectangle {
+                    implicitHeight: 36
+                    radius: CoderTheme.radius
+                    color: CoderTheme.surface
+                    border.color: ownerFilterField.activeFocus ? CoderTheme.primary : CoderTheme.border
+                    border.width: 1
+                }
+
+                onTextChanged: {
+                    if (text.length > 0) {
+                        pollingController.workspaceQuery = "owner:" + text;
+                    } else {
+                        pollingController.workspaceQuery = "";
+                    }
+                }
+            }
+        }
+
+        // ---- Owner filter row ----
+        RowLayout {
+            Layout.fillWidth: true
+            spacing: 8
+
+            Switch {
+                id: showAllToggle
+                text: "All workspaces"
+                checked: false
+
+                contentItem: Label {
+                    text: showAllToggle.text
+                    font.pixelSize: 13
+                    color: CoderTheme.textSecondary
+                    verticalAlignment: Text.AlignVCenter
+                    leftPadding: showAllToggle.indicator.width + showAllToggle.spacing
+                }
+
+                onCheckedChanged: {
+                    if (checked) {
+                        pollingController.workspaceQuery = "";
+                    } else {
+                        ownerFilterField.text = "";
+                        pollingController.workspaceQuery = "owner:me";
+                    }
+                }
+            }
+
+            TextField {
+                id: ownerFilterField
+                placeholderText: "Filter by owner…"
+                visible: showAllToggle.checked
+                Layout.preferredWidth: 200
+                selectByMouse: true
+                color: CoderTheme.textPrimary
+                placeholderTextColor: CoderTheme.textDisabled
+
+                background: Rectangle {
+                    implicitHeight: 36
+                    radius: CoderTheme.radius
+                    color: CoderTheme.surface
+                    border.color: ownerFilterField.activeFocus ? CoderTheme.primary : CoderTheme.border
+                    border.width: 1
+                }
+
+                onTextChanged: {
+                    if (text.length > 0) {
+                        pollingController.workspaceQuery = "owner:" + text;
+                    } else {
+                        pollingController.workspaceQuery = "";
+                    }
+                }
+            }
+        }
+
         // ---- Error banner with retry ----
         Rectangle {
             Layout.fillWidth: true
