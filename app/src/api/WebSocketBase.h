@@ -44,6 +44,10 @@ signals:
     void binaryMessageReceived(const QByteArray& data);
 
 protected:
+    /// Session token accessor for subclasses that need query-parameter
+    /// authentication in addition to the header set by connectToEndpoint().
+    [[nodiscard]] QString sessionToken() const { return m_sessionToken; }
+
     void sendTextMessage(const QString& message);
     void sendBinaryMessage(const QByteArray& data);
 
