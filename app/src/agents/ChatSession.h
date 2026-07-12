@@ -40,7 +40,9 @@ public:
 
     // -- Durable history -------------------------------------------------------
     [[nodiscard]] const QList<ChatMessage>& messages() const { return m_messages; }
-    /// Replaces the whole durable history (initial page load). Messages are
+    /// Merges the initial REST page into the durable history by id: page
+    /// messages win for the ids they cover; messages already applied from
+    /// concurrent stream events with other ids are preserved. Messages are
     /// sorted ascending by id regardless of input order.
     void setInitialMessages(const QList<ChatMessage>& messages);
     /// Inserts an older page before the current history. Messages are sorted

@@ -19,8 +19,22 @@ void ChatSession::sortById(QList<ChatMessage>& messages) {
 }
 
 void ChatSession::setInitialMessages(const QList<ChatMessage>& messages) {
-    m_messages = messages;
-    sortById(m_messages);
+    // The stream socket opens concurrently with the initial REST page, so
+    // durable messages applied from stream events can already be present
+    // when the page arrives. Merge the page in by id instead of replacing
+    // wholesale: page messages win for the ids they cover, and
+    // stream-applied messages with other ids are preserved. Reconnect
+    // semantics are unaffected because the after_id cursor stays monotonic
+    // and history_reset remains the authoritative full-replacement path.
+    QList<ChatMessage> merged = messages;
+    QSet<qint64> pageIds;
+    pageIds.reserve(merged.size());
+    for (const ChatMessage& m : merged) pageIds.insert(m.id);
+    for (const ChatMessage& m : m_messages) {
+        if (!pageIds.contains(m.id)) merged.append(m);
+    }
+    sortById(merged);
+    m_messages = merged;
     if (!m_messages.isEmpty()) m_afterId = qMax(m_afterId, m_messages.last().id);
     emit historyReplaced();
 }
@@ -198,6 +212,10 @@ void ChatSession::mergePartInto(QList<ChatMessagePart>& parts, const ChatMessage
                 if (!incoming.toolName.isEmpty()) p.toolName = incoming.toolName;
                 if (!incoming.result.isUndefined() && !incoming.result.isNull())
                     p.result = incoming.result;
+                // A reset drops the accumulated streaming deltas for this
+                // tool call (mirrors coderd message_conversion.go handling
+                // of ResultReset) before any new delta is appended.
+                if (incoming.resultReset) p.resultDelta.clear();
                 p.resultDelta += incoming.resultDelta;
                 p.isError = p.isError || incoming.isError;
                 if (incoming.createdAt.isValid() && !p.createdAt.isValid())
