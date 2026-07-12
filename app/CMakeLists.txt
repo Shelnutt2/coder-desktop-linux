@@ -72,6 +72,24 @@ add_executable(coder-desktop
     src/auth/LoginFlowController.cpp
     src/api/PollingController.h
     src/api/PollingController.cpp
+    src/api/dto/Chat.h
+    src/api/dto/ChatMessage.h
+    src/api/dto/ChatStreamEvent.h
+    src/api/dto/ChatModels.h
+    src/api/AgentsApiClient.h
+    src/api/AgentsApiClient.cpp
+    src/api/ChatStreamWebSocket.h
+    src/api/ChatStreamWebSocket.cpp
+    src/api/ChatWatchWebSocket.h
+    src/api/ChatWatchWebSocket.cpp
+    src/agents/ChatSession.h
+    src/agents/ChatSession.cpp
+    src/agents/AgentsController.h
+    src/agents/AgentsController.cpp
+    src/models/ChatListModel.h
+    src/models/ChatListModel.cpp
+    src/models/ChatMessagesModel.h
+    src/models/ChatMessagesModel.cpp
     src/terminal/TerminalBridge.h
     src/terminal/TerminalBridge.cpp
 )
@@ -255,6 +273,35 @@ if(BUILD_TESTING)
     target_include_directories(tst_filesync PRIVATE src)
     target_link_libraries(tst_filesync PRIVATE Qt6::Core Qt6::Test Qt6::Network)
     add_test(NAME FileSyncTest COMMAND tst_filesync)
+
+    add_executable(tst_agentdtos
+        tests/unit/tst_agentdtos.cpp
+        src/api/dto/Chat.h
+        src/api/dto/ChatMessage.h
+        src/api/dto/ChatStreamEvent.h
+        src/api/dto/ChatModels.h
+    )
+    target_include_directories(tst_agentdtos PRIVATE src)
+    target_link_libraries(tst_agentdtos PRIVATE Qt6::Core Qt6::Test)
+    add_test(NAME AgentDtosTest COMMAND tst_agentdtos)
+
+    add_executable(tst_chatsession
+        tests/unit/tst_chatsession.cpp
+        src/agents/ChatSession.cpp
+    )
+    target_include_directories(tst_chatsession PRIVATE src)
+    target_link_libraries(tst_chatsession PRIVATE Qt6::Core Qt6::Test)
+    add_test(NAME ChatSessionTest COMMAND tst_chatsession)
+
+    add_executable(tst_chatmodels
+        tests/unit/tst_chatmodels.cpp
+        src/agents/ChatSession.cpp
+        src/models/ChatListModel.cpp
+        src/models/ChatMessagesModel.cpp
+    )
+    target_include_directories(tst_chatmodels PRIVATE src)
+    target_link_libraries(tst_chatmodels PRIVATE Qt6::Core Qt6::Test)
+    add_test(NAME ChatModelsTest COMMAND tst_chatmodels)
 endif()
 
 # ---------------------------------------------------------------------------
