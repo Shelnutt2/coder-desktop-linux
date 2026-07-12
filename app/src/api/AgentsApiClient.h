@@ -118,6 +118,11 @@ public:
     /// Emits createChatPermissionReceived().
     Q_INVOKABLE void checkCreateChatPermission();
 
+    /// GET /api/v2/organizations. Emits organizationsReceived() with the raw
+    /// JSON array; the caller picks the default organization for chat and
+    /// file-upload requests.
+    Q_INVOKABLE void listOrganizations();
+
 signals:
     void baseUrlChanged();
     /// Emitted for any non-2xx reply (except the 409 usage-limit case of
@@ -150,6 +155,7 @@ signals:
     void fileUploaded(const QString& fileId);
     void fileDownloaded(const QString& fileId, const QByteArray& data, const QString& contentType);
     void createChatPermissionReceived(bool allowed);
+    void organizationsReceived(const QJsonArray& organizations);
 
 private:
     QNetworkAccessManager* m_nam = nullptr;  // Qt parent-owned (this)
