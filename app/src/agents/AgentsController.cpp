@@ -3,13 +3,48 @@
 #include <QCryptographicHash>
 #include <QDir>
 #include <QFile>
+#include <QFileInfo>
 #include <QJsonDocument>
 #include <QJsonObject>
 #include <QLoggingCategory>
+#include <QMimeDatabase>
 #include <QSaveFile>
+#include <QSettings>
 #include <QStandardPaths>
 
+#include "agents/DiffParser.h"
+#include "agents/JsonSchemaParser.h"
+#include "agents/PlanStepParser.h"
+
 Q_LOGGING_CATEGORY(lcAgents, "coder.agents.controller")
+
+namespace {
+
+const QString kDraftSettingsGroup = QStringLiteral("agentDrafts");
+const QString kPrefLastWorkspace = QStringLiteral("agents/lastWorkspaceId");
+const QString kPrefLastModelConfig = QStringLiteral("agents/lastModelConfigId");
+const QString kPrefSendShortcut = QStringLiteral("agents/sendShortcut");
+
+/// Parses an arbitrary JSON value from text: objects and arrays directly,
+/// primitives by wrapping in a throwaway array. Falls back to the raw text
+/// as a JSON string when the text is not valid JSON.
+QJsonValue parseJsonValue(const QString& text) {
+    const QByteArray utf8 = text.trimmed().toUtf8();
+    QJsonParseError err{};
+    const QJsonDocument doc = QJsonDocument::fromJson(utf8, &err);
+    if (err.error == QJsonParseError::NoError) {
+        if (doc.isObject()) return doc.object();
+        if (doc.isArray()) return doc.array();
+    }
+    const QJsonDocument wrapped =
+        QJsonDocument::fromJson(QByteArray("[") + utf8 + QByteArray("]"), &err);
+    if (err.error == QJsonParseError::NoError && wrapped.isArray() && wrapped.array().size() == 1) {
+        return wrapped.array().first();
+    }
+    return QJsonValue(text);
+}
+
+}  // namespace
 
 // ===========================================================================
 // ChatController
@@ -20,6 +55,8 @@ ChatController::ChatController(AgentsApiClient* api, const QString& chatId, QObj
     m_session = new ChatSession(chatId, this);
     m_stream = new ChatStreamWebSocket(this);
     m_model = new ChatMessagesModel(m_session, this);
+
+    loadPersistedDraft();
 
     m_stream->setBaseUrl(m_api->baseUrl());
     m_stream->setSessionToken(m_api->sessionToken());
@@ -34,6 +71,10 @@ ChatController::ChatController(AgentsApiClient* api, const QString& chatId, QObj
     connect(m_session, &ChatSession::statusChanged, this,
             [this](ChatStatus, ChatStatus) { emit statusChanged(); });
     connect(m_session, &ChatSession::queueChanged, this, &ChatController::queueChanged);
+    connect(m_session, &ChatSession::errorChanged, this, &ChatController::errorChanged);
+    connect(m_session, &ChatSession::retryChanged, this, &ChatController::retryChanged);
+    connect(m_session, &ChatSession::actionRequiredChanged, this,
+            &ChatController::actionRequiredChanged);
 
     connect(m_model, &ChatMessagesModel::loadOlderRequested, this, [this](qint64 beforeId) {
         m_api->listMessages(m_chatId, beforeId, 0, kMessagePageSize);
@@ -60,19 +101,128 @@ ChatController::ChatController(AgentsApiClient* api, const QString& chatId, QObj
 
     connect(m_api, &AgentsApiClient::usageLimitExceeded, this,
             [this](const QString& chatId, const ChatUsageLimitExceeded& payload) {
-                if (chatId == m_chatId) emit usageLimitExceeded(payload);
+                if (chatId != m_chatId) return;
+                m_hasUsageLimit = true;
+                m_usageLimit = payload;
+                emit usageLimitChanged();
+                emit usageLimitExceeded(payload);
+            });
+
+    connect(m_api, &AgentsApiClient::messageSent, this,
+            [this](const QString& chatId, bool, const QJsonObject&) {
+                if (chatId != m_chatId) return;
+                clearUsageLimit();
+                emit messageSent();
+            });
+
+    connect(m_api, &AgentsApiClient::chatReceived, this, [this](const Chat& chat) {
+        if (chat.id == m_chatId) applyChatInfo(chat);
+    });
+    connect(m_api, &AgentsApiClient::chatUpdated, this, [this](const QString& chatId) {
+        if (chatId == m_chatId) refreshChat();
+    });
+
+    connect(m_api, &AgentsApiClient::promptsReceived, this,
+            [this](const QString& chatId, const QStringList& prompts) {
+                if (chatId != m_chatId) return;
+                m_prompts = prompts;
+                emit promptsChanged();
+            });
+
+    connect(m_api, &AgentsApiClient::diffReceived, this,
+            [this](const QString& chatId, const QJsonObject& diff) {
+                if (chatId != m_chatId) return;
+                m_diffLoading = false;
+                m_pullRequestUrl = diff.value(QLatin1String("pull_request_url")).toString();
+                m_diffFiles = DiffParser::toVariantList(
+                    DiffParser::parse(diff.value(QLatin1String("diff")).toString()));
+                emit diffChanged();
             });
 }
 
 void ChatController::setDraft(const QString& draft) {
     if (m_draft == draft) return;
     m_draft = draft;
+    persistDraft();
     emit draftChanged();
+}
+
+void ChatController::loadPersistedDraft() {
+    QSettings settings;
+    m_draft = settings.value(kDraftSettingsGroup + QLatin1Char('/') + m_chatId).toString();
+}
+
+void ChatController::persistDraft() {
+    // Drafts survive app restarts; empty drafts remove the stored key.
+    QSettings settings;
+    const QString key = kDraftSettingsGroup + QLatin1Char('/') + m_chatId;
+    if (m_draft.isEmpty())
+        settings.remove(key);
+    else
+        settings.setValue(key, m_draft);
 }
 
 void ChatController::start() {
     m_api->listMessages(m_chatId, 0, 0, kMessagePageSize);
+    m_api->getChat(m_chatId);
+    m_api->getPrompts(m_chatId);
     m_stream->openStream(m_chatId);
+}
+
+void ChatController::applyChatInfo(const Chat& chat) {
+    m_chat = chat;
+    emit chatInfoChanged();
+}
+
+QVariantList ChatController::queuedMessagesVariant() const {
+    QVariantList list;
+    for (const ChatQueuedMessage& q : m_session->queuedMessages()) {
+        QString text;
+        for (const ChatMessagePart& p : q.content) {
+            if (p.type == ChatMessagePartType::Text) {
+                text = p.text;
+                break;
+            }
+        }
+        QVariantMap m;
+        m.insert(QStringLiteral("queuedId"), q.id);
+        m.insert(QStringLiteral("text"), text);
+        m.insert(QStringLiteral("createdAt"), q.createdAt);
+        list.append(m);
+    }
+    return list;
+}
+
+bool ChatController::hasActionRequired() const {
+    return m_session->hasActionRequired() && !m_session->actionRequired().toolCalls.isEmpty();
+}
+
+QVariantList ChatController::actionToolCalls() const {
+    QVariantList list;
+    if (!m_session->hasActionRequired()) return list;
+    for (const ChatStreamToolCall& t : m_session->actionRequired().toolCalls) {
+        QVariantMap m;
+        m.insert(QStringLiteral("toolCallId"), t.toolCallId);
+        m.insert(QStringLiteral("toolName"), t.toolName);
+        m.insert(QStringLiteral("argsJson"), t.args);
+        list.append(m);
+    }
+    return list;
+}
+
+QVariantList ChatController::parsePlanSteps(const QString& markdown) const {
+    return PlanStepParser::toVariantList(PlanStepParser::parse(markdown));
+}
+
+QVariantMap ChatController::parseToolSchema(const QString& schemaJson) const {
+    QVariantMap out;
+    const QJsonDocument doc = QJsonDocument::fromJson(schemaJson.toUtf8());
+    bool ok = false;
+    const QVariantList fields =
+        doc.isObject() ? JsonSchemaParser::parse(doc.object(), &ok) : QVariantList{};
+    out.insert(QStringLiteral("supported"), ok);
+    out.insert(QStringLiteral("fields"), fields);
+    return out;
 }
 
 void ChatController::sendMessage(const QString& text, const QString& busyBehavior) {
@@ -81,6 +231,44 @@ void ChatController::sendMessage(const QString& text, const QString& busyBehavio
     part.insert(QLatin1String("type"), QStringLiteral("text"));
     part.insert(QLatin1String("text"), text);
     m_api->sendMessage(m_chatId, QJsonArray{part}, busyBehavior);
+}
+
+void ChatController::sendMessageWithOptions(const QString& text, const QVariantList& attachments,
+                                            const QString& busyBehavior,
+                                            const QVariantMap& options) {
+    QJsonArray content;
+    if (!text.trimmed().isEmpty()) {
+        QJsonObject part;
+        part.insert(QLatin1String("type"), QStringLiteral("text"));
+        part.insert(QLatin1String("text"), text);
+        content.append(part);
+    }
+    for (const QVariant& v : attachments) {
+        const QVariantMap a = v.toMap();
+        QJsonObject part;
+        part.insert(QLatin1String("type"), QStringLiteral("file"));
+        part.insert(QLatin1String("file_id"), a.value(QStringLiteral("fileId")).toString());
+        part.insert(QLatin1String("name"), a.value(QStringLiteral("name")).toString());
+        part.insert(QLatin1String("media_type"), a.value(QStringLiteral("mediaType")).toString());
+        content.append(part);
+    }
+    if (content.isEmpty()) return;
+
+    QJsonObject extra;
+    const QString modelConfigId = options.value(QStringLiteral("modelConfigId")).toString();
+    if (!modelConfigId.isEmpty()) extra.insert(QLatin1String("model_config_id"), modelConfigId);
+    const QStringList mcpServerIds = options.value(QStringLiteral("mcpServerIds")).toStringList();
+    if (!mcpServerIds.isEmpty()) {
+        QJsonArray ids;
+        for (const QString& id : mcpServerIds) ids.append(id);
+        extra.insert(QLatin1String("mcp_server_ids"), ids);
+    }
+    if (options.contains(QStringLiteral("planMode"))) {
+        extra.insert(QLatin1String("plan_mode"), options.value(QStringLiteral("planMode")).toBool()
+                                                     ? QStringLiteral("plan")
+                                                     : QString());
+    }
+    m_api->sendMessage(m_chatId, content, busyBehavior, extra);
 }
 
 void ChatController::interrupt() {
@@ -103,6 +291,74 @@ void ChatController::submitToolResults(const QJsonArray& results) {
     m_api->sendToolResults(m_chatId, results);
 }
 
+void ChatController::submitToolResult(const QString& toolCallId, const QString& outputJson,
+                                      bool isError) {
+    QJsonObject result;
+    result.insert(QLatin1String("tool_call_id"), toolCallId);
+    result.insert(QLatin1String("output"), parseJsonValue(outputJson));
+    result.insert(QLatin1String("is_error"), isError);
+    m_api->sendToolResults(m_chatId, QJsonArray{result});
+}
+
+void ChatController::reconnect() {
+    m_stream->reconnectNow();
+}
+
+void ChatController::refreshChat() {
+    m_api->getChat(m_chatId);
+}
+
+void ChatController::refreshMessages() {
+    m_initialLoaded = false;
+    m_api->listMessages(m_chatId, 0, 0, kMessagePageSize);
+}
+
+void ChatController::rename(const QString& title) {
+    QJsonObject patch;
+    patch.insert(QLatin1String("title"), title);
+    m_api->updateChat(m_chatId, patch);
+}
+
+void ChatController::setArchived(bool archived) {
+    QJsonObject patch;
+    patch.insert(QLatin1String("archived"), archived);
+    m_api->updateChat(m_chatId, patch);
+}
+
+void ChatController::setPlanModeEnabled(bool enabled) {
+    QJsonObject patch;
+    patch.insert(QLatin1String("plan_mode"), enabled ? QStringLiteral("plan") : QString());
+    m_api->updateChat(m_chatId, patch);
+}
+
+void ChatController::regenerateTitle() {
+    m_api->regenerateTitle(m_chatId);
+}
+
+void ChatController::fetchPrompts() {
+    m_api->getPrompts(m_chatId);
+}
+
+void ChatController::fetchDiff() {
+    if (m_diffLoading) return;
+    m_diffLoading = true;
+    emit diffChanged();
+    m_api->getDiff(m_chatId);
+}
+
+void ChatController::implementPlan() {
+    // Matches Android's implementActivePlan(): clear the persistent plan
+    // mode, then post the canned kickoff message in execute mode.
+    setPlanModeEnabled(false);
+    sendMessage(QStringLiteral("Implement the plan above."));
+}
+
+void ChatController::clearUsageLimit() {
+    if (!m_hasUsageLimit) return;
+    m_hasUsageLimit = false;
+    emit usageLimitChanged();
+}
+
 // ===========================================================================
 // AgentsController
 // ===========================================================================
@@ -110,6 +366,7 @@ void ChatController::submitToolResults(const QJsonArray& results) {
 AgentsController::AgentsController(AgentsApiClient* api, QObject* parent)
     : QObject(parent), m_api(api), m_watch(new ChatWatchWebSocket(this)) {
     m_pollTimer.setInterval(kPollIntervalMs);
+    loadUiPrefs();
 
     connect(m_watch, &ChatWatchWebSocket::watchEventReceived, this,
             &AgentsController::handleWatchEvent);
@@ -126,6 +383,19 @@ AgentsController::AgentsController(AgentsApiClient* api, QObject* parent)
     });
     connect(m_api, &AgentsApiClient::chatsJsonReceived, this, &AgentsController::saveCache);
 
+    connect(m_api, &AgentsApiClient::chatCreated, this, [this](const Chat& chat) {
+        applyUpsert(chat);
+        recomputeCounts();
+        emit chatCreated(chat.id);
+    });
+    // Refresh the list row after PATCH operations complete.
+    connect(m_api, &AgentsApiClient::chatUpdated, this,
+            [this](const QString& chatId) { m_api->getChat(chatId); });
+    connect(m_api, &AgentsApiClient::chatReceived, this, [this](const Chat& chat) {
+        applyUpsert(chat);
+        recomputeCounts();
+    });
+
     connect(m_api, &AgentsApiClient::createChatPermissionReceived, this, [this](bool allowed) {
         m_canCreate = allowed;
         updateAvailability();
@@ -135,18 +405,58 @@ AgentsController::AgentsController(AgentsApiClient* api, QObject* parent)
                 m_modelsAvailable = models.anyAvailable();
                 updateAvailability();
             });
-    connect(
-        m_api, &AgentsApiClient::requestFailed, this,
-        [this](const QString& endpoint, int statusCode, const QString&, const QByteArray& body) {
-            if (!endpoint.startsWith(QLatin1String("/api/experimental/chats"))) return;
-            // A deployment without a configured chat daemon answers 500
-            // with a distinctive message body.
-            if (statusCode == 500 && body.contains("chat daemon not configured")) {
-                m_daemonMissing = true;
-                m_endpointOk = false;
-                updateAvailability();
+    connect(m_api, &AgentsApiClient::modelConfigsReceived, this,
+            [this](const QList<ChatModelConfig>& configs) {
+                m_modelConfigs = configs;
+                emit configsChanged();
+            });
+    connect(m_api, &AgentsApiClient::mcpServersReceived, this,
+            [this](const QList<McpServerConfig>& servers) {
+                m_mcpServers = servers;
+                emit configsChanged();
+            });
+    connect(m_api, &AgentsApiClient::organizationsReceived, this, [this](const QJsonArray& orgs) {
+        QString id;
+        for (const QJsonValue& v : orgs) {
+            const QJsonObject o = v.toObject();
+            if (id.isEmpty()) id = o.value(QLatin1String("id")).toString();
+            if (o.value(QLatin1String("is_default")).toBool()) {
+                id = o.value(QLatin1String("id")).toString();
+                break;
             }
-        });
+        }
+        if (id == m_organizationId) return;
+        m_organizationId = id;
+        emit organizationChanged();
+    });
+
+    connect(m_api, &AgentsApiClient::fileUploaded, this, [this](const QString& fileId) {
+        if (!m_uploadInFlight || m_uploadQueue.isEmpty()) return;
+        const PendingUpload done = m_uploadQueue.dequeue();
+        m_uploadInFlight = false;
+        emit attachmentUploaded(done.localPath, fileId, done.name, done.mediaType);
+        startNextUpload();
+    });
+
+    connect(m_api, &AgentsApiClient::requestFailed, this,
+            [this](const QString& endpoint, int statusCode, const QString& errorMessage,
+                   const QByteArray& body) {
+                if (m_uploadInFlight && endpoint.contains(QLatin1String("/files?"))) {
+                    const PendingUpload failed = m_uploadQueue.dequeue();
+                    m_uploadInFlight = false;
+                    emit attachmentUploadFailed(failed.localPath, errorMessage);
+                    startNextUpload();
+                    return;
+                }
+                if (!endpoint.startsWith(QLatin1String("/api/experimental/chats"))) return;
+                // A deployment without a configured chat daemon answers 500
+                // with a distinctive message body.
+                if (statusCode == 500 && body.contains("chat daemon not configured")) {
+                    m_daemonMissing = true;
+                    m_endpointOk = false;
+                    updateAvailability();
+                }
+            });
 }
 
 void AgentsController::start() {
@@ -158,6 +468,9 @@ void AgentsController::start() {
     m_api->checkCreateChatPermission();
     m_api->listChats();
     m_api->listModels();
+    m_api->listModelConfigs();
+    m_api->listMcpServers();
+    m_api->listOrganizations();
 
     m_watch->setBaseUrl(m_api->baseUrl());
     m_watch->setSessionToken(m_api->sessionToken());
@@ -179,6 +492,190 @@ ChatController* AgentsController::openChat(const QString& chatId) {
     auto* controller = new ChatController(m_api, chatId, this);
     controller->start();
     return controller;
+}
+
+QVariantList AgentsController::subagentsOf(const QString& chatId) const {
+    QVariantList list;
+    for (const Chat& c : m_chats) {
+        if (c.id != chatId) continue;
+        for (const Chat& child : c.children) {
+            QVariantMap m;
+            m.insert(QStringLiteral("id"), child.id);
+            m.insert(QStringLiteral("title"), child.title);
+            m.insert(QStringLiteral("statusString"), child.statusString);
+            list.append(m);
+        }
+        break;
+    }
+    return list;
+}
+
+// ---------------------------------------------------------------------------
+// Create flow / list actions
+// ---------------------------------------------------------------------------
+
+QVariantList AgentsController::modelConfigs() const {
+    QVariantList list;
+    for (const ChatModelConfig& c : m_modelConfigs) {
+        if (!c.enabled) continue;
+        QVariantMap m;
+        m.insert(QStringLiteral("id"), c.id);
+        m.insert(QStringLiteral("displayName"), c.displayName.isEmpty() ? c.model : c.displayName);
+        m.insert(QStringLiteral("model"), c.model);
+        m.insert(QStringLiteral("isDefault"), c.isDefault);
+        list.append(m);
+    }
+    return list;
+}
+
+QString AgentsController::defaultModelConfigId() const {
+    for (const ChatModelConfig& c : m_modelConfigs) {
+        if (c.enabled && c.isDefault) return c.id;
+    }
+    for (const ChatModelConfig& c : m_modelConfigs) {
+        if (c.enabled) return c.id;
+    }
+    return {};
+}
+
+QVariantList AgentsController::mcpServers() const {
+    QVariantList list;
+    for (const McpServerConfig& s : m_mcpServers) {
+        QVariantMap m;
+        m.insert(QStringLiteral("id"), s.id);
+        m.insert(QStringLiteral("displayName"), s.displayName.isEmpty() ? s.slug : s.displayName);
+        m.insert(QStringLiteral("availability"), s.availability);
+        m.insert(QStringLiteral("forceOn"), s.availability == QLatin1String("force_on"));
+        m.insert(QStringLiteral("defaultOn"), s.availability == QLatin1String("default_on"));
+        m.insert(QStringLiteral("allowInPlanMode"), s.allowInPlanMode);
+        list.append(m);
+    }
+    return list;
+}
+
+void AgentsController::createChat(const QString& prompt, const QString& workspaceId,
+                                  const QString& modelConfigId, const QString& reasoningEffort,
+                                  const QStringList& mcpServerIds, bool planMode,
+                                  const QVariantList& attachments) {
+    QJsonArray content;
+    if (!prompt.trimmed().isEmpty()) {
+        QJsonObject part;
+        part.insert(QLatin1String("type"), QStringLiteral("text"));
+        part.insert(QLatin1String("text"), prompt);
+        content.append(part);
+    }
+    for (const QVariant& v : attachments) {
+        const QVariantMap a = v.toMap();
+        QJsonObject part;
+        part.insert(QLatin1String("type"), QStringLiteral("file"));
+        part.insert(QLatin1String("file_id"), a.value(QStringLiteral("fileId")).toString());
+        part.insert(QLatin1String("name"), a.value(QStringLiteral("name")).toString());
+        part.insert(QLatin1String("media_type"), a.value(QStringLiteral("mediaType")).toString());
+        content.append(part);
+    }
+
+    QJsonObject req;
+    req.insert(QLatin1String("organization_id"), m_organizationId);
+    req.insert(QLatin1String("content"), content);
+    req.insert(QLatin1String("client_type"), QStringLiteral("ui"));
+    if (!workspaceId.isEmpty()) req.insert(QLatin1String("workspace_id"), workspaceId);
+    if (!modelConfigId.isEmpty()) req.insert(QLatin1String("model_config_id"), modelConfigId);
+    if (!reasoningEffort.isEmpty()) req.insert(QLatin1String("reasoning_effort"), reasoningEffort);
+    if (!mcpServerIds.isEmpty()) {
+        QJsonArray ids;
+        for (const QString& id : mcpServerIds) ids.append(id);
+        req.insert(QLatin1String("mcp_server_ids"), ids);
+    }
+    if (planMode) req.insert(QLatin1String("plan_mode"), QStringLiteral("plan"));
+    m_api->createChat(req);
+}
+
+void AgentsController::pinChat(const QString& chatId, bool pinned) {
+    int order = 0;
+    if (pinned) {
+        for (const Chat& c : m_chats) order = qMax(order, c.pinOrder);
+        ++order;
+    }
+    QJsonObject patch;
+    patch.insert(QLatin1String("pin_order"), order);
+    m_api->updateChat(chatId, patch);
+}
+
+void AgentsController::archiveChat(const QString& chatId, bool archived) {
+    QJsonObject patch;
+    patch.insert(QLatin1String("archived"), archived);
+    m_api->updateChat(chatId, patch);
+}
+
+void AgentsController::renameChat(const QString& chatId, const QString& title) {
+    QJsonObject patch;
+    patch.insert(QLatin1String("title"), title);
+    m_api->updateChat(chatId, patch);
+}
+
+void AgentsController::regenerateChatTitle(const QString& chatId) {
+    m_api->regenerateTitle(chatId);
+}
+
+// ---------------------------------------------------------------------------
+// Attachment uploads (serialized so replies correlate to requests)
+// ---------------------------------------------------------------------------
+
+void AgentsController::uploadAttachment(const QUrl& fileUrl) {
+    const QString localPath = fileUrl.isLocalFile() ? fileUrl.toLocalFile() : fileUrl.toString();
+    const QFileInfo info(localPath);
+    PendingUpload upload;
+    upload.localPath = localPath;
+    upload.name = info.fileName();
+    upload.mediaType = QMimeDatabase().mimeTypeForFile(info).name();
+    m_uploadQueue.enqueue(upload);
+    startNextUpload();
+}
+
+void AgentsController::startNextUpload() {
+    if (m_uploadInFlight || m_uploadQueue.isEmpty()) return;
+    const PendingUpload& next = m_uploadQueue.head();
+    QFile f(next.localPath);
+    if (!f.open(QIODevice::ReadOnly)) {
+        const PendingUpload failed = m_uploadQueue.dequeue();
+        emit attachmentUploadFailed(failed.localPath, QStringLiteral("could not read file"));
+        startNextUpload();
+        return;
+    }
+    m_uploadInFlight = true;
+    m_api->uploadFile(m_organizationId, next.name, next.mediaType, f.readAll());
+}
+
+// ---------------------------------------------------------------------------
+// Persisted UI preferences
+// ---------------------------------------------------------------------------
+
+void AgentsController::loadUiPrefs() {
+    QSettings settings;
+    m_lastWorkspaceId = settings.value(kPrefLastWorkspace).toString();
+    m_lastModelConfigId = settings.value(kPrefLastModelConfig).toString();
+    m_sendShortcut = settings.value(kPrefSendShortcut, QStringLiteral("enter")).toString();
+}
+
+void AgentsController::setLastWorkspaceId(const QString& id) {
+    if (m_lastWorkspaceId == id) return;
+    m_lastWorkspaceId = id;
+    QSettings().setValue(kPrefLastWorkspace, id);
+    emit uiPrefsChanged();
+}
+
+void AgentsController::setLastModelConfigId(const QString& id) {
+    if (m_lastModelConfigId == id) return;
+    m_lastModelConfigId = id;
+    QSettings().setValue(kPrefLastModelConfig, id);
+    emit uiPrefsChanged();
+}
+
+void AgentsController::setSendShortcut(const QString& shortcut) {
+    if (m_sendShortcut == shortcut) return;
+    m_sendShortcut = shortcut;
+    QSettings().setValue(kPrefSendShortcut, shortcut);
+    emit uiPrefsChanged();
 }
 
 // ---------------------------------------------------------------------------
