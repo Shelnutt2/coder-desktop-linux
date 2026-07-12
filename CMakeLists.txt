@@ -199,6 +199,10 @@ set(CPACK_PACKAGE_FILE_NAME
 set(CODER_PKG_POSTINST "${CMAKE_SOURCE_DIR}/packaging/scripts/postinst")
 set(CODER_PKG_POSTRM "${CMAKE_SOURCE_DIR}/packaging/scripts/postrm")
 
+# The dbus/polkit/systemd files install to absolute paths. CPack must stage
+# them under DESTDIR instead of writing to the real filesystem root.
+set(CPACK_SET_DESTDIR ON)
+
 # TGZ (always available)
 set(CPACK_GENERATOR "TGZ")
 
