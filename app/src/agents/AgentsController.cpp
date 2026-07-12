@@ -380,6 +380,8 @@ AgentsController::AgentsController(AgentsApiClient* api, QObject* parent)
         m_daemonMissing = false;
         setChatList(chats);
         updateAvailability();
+        // Later polled lists diff against this baseline for notifications.
+        m_firstFetch = false;
     });
     connect(m_api, &AgentsApiClient::chatsJsonReceived, this, &AgentsController::saveCache);
 
@@ -461,6 +463,7 @@ AgentsController::AgentsController(AgentsApiClient* api, QObject* parent)
 
 void AgentsController::start() {
     m_started = true;
+    m_firstFetch = true;
     loadCache();
 
     // Availability probe: permission check, endpoint reachability, and model
@@ -482,6 +485,34 @@ void AgentsController::stop() {
     m_started = false;
     m_watch->closeWatch();
     m_pollTimer.stop();
+
+    // Tear down every open chat so its stream socket closes and cannot
+    // reconnect against a switched deployment.
+    const QList<ChatController*> open =
+        findChildren<ChatController*>(QString(), Qt::FindDirectChildrenOnly);
+    for (ChatController* c : open) c->deleteLater();
+
+    setFocusedChatId(QString());
+
+    // Clear the chat list and counts; tray and tab badges reset through
+    // chatsReset/countsChanged. m_firstFetch also suppresses notifications
+    // for the next deployment's initial load.
+    m_firstFetch = true;
+    setChatList({});
+
+    // Reset the availability probe so the next start() re-derives it
+    // against the new deployment instead of showing stale state.
+    m_canCreate = false;
+    m_endpointOk = false;
+    m_daemonMissing = false;
+    m_modelsAvailable = false;
+    updateAvailability();
+
+    m_modelConfigs.clear();
+    m_mcpServers.clear();
+    emit configsChanged();
+
+    emit stopped();
 }
 
 void AgentsController::refreshNow() {
@@ -678,6 +709,12 @@ void AgentsController::setSendShortcut(const QString& shortcut) {
     emit uiPrefsChanged();
 }
 
+void AgentsController::setFocusedChatId(const QString& chatId) {
+    if (m_focusedChatId == chatId) return;
+    m_focusedChatId = chatId;
+    emit focusedChatIdChanged();
+}
+
 // ---------------------------------------------------------------------------
 // Watch events and chat list state
 // ---------------------------------------------------------------------------
@@ -757,8 +794,39 @@ void AgentsController::applyUpsert(const Chat& chat) {
 }
 
 void AgentsController::setChatList(const QList<Chat>& chats) {
+    // Diff statuses against the previous list so the polling fallback
+    // produces the same notification signals as the watch socket. The
+    // first load after start() is suppressed (m_firstFetch).
+    struct Transition {
+        Chat chat;
+        ChatStatus oldStatus;
+    };
+    QList<Transition> statusChanges;
+    if (!m_firstFetch) {
+        QHash<QString, ChatStatus> oldStatus;
+        for (const Chat& c : m_chats) {
+            oldStatus.insert(c.id, c.status);
+            for (const Chat& child : c.children) oldStatus.insert(child.id, child.status);
+        }
+        const auto collect = [&](const Chat& c) {
+            const auto it = oldStatus.constFind(c.id);
+            if (it == oldStatus.constEnd()) return;  // brand-new chat, no baseline
+            if (it.value() != c.status) statusChanges.append({c, it.value()});
+        };
+        for (const Chat& c : chats) {
+            collect(c);
+            for (const Chat& child : c.children) collect(child);
+        }
+    }
+
     m_chats = chats;
     emit chatsReset(m_chats);
+
+    for (const Transition& t : statusChanges) {
+        emit chatStatusChanged(t.chat, t.oldStatus, t.chat.status);
+        if (t.chat.status == ChatStatus::RequiresAction) emit actionRequired(t.chat);
+    }
+
     recomputeCounts();
 }
 
