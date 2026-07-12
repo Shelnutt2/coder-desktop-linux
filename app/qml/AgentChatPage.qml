@@ -230,15 +230,21 @@ Rectangle {
                 boundsBehavior: Flickable.StopAtBounds
 
                 // Rebind on visibility per the repo's tab-switch workaround;
-                // save/restore contentY so the position survives.
+                // contentY is tracked continuously while visible (sampling
+                // it in onVisibleChanged races the model unbind) and
+                // restored after the model rebinds. Saves are frozen from
+                // the moment the view hides until the restore completes so
+                // unbind/rebind transients cannot clobber the saved value.
                 property real savedContentY: 0
                 property bool restorePending: false
                 model: page.visible && page.chat ? page.chat.messagesModel : null
+                onContentYChanged: {
+                    if (visible && model && !restorePending) savedContentY = contentY
+                }
                 onVisibleChanged: {
                     if (!visible) {
-                        savedContentY = contentY
-                    } else {
                         restorePending = true
+                    } else {
                         Qt.callLater(function() {
                             if (timeline.restorePending) {
                                 timeline.contentY = timeline.savedContentY
@@ -251,8 +257,22 @@ Rectangle {
                 // Trigger older-page loads near the OLDEST end
                 // (atYBeginning with BottomToTop, verified above). The model
                 // guards against re-entry with hasMore + an in-flight flag.
-                onAtYBeginningChanged: {
-                    if (atYBeginning && page.chat && model) page.chat.loadOlder()
+                // maybeLoadOlder also re-fires after each completed page (and
+                // the initial load): when a short page leaves the view still
+                // at the oldest end with more history available, the next
+                // page is requested automatically; otherwise loadOlder would
+                // be unreachable because atYBeginning never toggles.
+                function maybeLoadOlder() {
+                    if (atYBeginning && page.chat && model
+                            && model.hasMore && !model.loadingOlder)
+                        page.chat.loadOlder()
+                }
+                onAtYBeginningChanged: maybeLoadOlder()
+                Connections {
+                    target: timeline.model
+                    function onLoadingOlderChanged() { Qt.callLater(timeline.maybeLoadOlder) }
+                    function onHasMoreChanged() { Qt.callLater(timeline.maybeLoadOlder) }
+                    function onCountChanged() { Qt.callLater(timeline.maybeLoadOlder) }
                 }
 
                 header: Item {
@@ -412,12 +432,14 @@ Rectangle {
                         }
 
                         // Plan card on the newest assistant message while the
-                        // chat is in plan mode.
+                        // chat is in plan mode. Hidden when the message parses
+                        // to zero plan steps so no empty card is rendered.
                         PlanCard {
                             visible: page.chat && page.chat.planMode
                                      && messageRow.model.role === "assistant"
                                      && messageRow.index === 0
                                      && messageRow.model.isStreaming !== true
+                                     && steps.length > 0
                             Layout.fillWidth: true
                             chat: page.chat
                             planMarkdown: {
