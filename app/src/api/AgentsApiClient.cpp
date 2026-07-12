@@ -364,6 +364,16 @@ void AgentsApiClient::checkCreateChatPermission() {
     });
 }
 
+void AgentsApiClient::listOrganizations() {
+    QNetworkReply* reply = get(QStringLiteral("/api/v2/organizations"));
+    connect(reply, &QNetworkReply::finished, this, [this, reply]() {
+        reply->deleteLater();
+        if (reply->error() != QNetworkReply::NoError) return;
+        const QJsonDocument doc = QJsonDocument::fromJson(reply->readAll());
+        emit organizationsReceived(doc.array());
+    });
+}
+
 // ---------------------------------------------------------------------------
 // Internal helpers
 // ---------------------------------------------------------------------------
