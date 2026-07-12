@@ -443,7 +443,8 @@ AgentsController::AgentsController(AgentsApiClient* api, QObject* parent)
     connect(m_api, &AgentsApiClient::requestFailed, this,
             [this](const QString& endpoint, int statusCode, const QString& errorMessage,
                    const QByteArray& body) {
-                if (m_uploadInFlight && endpoint.contains(QLatin1String("/files?"))) {
+                if (m_uploadInFlight && !m_uploadQueue.isEmpty() &&
+                    endpoint.contains(QLatin1String("/files?"))) {
                     const PendingUpload failed = m_uploadQueue.dequeue();
                     m_uploadInFlight = false;
                     emit attachmentUploadFailed(failed.localPath, errorMessage);
