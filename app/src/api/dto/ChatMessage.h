@@ -62,11 +62,12 @@ struct ChatMessagePart {
     // tool-call / tool-result (merged by toolCallId during streaming)
     QString toolCallId;
     QString toolName;
-    QJsonObject args;      // tool-call arguments; empty object means "no update"
-    QString argsDelta;     // streaming-only incremental args JSON text
-    QJsonValue result;     // tool-result payload (arbitrary JSON)
-    QString resultDelta;   // streaming-only incremental result text
-    bool isError = false;  // tool-result error flag
+    QJsonObject args;          // tool-call arguments; empty object means "no update"
+    QString argsDelta;         // streaming-only incremental args JSON text
+    QJsonValue result;         // tool-result payload (arbitrary JSON)
+    QString resultDelta;       // streaming-only incremental result text
+    bool resultReset = false;  // streaming-only: drop accumulated result deltas
+    bool isError = false;      // tool-result error flag
     bool providerExecuted = false;
 
     // source
@@ -115,6 +116,7 @@ struct ChatMessagePart {
             p.result = obj.value(QLatin1String("result"));
         }
         p.resultDelta = obj.value(QLatin1String("result_delta")).toString();
+        p.resultReset = obj.value(QLatin1String("result_reset")).toBool();
         p.isError = obj.value(QLatin1String("is_error")).toBool();
         p.providerExecuted = obj.value(QLatin1String("provider_executed")).toBool();
         p.sourceId = obj.value(QLatin1String("source_id")).toString();
@@ -162,6 +164,7 @@ struct ChatMessagePart {
                 if (!toolName.isEmpty()) obj.insert(QLatin1String("tool_name"), toolName);
                 if (!result.isUndefined()) obj.insert(QLatin1String("result"), result);
                 if (!resultDelta.isEmpty()) obj.insert(QLatin1String("result_delta"), resultDelta);
+                if (resultReset) obj.insert(QLatin1String("result_reset"), true);
                 if (isError) obj.insert(QLatin1String("is_error"), true);
                 if (providerExecuted) obj.insert(QLatin1String("provider_executed"), true);
                 break;

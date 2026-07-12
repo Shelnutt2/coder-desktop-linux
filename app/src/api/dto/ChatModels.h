@@ -197,14 +197,23 @@ Q_DECLARE_METATYPE(ChatUsageLimitStatus)
 // ---------------------------------------------------------------------------
 
 struct ChatUsageLimitExceeded {
+    QString message;
     qint64 spentMicros = 0;
     qint64 limitMicros = 0;
     QDateTime resetsAt;
 
     [[nodiscard]] bool isValid() const { return limitMicros > 0; }
 
+    /// Mirrors codersdk isChatUsageLimitExceededResponse (chats.go): a 409
+    /// body is a usage-limit response only when it carries a message and a
+    /// parseable resets_at. Plain 409 conflicts (e.g. "Chat is in an
+    /// invalid state.") fail this check and must be routed as generic
+    /// request failures instead.
+    [[nodiscard]] bool isUsageLimit() const { return !message.isEmpty() && resetsAt.isValid(); }
+
     static ChatUsageLimitExceeded fromJson(const QJsonObject& obj) {
         ChatUsageLimitExceeded u;
+        u.message = obj.value(QLatin1String("message")).toString();
         u.spentMicros = obj.value(QLatin1String("spent_micros")).toVariant().toLongLong();
         u.limitMicros = obj.value(QLatin1String("limit_micros")).toVariant().toLongLong();
         u.resetsAt = QDateTime::fromString(obj.value(QLatin1String("resets_at")).toString(),
