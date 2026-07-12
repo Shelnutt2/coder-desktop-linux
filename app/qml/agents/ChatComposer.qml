@@ -41,8 +41,21 @@ ColumnLayout {
 
     spacing: 6
 
+    // Drafts: the editor text is deliberately NOT bound to chat.draft. A
+    // binding would be severed by the first keystroke, and the stale editor
+    // text would then leak the previous chat's draft into the next chat
+    // when the page swaps its ChatController. Instead the text is assigned
+    // explicitly whenever the chat changes. The outgoing chat's draft needs
+    // no save here: every keystroke already persisted it live through
+    // onTextChanged while that chat was current.
+    onChatChanged: {
+        historyIndex = -1
+        input.text = chat ? chat.draft : ""
+    }
+    Component.onCompleted: input.text = chat ? chat.draft : ""
+
     function sendNow() {
-        if (!canSend) return
+        if (!chat || !canSend) return
         var files = []
         for (var i = 0; i < attachments.length; ++i) {
             var a = attachments[i]
@@ -168,7 +181,6 @@ ColumnLayout {
                 placeholderTextColor: CoderTheme.textDisabled
                 font.pixelSize: 13
                 background: null
-                text: composer.chat ? composer.chat.draft : ""
                 onTextChanged: if (composer.chat && composer.chat.draft !== text)
                                    composer.chat.draft = text
 

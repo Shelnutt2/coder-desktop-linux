@@ -5,10 +5,11 @@ import CoderDesktop
 
 // Dynamic tool runner for a pending action_required tool call.
 //
-// The tool call's args are shown read-only. When the args carry a JSON
-// schema that JsonSchemaParser supports (string/number/integer/boolean/enum
-// fields, one nested object level) a typed form is generated; anything else
-// falls back to a raw JSON editor so every call stays actionable.
+// The tool call's args are shown read-only and dynamic tool input is always
+// entered through the raw JSON editor. The typed form path (JsonSchemaParser)
+// is used only when a declared input schema is supplied via schemaJson;
+// today no tool declares one, so the form path is never taken. Tool-call
+// args are NOT a schema and must never be fed to the schema parser.
 //
 // Actions follow the Android DynamicToolRunnerCard semantics: Submit posts
 // the JSON output; "Submit as error" posts {"error": message} with
@@ -20,9 +21,13 @@ Rectangle {
     property string toolCallId: ""
     property string toolName: ""
     property string argsJson: ""
+    // Declared JSON input schema for the tool, when the server supplies
+    // one. Empty (the only case today) selects the raw JSON editor.
+    property string schemaJson: ""
 
-    readonly property var schema: chat ? chat.parseToolSchema(argsJson)
-                                       : { supported: false, fields: [] }
+    readonly property var schema: chat && schemaJson.length > 0
+        ? chat.parseToolSchema(schemaJson)
+        : ({ supported: false, fields: [] })
     readonly property bool useForm: schema.supported
     property bool errorEditorOpen: false
     property bool submitted: false

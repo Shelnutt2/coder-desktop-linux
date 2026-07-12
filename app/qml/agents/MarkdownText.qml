@@ -7,6 +7,12 @@ TextEdit {
     id: control
     property alias markdown: control.text
 
+    // Allowlist of link schemes that may be handed to the OS. Markdown from
+    // the agent is untrusted; anything outside http/https/mailto is ignored.
+    function isSafeLink(link) {
+        return /^(https?|mailto):/i.test(link)
+    }
+
     textFormat: TextEdit.MarkdownText
     wrapMode: Text.Wrap
     readOnly: true
@@ -16,7 +22,9 @@ TextEdit {
     selectedTextColor: CoderTheme.textInvert
     font.pixelSize: 13
 
-    onLinkActivated: function(link) { Qt.openUrlExternally(link) }
+    onLinkActivated: function(link) {
+        if (control.isSafeLink(link)) Qt.openUrlExternally(link)
+    }
 
     // Show a pointing hand over links without stealing selection drags.
     HoverHandler {

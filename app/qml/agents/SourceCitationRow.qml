@@ -47,6 +47,10 @@ Rectangle {
         anchors.fill: parent
         hoverEnabled: true
         cursorShape: Qt.PointingHandCursor
-        onClicked: if (row.url.length > 0) Qt.openUrlExternally(row.url)
+        onClicked: {
+            // Source URLs are untrusted agent output; only open http,
+            // https, and mailto links externally.
+            if (/^(https?|mailto):/i.test(row.url)) Qt.openUrlExternally(row.url)
+        }
     }
 }
