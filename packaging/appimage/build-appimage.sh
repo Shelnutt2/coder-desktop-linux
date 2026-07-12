@@ -29,6 +29,10 @@ export LD_LIBRARY_PATH="${APPDIR}/usr/lib/coder-desktop${LD_LIBRARY_PATH:+:$LD_L
 # Tell the Qt plugin where to find qmake
 export QMAKE="${QMAKE:-qmake6}"
 
+# Let the Qt plugin discover QML imports used by the application so the
+# matching QML modules get bundled into the AppImage.
+export QML_SOURCES_PATHS="${QML_SOURCES_PATHS:-${PROJECT_ROOT}/app/qml}"
+
 echo "==> Building AppImage from ${APPDIR}"
 
 "${LINUXDEPLOY}" \
