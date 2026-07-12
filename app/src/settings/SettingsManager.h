@@ -99,6 +99,10 @@ public:
     Q_PROPERTY(
         bool notificationsEnabledLocked READ notificationsEnabledLocked NOTIFY settingsChanged)
 
+    Q_PROPERTY(bool agentNotificationsEnabled READ agentNotificationsEnabled NOTIFY settingsChanged)
+    Q_PROPERTY(bool agentNotificationsEnabledLocked READ agentNotificationsEnabledLocked NOTIFY
+                   settingsChanged)
+
     // Polling / caching
     Q_PROPERTY(int refreshIntervalSec READ refreshIntervalSec NOTIFY settingsChanged)
     Q_PROPERTY(bool refreshIntervalSecLocked READ refreshIntervalSecLocked NOTIFY settingsChanged)
@@ -151,6 +155,7 @@ public:
 
     [[nodiscard]] QString theme() const;
     [[nodiscard]] bool notificationsEnabled() const;
+    [[nodiscard]] bool agentNotificationsEnabled() const;
     [[nodiscard]] bool checkForUpdates() const;
 
     [[nodiscard]] int refreshIntervalSec() const;
@@ -180,6 +185,7 @@ public:
     [[nodiscard]] bool disableFileDownloadLocked() const;
     [[nodiscard]] bool themeLocked() const;
     [[nodiscard]] bool notificationsEnabledLocked() const;
+    [[nodiscard]] bool agentNotificationsEnabledLocked() const;
     [[nodiscard]] bool checkForUpdatesLocked() const;
     [[nodiscard]] bool refreshIntervalSecLocked() const;
     [[nodiscard]] bool disableDataCacheLocked() const;

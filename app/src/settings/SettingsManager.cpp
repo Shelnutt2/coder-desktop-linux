@@ -31,6 +31,7 @@ static const struct {
     {"disableFileDownload", false},
     {"theme", QStringLiteral("system")},
     {"notificationsEnabled", true},
+    {"agentNotificationsEnabled", true},
     {"checkForUpdates", true},
     {"logLevel", QStringLiteral("info")},
     {"refreshIntervalSec", 10},
@@ -180,6 +181,10 @@ bool SettingsManager::notificationsEnabled() const {
     return resolve(QStringLiteral("notificationsEnabled"), true).toBool();
 }
 
+bool SettingsManager::agentNotificationsEnabled() const {
+    return resolve(QStringLiteral("agentNotificationsEnabled"), true).toBool();
+}
+
 bool SettingsManager::checkForUpdates() const {
     return resolve(QStringLiteral("checkForUpdates"), true).toBool();
 }
@@ -260,6 +265,10 @@ bool SettingsManager::themeLocked() const {
 }
 bool SettingsManager::notificationsEnabledLocked() const {
     return m_mdm->isLocked(QStringLiteral("notificationsEnabled"));
+}
+
+bool SettingsManager::agentNotificationsEnabledLocked() const {
+    return m_mdm->isLocked(QStringLiteral("agentNotificationsEnabled"));
 }
 bool SettingsManager::checkForUpdatesLocked() const {
     return m_mdm->isLocked(QStringLiteral("checkForUpdates"));
