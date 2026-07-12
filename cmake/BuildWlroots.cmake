@@ -16,8 +16,9 @@ set(WLROOTS_INSTALL_PREFIX "${CMAKE_BINARY_DIR}/_deps/wlroots-install")
 if(WLROOTS_X11_BACKEND)
     set(_wlr_backends "auto")
 else()
-    # Explicitly list backends without x11
-    set(_wlr_backends "drm,libinput,wayland")
+    # Explicitly list backends without x11. The wayland backend is always
+    # built and is not a valid value for the meson backends option.
+    set(_wlr_backends "drm,libinput")
 endif()
 if(WLROOTS_XWAYLAND)
     set(_wlr_xwayland "enabled")
