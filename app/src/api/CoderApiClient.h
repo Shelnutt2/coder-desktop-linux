@@ -46,17 +46,12 @@ public:
     // -- Templates -----------------------------------------------------------
     [[nodiscard]] QNetworkReply* listTemplates();  // GET /api/v2/templates
 
-    // -- Tasks ---------------------------------------------------------------
-    [[nodiscard]] QNetworkReply* listTasks();  // GET /api/v2/tasks
-
     // -- Build info ----------------------------------------------------------
     [[nodiscard]] QNetworkReply* getBuildInfo();  // GET /api/v2/buildinfo
 
     // -- High-level fetch (QML-callable) ------------------------------------
     /// Fetch workspaces and emit workspacesReceived() with the JSON array.
     Q_INVOKABLE void fetchWorkspaces();
-    /// Fetch tasks and emit tasksReceived() with the JSON array.
-    Q_INVOKABLE void fetchTasks();
     /// Fetch a single workspace and emit workspaceDetailReceived() with the JSON object.
     Q_INVOKABLE void fetchWorkspaceDetail(const QString& id);
     /// Start a workspace and emit workspaceActionCompleted() on success.
@@ -73,8 +68,6 @@ signals:
 
     /// Emitted when fetchWorkspaces() completes successfully.
     void workspacesReceived(const QJsonArray& workspaces);
-    /// Emitted when fetchTasks() completes successfully.
-    void tasksReceived(const QJsonArray& tasks);
     /// Emitted when fetchWorkspaceDetail() completes successfully.
     void workspaceDetailReceived(const QJsonObject& workspace);
     /// Emitted when a workspace start/stop/update action completes successfully.
