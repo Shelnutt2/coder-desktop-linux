@@ -12,10 +12,10 @@
 ///
 /// Connects to /api/experimental/chats/{id}/stream?after_id=N. Frames are
 /// JSON arrays of ChatStreamEvent (single objects are also accepted; an
-/// empty array is a heartbeat). Authentication uses the
-/// ?coder_session_token= query parameter because browsers and some proxies
-/// cannot attach custom headers to WebSocket upgrades; WebSocketBase's
-/// header auth is kept as a harmless second channel.
+/// empty array is a heartbeat). Authentication uses the Coder-Session-Token
+/// header attached by WebSocketBase::connectToEndpoint(); coderd accepts
+/// header auth on WebSocket upgrades, so the token never appears in the
+/// URL.
 ///
 /// The after_id resume cursor is supplied by a provider callback that is
 /// re-evaluated on every (re)connect, so reconnects always resume from the
@@ -69,6 +69,7 @@ protected:
     void onTextMessage(const QString& message) override;
 
 private:
+    void openOrDeferConnection();
     void openConnection();
     void handleDisconnected();
     void setState(ConnectionState state);
@@ -84,6 +85,9 @@ private:
     int m_attempt = 0;
     bool m_active = false;  // true between openStream() and closeStream()
     bool m_frameParsedSinceConnect = false;
+    // A reopen was requested while the socket was still closing; open once
+    // the disconnected signal arrives.
+    bool m_reopenPending = false;
 };
 
 #endif  // CHATSTREAMWEBSOCKET_H

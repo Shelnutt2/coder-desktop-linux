@@ -6,9 +6,8 @@
 Q_LOGGING_CATEGORY(lcChatStream, "coder.agents.stream")
 
 ChatStreamWebSocket::ChatStreamWebSocket(QObject* parent) : WebSocketBase(parent) {
-    // Reconnection is managed here so the resume cursor and query-parameter
-    // token can be recomputed on every attempt; the base policy would replay
-    // a stale URL.
+    // Reconnection is managed here so the resume cursor can be recomputed
+    // on every attempt; the base policy would replay a stale URL.
     setAutoReconnect(false);
     m_retryTimer.setSingleShot(true);
 
@@ -44,11 +43,12 @@ void ChatStreamWebSocket::openStream(const QString& chatId) {
         setState(ConnectionState::Failed);
         return;
     }
-    openConnection();
+    openOrDeferConnection();
 }
 
 void ChatStreamWebSocket::closeStream() {
     m_active = false;
+    m_reopenPending = false;
     m_retryTimer.stop();
     WebSocketBase::disconnect();
     setState(ConnectionState::Disconnected);
@@ -60,7 +60,7 @@ void ChatStreamWebSocket::reconnectNow() {
     m_active = true;
     m_attempt = 0;
     WebSocketBase::disconnect();
-    openConnection();
+    openOrDeferConnection();
 }
 
 void ChatStreamWebSocket::onTextMessage(const QString& message) {
@@ -76,7 +76,23 @@ void ChatStreamWebSocket::onTextMessage(const QString& message) {
         m_frameParsedSinceConnect = true;
         m_attempt = 0;
     }
+    // Self-heal: a flowing frame proves the connection is open even if the
+    // state machine missed the connected transition (e.g. a reopen raced a
+    // close handshake and left the state at Reconnecting).
+    setState(ConnectionState::Open);
     if (!events.isEmpty()) emit eventsReceived(events);
+}
+
+void ChatStreamWebSocket::openOrDeferConnection() {
+    // QWebSocket::open() fails while the previous connection is still
+    // closing, which would strand the state machine. Defer the reopen to
+    // handleDisconnected() until the socket reaches UnconnectedState.
+    if (socketBusy()) {
+        m_reopenPending = true;
+        setState(m_attempt > 0 ? ConnectionState::Reconnecting : ConnectionState::Connecting);
+        return;
+    }
+    openConnection();
 }
 
 void ChatStreamWebSocket::openConnection() {
@@ -85,6 +101,14 @@ void ChatStreamWebSocket::openConnection() {
 }
 
 void ChatStreamWebSocket::handleDisconnected() {
+    if (m_reopenPending) {
+        // A reopen was requested while the socket was still closing; the
+        // socket is now unconnected, so open immediately without burning a
+        // reconnect attempt.
+        m_reopenPending = false;
+        if (m_active) openConnection();
+        return;
+    }
     if (!m_active) {
         setState(ConnectionState::Disconnected);
         return;
@@ -117,8 +141,6 @@ QString ChatStreamWebSocket::buildPath() const {
         const qint64 afterId = m_afterIdProvider();
         if (afterId > 0) q.addQueryItem(QStringLiteral("after_id"), QString::number(afterId));
     }
-    const QString token = sessionToken();
-    if (!token.isEmpty()) q.addQueryItem(QStringLiteral("coder_session_token"), token);
 
     QString path = QStringLiteral("/api/experimental/chats/%1/stream").arg(m_chatId);
     if (!q.isEmpty()) path += QLatin1Char('?') + q.toString(QUrl::FullyEncoded);

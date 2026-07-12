@@ -3,13 +3,12 @@
 #include <QJsonDocument>
 #include <QJsonObject>
 #include <QLoggingCategory>
-#include <QUrlQuery>
 
 Q_LOGGING_CATEGORY(lcChatWatch, "coder.agents.watch")
 
 ChatWatchWebSocket::ChatWatchWebSocket(QObject* parent) : WebSocketBase(parent) {
-    // Reconnection is managed here so the query-parameter token can be
-    // recomputed on every attempt.
+    // Reconnection is managed here so the connect URL is rebuilt on every
+    // attempt; the base policy would replay a stale URL.
     setAutoReconnect(false);
     m_retryTimer.setSingleShot(true);
 
@@ -40,11 +39,12 @@ void ChatWatchWebSocket::openWatch() {
         setState(ConnectionState::Failed);
         return;
     }
-    openConnection();
+    openOrDeferConnection();
 }
 
 void ChatWatchWebSocket::closeWatch() {
     m_active = false;
+    m_reopenPending = false;
     m_retryTimer.stop();
     WebSocketBase::disconnect();
     setState(ConnectionState::Disconnected);
@@ -56,7 +56,7 @@ void ChatWatchWebSocket::reconnectNow() {
     m_active = true;
     m_attempt = 0;
     WebSocketBase::disconnect();
-    openConnection();
+    openOrDeferConnection();
 }
 
 void ChatWatchWebSocket::onTextMessage(const QString& message) {
@@ -70,7 +70,23 @@ void ChatWatchWebSocket::onTextMessage(const QString& message) {
         m_frameParsedSinceConnect = true;
         m_attempt = 0;
     }
+    // Self-heal: a flowing frame proves the connection is open even if the
+    // state machine missed the connected transition (e.g. a reopen raced a
+    // close handshake and left the state at Reconnecting).
+    setState(ConnectionState::Open);
     emit watchEventReceived(ChatWatchEvent::fromJson(doc.object()));
+}
+
+void ChatWatchWebSocket::openOrDeferConnection() {
+    // QWebSocket::open() fails while the previous connection is still
+    // closing, which would strand the state machine. Defer the reopen to
+    // handleDisconnected() until the socket reaches UnconnectedState.
+    if (socketBusy()) {
+        m_reopenPending = true;
+        setState(m_attempt > 0 ? ConnectionState::Reconnecting : ConnectionState::Connecting);
+        return;
+    }
+    openConnection();
 }
 
 void ChatWatchWebSocket::openConnection() {
@@ -79,6 +95,14 @@ void ChatWatchWebSocket::openConnection() {
 }
 
 void ChatWatchWebSocket::handleDisconnected() {
+    if (m_reopenPending) {
+        // A reopen was requested while the socket was still closing; the
+        // socket is now unconnected, so open immediately without burning a
+        // reconnect attempt.
+        m_reopenPending = false;
+        if (m_active) openConnection();
+        return;
+    }
     if (!m_active) {
         setState(ConnectionState::Disconnected);
         return;
@@ -104,12 +128,5 @@ void ChatWatchWebSocket::setState(ConnectionState state) {
 }
 
 QString ChatWatchWebSocket::buildPath() const {
-    QString path = QStringLiteral("/api/experimental/chats/watch");
-    const QString token = sessionToken();
-    if (!token.isEmpty()) {
-        QUrlQuery q;
-        q.addQueryItem(QStringLiteral("coder_session_token"), token);
-        path += QLatin1Char('?') + q.toString(QUrl::FullyEncoded);
-    }
-    return path;
+    return QStringLiteral("/api/experimental/chats/watch");
 }

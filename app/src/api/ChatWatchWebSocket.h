@@ -13,7 +13,8 @@
 /// ChatWatchEvent JSON object per text frame (created, updated,
 /// status_change, title_change, deleted, diff_status_change,
 /// action_required, context_dirty). Authentication uses the
-/// ?coder_session_token= query parameter.
+/// Coder-Session-Token header attached by
+/// WebSocketBase::connectToEndpoint(); the token never appears in the URL.
 ///
 /// Reconnect policy matches ChatStreamWebSocket: linear backoff of
 /// attempt * 1s capped at 8s, at most 8 attempts, counter reset on the
@@ -57,6 +58,7 @@ protected:
     void onTextMessage(const QString& message) override;
 
 private:
+    void openOrDeferConnection();
     void openConnection();
     void handleDisconnected();
     void setState(ConnectionState state);
@@ -70,6 +72,9 @@ private:
     int m_attempt = 0;
     bool m_active = false;  // true between openWatch() and closeWatch()
     bool m_frameParsedSinceConnect = false;
+    // A reopen was requested while the socket was still closing; open once
+    // the disconnected signal arrives.
+    bool m_reopenPending = false;
 };
 
 #endif  // CHATWATCHWEBSOCKET_H
