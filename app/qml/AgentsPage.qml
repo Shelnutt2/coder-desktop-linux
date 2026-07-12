@@ -5,8 +5,7 @@ import CoderDesktop
 
 // Coder Agents list page: search, filter row, time-grouped chat list with
 // pinned section first, per-row context menu, availability notice, and the
-// create / detail sub-pages hosted in Loaders (same pattern as the previous
-// Tasks page).
+// create / detail sub-pages hosted in Loaders.
 Item {
     id: agentsPage
 
@@ -39,6 +38,18 @@ Item {
             chatTrail = trail
         } else {
             selectedChatId = ""
+        }
+    }
+
+    // Logout / deployment switch: the controller tears everything down and
+    // emits stopped(); close any open sub-page so its ChatController (and
+    // stream socket) is released and stale chat ids never survive.
+    Connections {
+        target: agentsController
+        function onStopped() {
+            agentsPage.selectedChatId = ""
+            agentsPage.chatTrail = []
+            agentsPage.showCreate = false
         }
     }
 
