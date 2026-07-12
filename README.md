@@ -3,7 +3,7 @@
 [![CI](https://github.com/coder/coder-desktop-linux/actions/workflows/ci.yml/badge.svg)](https://github.com/coder/coder-desktop-linux/actions/workflows/ci.yml)
 [![License](https://img.shields.io/github/license/coder/coder-desktop-linux)](LICENSE)
 
-A native Linux desktop application for managing [Coder](https://coder.com) remote development workspaces. Provides one-click VPN connectivity, a full workspace management UI, AI task monitoring, and optional Data Loss Prevention (DLP) enforcement — all from your system tray.
+A native Linux desktop application for managing [Coder](https://coder.com) remote development workspaces. Provides one-click VPN connectivity, a full workspace management UI, Coder Agents chat, and optional Data Loss Prevention (DLP) enforcement — all from your system tray.
 
 ![Coder Desktop for Linux](docs/screenshots/main-window.png)
 
@@ -11,7 +11,7 @@ A native Linux desktop application for managing [Coder](https://coder.com) remot
 
 - **VPN Connectivity** — Seamless Tailscale/WireGuard tunnels to your Coder workspaces with DNS-based routing. Connect, disconnect, and monitor status from the system tray.
 - **Workspace Management** — Browse, start, stop, and monitor workspaces across one or more Coder deployments. View build logs and workspace agents in real time.
-- **AI Task Monitoring** — Track AI-powered coding tasks running inside your workspaces with live status updates.
+- **Coder Agents** — Chat with Coder AI agents from the desktop: streaming responses, plan mode, file attachments, diff viewer, sub-agent threads, and desktop notifications for completed or waiting agents.
 - **Data Loss Prevention (DLP)** — Nested compositor sandbox that enforces clipboard, screenshot, and file-access policies on workspace applications. Works on both Wayland and X11 host desktops. Supports native Wayland apps and X11 apps (via Xwayland). Includes steganographic watermarking and D-Bus filtering. Managed via MDM or user settings.
 - **File Sync** — Bidirectional file synchronization between local and workspace directories, powered by [Mutagen](https://mutagen.io/). Create persistent sync sessions that survive app restarts.
 - **File Browser** — Graphical file explorer for workspace directories with breadcrumb navigation, upload, and download support. Transfers run over SCP through the VPN tunnel.
