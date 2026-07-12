@@ -21,6 +21,10 @@ VERSION="${1:-0.1.0}"
 SRC="$(cd "$(dirname "$0")/../.." && pwd)"
 OUTDIR="${2:-$SRC/dist}"
 
+# Alpine package versions must not contain hyphens; prerelease suffixes use
+# underscores instead (e.g. 0.1.1-rc0 becomes 0.1.1_rc0).
+VERSION="$(printf '%s' "$VERSION" | tr - _)"
+
 apk add --no-cache alpine-sdk
 
 if ! id builder >/dev/null 2>&1; then
