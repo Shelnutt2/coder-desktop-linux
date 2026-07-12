@@ -38,7 +38,7 @@ makedepends="
 	mesa-dev
 	libxkbcommon-dev
 	pixman-dev
-	seatd-dev
+	libseat-dev
 	libinput-dev
 	libdisplay-info-dev
 	libliftoff-dev
