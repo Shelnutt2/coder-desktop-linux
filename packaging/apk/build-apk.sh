@@ -27,6 +27,11 @@ VERSION="$(printf '%s' "$VERSION" | tr - _)"
 
 apk add --no-cache alpine-sdk
 
+# The Docker Alpine image ships without APKINDEX caches, and abuild installs
+# makedepends with a plain "apk add" that only reads the local index cache.
+# Populate it up front or every makedepend resolves as "no such package".
+apk update
+
 if ! id builder >/dev/null 2>&1; then
     adduser -D builder
     addgroup builder abuild
@@ -49,10 +54,15 @@ rm -rf "$(dirname "$STAGING")"
 
 chown -R builder:builder "$BUILDROOT"
 
+# Generate the ephemeral signing key first so its public half can be
+# installed into /etc/apk/keys; abuild's final repo indexing fails with
+# "UNTRUSTED signature" otherwise.
+su builder -c "abuild-keygen -an"
+cp /home/builder/.abuild/*.rsa.pub /etc/apk/keys/
+
 su builder -c "
     set -eu
     cd '$BUILDROOT'
-    abuild-keygen -an
     abuild checksum
     abuild -r
 "
