@@ -99,7 +99,9 @@ void WebSocketBase::connectToEndpoint(const QString& path) {
         request.setRawHeader("Coder-Session-Token", m_sessionToken.toUtf8());
     }
 
-    qCDebug(lcWebSocket) << "Opening WebSocket to" << url.toString();
+    // Never log the query string: callers may append sensitive parameters
+    // and the session token must not reach the logs.
+    qCDebug(lcWebSocket) << "Opening WebSocket to" << url.toString(QUrl::RemoveQuery);
     m_socket.open(request);
 #else
     Q_UNUSED(path);
@@ -107,9 +109,17 @@ void WebSocketBase::connectToEndpoint(const QString& path) {
 #endif
 }
 
+bool WebSocketBase::socketBusy() const {
+#ifdef HAS_WEBSOCKETS
+    return m_socket.state() != QAbstractSocket::UnconnectedState;
+#else
+    return false;
+#endif
+}
+
 void WebSocketBase::disconnect() {
 #ifdef HAS_WEBSOCKETS
-    m_autoReconnect = false;  // explicit disconnect — don't reconnect
+    m_autoReconnect = false;  // explicit disconnect, don't reconnect
     m_reconnectTimer.stop();
     if (m_socket.state() != QAbstractSocket::UnconnectedState) {
         m_socket.close();

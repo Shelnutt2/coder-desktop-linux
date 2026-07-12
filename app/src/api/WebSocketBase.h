@@ -48,6 +48,12 @@ protected:
     /// authentication in addition to the header set by connectToEndpoint().
     [[nodiscard]] QString sessionToken() const { return m_sessionToken; }
 
+    /// True while the underlying socket is anywhere but UnconnectedState
+    /// (connecting, open, or mid close handshake). QWebSocket::open() fails
+    /// while the socket is still closing, so subclasses that reopen must
+    /// defer until the disconnected signal when this is true.
+    [[nodiscard]] bool socketBusy() const;
+
     void sendTextMessage(const QString& message);
     void sendBinaryMessage(const QByteArray& data);
 
