@@ -97,7 +97,10 @@ QHash<int, QByteArray> ChatListModel::roleNames() const {
 
 void ChatListModel::setChats(const QList<Chat>& chats) {
     m_chats = chats;
-    rebuildWithReset();
+    // Granular sync keeps the view's scroll position and selection intact
+    // when the 15s polling fallback refreshes the list; a model reset
+    // would yank both.
+    syncRows(buildRows());
 }
 
 void ChatListModel::upsertChat(const Chat& chat) {
@@ -302,13 +305,6 @@ void ChatListModel::syncRows(const QList<Row>& target) {
     }
 
     if (countWillChange) emit countChanged();
-}
-
-void ChatListModel::rebuildWithReset() {
-    beginResetModel();
-    m_rows = buildRows();
-    endResetModel();
-    emit countChanged();
 }
 
 // ---------------------------------------------------------------------------

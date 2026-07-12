@@ -16,9 +16,9 @@
 /// applied before sorting.
 ///
 /// setChats() replaces the whole list (initial load / poll refresh).
-/// upsertChat() and removeChat() apply watch events with granular
-/// insert/remove/move/dataChanged operations, never model resets, so list
-/// views keep their scroll position.
+/// setChats(), upsertChat(), and removeChat() all apply changes with
+/// granular insert/remove/move/dataChanged operations, never model resets,
+/// so list views keep their scroll position and selection.
 class ChatListModel : public QAbstractListModel {
     Q_OBJECT
     Q_PROPERTY(int count READ rowCount NOTIFY countChanged)
@@ -101,7 +101,6 @@ private:
     /// Transforms the current visible rows into target using granular
     /// remove/move/insert/dataChanged operations.
     void syncRows(const QList<Row>& target);
-    void rebuildWithReset();
     [[nodiscard]] static bool sameDisplay(const Row& a, const Row& b);
     [[nodiscard]] static QString timeGroupFor(const Chat& chat);
     [[nodiscard]] static QString relativeTimeFor(const QDateTime& dt);
