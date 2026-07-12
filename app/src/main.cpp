@@ -19,12 +19,12 @@
 #include "tray/SystemTrayIcon.h"
 #include "vpn/VpnBridge.h"
 
+#include "agents/AgentNotifier.h"
 #include "agents/AgentsController.h"
 #include "api/AgentApiClient.h"
 #include "api/AgentsApiClient.h"
 #include "api/CoderApiClient.h"
 #include "api/PollingController.h"
-#include "api/dto/Task.h"
 #include "api/dto/Workspace.h"
 #include "apps/AppModel.h"
 #include "auth/LoginFlowController.h"
@@ -38,7 +38,6 @@
 #include "filesync/MutagenDaemon.h"
 #include "models/ChatListModel.h"
 #include "models/PeerModel.h"
-#include "models/TaskModel.h"
 #include "models/WorkspaceModel.h"
 #include "notifications/NotificationManager.h"
 #include "settings/SettingsManager.h"
@@ -195,8 +194,6 @@ int main(int argc, char* argv[]) {
                          qInfo() << "Update available:" << version << "—" << url;
                      });
 
-    TaskModel taskModel;
-
     // ---- Coder Agents (experimental chats API) ----
     AgentsApiClient agentsApiClient;
     AgentsController agentsController(&agentsApiClient);
@@ -239,6 +236,10 @@ int main(int argc, char* argv[]) {
     QObject::connect(&sessionManager, &SessionManager::tokenExpired, &agentsController,
                      &AgentsController::stop);
 
+    // Desktop notifications for agent chat status changes and action
+    // requests (skips the focused chat, dedupes watch vs polling).
+    AgentNotifier agentNotifier(&agentsController, &notificationManager, &settingsManager);
+
     // ---- File sync / transfer ----
     AgentApiClient agentApiClient;
     MutagenDaemon mutagenDaemon;
@@ -246,23 +247,19 @@ int main(int argc, char* argv[]) {
     FileTransferManager fileTransferManager;
 
     // ---- Polling controller (auto-refresh, caching, notifications) ----
-    PollingController pollingController(apiClient, workspaceModel, taskModel, notificationManager,
+    PollingController pollingController(apiClient, workspaceModel, notificationManager,
                                         settingsManager);
 
     // NOTE: PollingController's constructor already connects
-    // apiClient.workspacesReceived/tasksReceived to its handler slots.
+    // apiClient.workspacesReceived to its handler slot.
 
-    // Show loading state and handle errors for workspace/task fetches.
+    // Show loading state and handle errors for workspace fetches.
     QObject::connect(&apiClient, &CoderApiClient::requestFailed,
-                     [&workspaceModel, &taskModel](const QString& endpoint, int /*statusCode*/,
-                                                   const QString& errorMessage) {
+                     [&workspaceModel](const QString& endpoint, int /*statusCode*/,
+                                       const QString& errorMessage) {
                          if (endpoint.contains(QLatin1String("workspaces"))) {
                              workspaceModel.setLoading(false);
                              workspaceModel.setErrorMessage(errorMessage);
-                         }
-                         if (endpoint.contains(QLatin1String("tasks"))) {
-                             taskModel.setLoading(false);
-                             taskModel.setErrorMessage(errorMessage);
                          }
                      });
 
@@ -377,7 +374,6 @@ int main(int argc, char* argv[]) {
     engine.rootContext()->setContextProperty(QStringLiteral("peerModel"), &peerModel);
     engine.rootContext()->setContextProperty(QStringLiteral("notificationManager"),
                                              &notificationManager);
-    engine.rootContext()->setContextProperty(QStringLiteral("taskModel"), &taskModel);
     engine.rootContext()->setContextProperty(QStringLiteral("agentsController"), &agentsController);
     engine.rootContext()->setContextProperty(QStringLiteral("chatListModel"), &chatListModel);
     engine.rootContext()->setContextProperty(QStringLiteral("appBrowser"), &appBrowser);
@@ -424,21 +420,40 @@ int main(int argc, char* argv[]) {
     engine.load(mainQml);
 
     // ---- System tray ----
-    SystemTrayIcon tray(&vpnBridge, &sessionManager, &fileSyncManager);
+    SystemTrayIcon tray(&vpnBridge, &sessionManager, &fileSyncManager, &agentsController);
     notificationManager.setTrayIcon(tray.trayIcon());
 
-    QObject::connect(&tray, &SystemTrayIcon::showWindowRequested, &engine, [&engine]() {
-        // Raise the first root window.
+    // Raise the first root window (tray and notification click routing).
+    auto showMainWindow = [&engine]() -> QObject* {
         const auto roots = engine.rootObjects();
         for (auto* obj : roots) {
             if (auto* w = qobject_cast<QQuickWindow*>(obj)) {
                 w->show();
                 w->raise();
                 w->requestActivate();
-                break;
+                return w;
             }
         }
+        return nullptr;
+    };
+
+    QObject::connect(&tray, &SystemTrayIcon::showWindowRequested, &engine,
+                     [showMainWindow]() { showMainWindow(); });
+
+    // "Open Agents" in the tray menu: raise the window and switch to the
+    // Agents tab (Main.qml exposes openAgentsTab()).
+    QObject::connect(&tray, &SystemTrayIcon::showAgentsRequested, &engine, [showMainWindow]() {
+        if (QObject* window = showMainWindow()) QMetaObject::invokeMethod(window, "openAgentsTab");
     });
+
+    // Clicking a notification balloon raises the window; agent-update
+    // notifications additionally open the Agents tab.
+    QObject::connect(&notificationManager, &NotificationManager::notificationClicked, &engine,
+                     [showMainWindow](const QString& category) {
+                         QObject* window = showMainWindow();
+                         if (window && category == QLatin1String("AgentUpdate"))
+                             QMetaObject::invokeMethod(window, "openAgentsTab");
+                     });
 
     // If already authenticated from a saved session, start polling immediately.
     if (sessionManager.isAuthenticated()) {
