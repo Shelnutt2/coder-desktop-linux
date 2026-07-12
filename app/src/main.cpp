@@ -19,7 +19,9 @@
 #include "tray/SystemTrayIcon.h"
 #include "vpn/VpnBridge.h"
 
+#include "agents/AgentsController.h"
 #include "api/AgentApiClient.h"
+#include "api/AgentsApiClient.h"
 #include "api/CoderApiClient.h"
 #include "api/PollingController.h"
 #include "api/dto/Task.h"
@@ -34,6 +36,7 @@
 #include "filesync/FileSyncManager.h"
 #include "filesync/FileTransferManager.h"
 #include "filesync/MutagenDaemon.h"
+#include "models/ChatListModel.h"
 #include "models/PeerModel.h"
 #include "models/TaskModel.h"
 #include "models/WorkspaceModel.h"
@@ -194,6 +197,48 @@ int main(int argc, char* argv[]) {
 
     TaskModel taskModel;
 
+    // ---- Coder Agents (experimental chats API) ----
+    AgentsApiClient agentsApiClient;
+    AgentsController agentsController(&agentsApiClient);
+    ChatListModel chatListModel;
+
+    // Keep the chat list model in sync with the controller's chat state.
+    QObject::connect(&agentsController, &AgentsController::chatsReset, &chatListModel,
+                     &ChatListModel::setChats);
+    QObject::connect(&agentsController, &AgentsController::chatUpserted, &chatListModel,
+                     &ChatListModel::upsertChat);
+    QObject::connect(&agentsController, &AgentsController::chatRemoved, &chatListModel,
+                     &ChatListModel::removeChat);
+
+    // Resolve workspace names for the chat list's workspace chips.
+    WorkspaceModel* workspaceModelPtr = &workspaceModel;  // non-owning
+    auto syncChatWorkspaceNames = [&chatListModel, workspaceModelPtr]() {
+        QHash<QString, QString> names;
+        const int rows = workspaceModelPtr->rowCount();
+        for (int i = 0; i < rows; ++i) {
+            const QModelIndex idx = workspaceModelPtr->index(i, 0);
+            names.insert(workspaceModelPtr->data(idx, WorkspaceModel::IdRole).toString(),
+                         workspaceModelPtr->data(idx, WorkspaceModel::NameRole).toString());
+        }
+        chatListModel.setWorkspaceNames(names);
+    };
+    QObject::connect(&workspaceModel, &WorkspaceModel::countChanged, syncChatWorkspaceNames);
+    QObject::connect(&workspaceModel, &WorkspaceModel::dataChanged, syncChatWorkspaceNames);
+
+    // Configure and (re)start the agents stack on auth and deployment
+    // changes: always stop first so a deployment switch tears down the watch
+    // socket and per-chat sessions before the base URL and token change.
+    auto syncAgentsAuth = [&agentsController, &agentsApiClient, &sessionManager]() {
+        agentsController.stop();
+        if (!sessionManager.isAuthenticated()) return;
+        agentsApiClient.setBaseUrl(sessionManager.currentUrl());
+        agentsApiClient.setSessionToken(sessionManager.sessionToken());
+        agentsController.start();
+    };
+    QObject::connect(&sessionManager, &SessionManager::authStateChanged, syncAgentsAuth);
+    QObject::connect(&sessionManager, &SessionManager::tokenExpired, &agentsController,
+                     &AgentsController::stop);
+
     // ---- File sync / transfer ----
     AgentApiClient agentApiClient;
     MutagenDaemon mutagenDaemon;
@@ -333,6 +378,8 @@ int main(int argc, char* argv[]) {
     engine.rootContext()->setContextProperty(QStringLiteral("notificationManager"),
                                              &notificationManager);
     engine.rootContext()->setContextProperty(QStringLiteral("taskModel"), &taskModel);
+    engine.rootContext()->setContextProperty(QStringLiteral("agentsController"), &agentsController);
+    engine.rootContext()->setContextProperty(QStringLiteral("chatListModel"), &chatListModel);
     engine.rootContext()->setContextProperty(QStringLiteral("appBrowser"), &appBrowser);
 #ifdef HAS_DLP
     engine.rootContext()->setContextProperty(QStringLiteral("dlpCompositor"), &dlpCompositor);
@@ -396,6 +443,7 @@ int main(int argc, char* argv[]) {
     // If already authenticated from a saved session, start polling immediately.
     if (sessionManager.isAuthenticated()) {
         pollingController.start();
+        syncAgentsAuth();
     }
 
     // Set up graceful shutdown on SIGINT/SIGTERM.
