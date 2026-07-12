@@ -25,6 +25,11 @@ ApplicationWindow {
         CoderTheme.mode = Qt.binding(function() { return settingsManager.theme })
     }
 
+    // Invoked from C++ (tray "Open Agents", agent notification clicks).
+    function openAgentsTab() {
+        tabBar.currentIndex = 1
+    }
+
     // ---- Keyboard shortcuts ----
     Shortcut { sequence: "Ctrl+1"; onActivated: tabBar.currentIndex = 0 }
     Shortcut { sequence: "Ctrl+2"; onActivated: tabBar.currentIndex = 1 }
