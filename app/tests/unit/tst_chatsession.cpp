@@ -138,6 +138,32 @@ private slots:
         QVERIFY(s.tail().parts.first().isError);
     }
 
+    void testToolResultResetClearsAccumulatedDeltas() {
+        ChatSession s(QStringLiteral("c1"));
+        s.applyEvent(eventFromJson(
+            R"({"type": "message_part", "chat_id": "c1",
+                "message_part": {"part": {"type": "tool-result", "tool_call_id": "tc1",
+                                          "result_delta": "stale1"}}})"));
+        s.applyEvent(eventFromJson(
+            R"({"type": "message_part", "chat_id": "c1",
+                "message_part": {"part": {"type": "tool-result", "tool_call_id": "tc1",
+                                          "result_delta": "stale2"}}})"));
+        // result_reset drops the accumulated deltas (mirrors coderd
+        // message_conversion.go ResultReset handling).
+        s.applyEvent(eventFromJson(
+            R"({"type": "message_part", "chat_id": "c1",
+                "message_part": {"part": {"type": "tool-result", "tool_call_id": "tc1",
+                                          "result_reset": true}}})"));
+        QCOMPARE(s.tail().parts.size(), 1);
+        QCOMPARE(s.tail().parts.first().resultDelta, QString());
+        // Deltas after the reset accumulate from scratch.
+        s.applyEvent(eventFromJson(
+            R"({"type": "message_part", "chat_id": "c1",
+                "message_part": {"part": {"type": "tool-result", "tool_call_id": "tc1",
+                                          "result_delta": "fresh"}}})"));
+        QCOMPARE(s.tail().parts.first().resultDelta, QStringLiteral("fresh"));
+    }
+
     void testDistinctToolCallIdsStaySeparate() {
         ChatSession s(QStringLiteral("c1"));
         s.applyEvent(eventFromJson(
@@ -364,6 +390,34 @@ private slots:
         QCOMPARE(s.messages()[0].id, qint64(3));
         QCOMPARE(s.messages()[1].id, qint64(7));
         QCOMPARE(s.afterId(), qint64(7));
+    }
+
+    void testInitialMessagesMergePreservesStreamApplied() {
+        // The stream (after_id=0) opens concurrently with the initial REST
+        // page; durable messages already applied from stream events must
+        // survive the page landing when their ids are not covered by it.
+        ChatSession s(QStringLiteral("c1"));
+        s.applyEvent(messageEvent(QStringLiteral("c1"), 8, QStringLiteral("streamed")));
+        s.applyEvent(messageEvent(QStringLiteral("c1"), 5, QStringLiteral("stream v1")));
+
+        const QList<ChatMessage> page = {
+            ChatMessage::fromJson(QJsonDocument::fromJson(
+                                      R"({"id": 5, "chat_id": "c1", "role": "assistant",
+                    "content": [{"type": "text", "text": "page v2"}]})")
+                                      .object()),
+            ChatMessage::fromJson(
+                QJsonDocument::fromJson(R"({"id": 3, "chat_id": "c1", "role": "user"})").object()),
+        };
+        s.setInitialMessages(page);
+
+        QCOMPARE(s.messages().size(), 3);
+        QCOMPARE(s.messages()[0].id, qint64(3));
+        QCOMPARE(s.messages()[1].id, qint64(5));
+        // The page wins for ids it covers.
+        QCOMPARE(s.messages()[1].parts.first().text, QStringLiteral("page v2"));
+        // The stream-applied message not covered by the page is preserved.
+        QCOMPARE(s.messages()[2].id, qint64(8));
+        QCOMPARE(s.afterId(), qint64(8));
     }
 
     void testPrependOlderDropsDuplicates() {
