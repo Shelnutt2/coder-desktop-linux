@@ -434,12 +434,41 @@ private slots:
 
     void testUsageLimitExceeded409Payload() {
         const ChatUsageLimitExceeded u = ChatUsageLimitExceeded::fromJson(parseObj(
-            R"({"spent_micros": 51000000, "limit_micros": 50000000,
+            R"({"message": "Usage limit exceeded.",
+                "spent_micros": 51000000, "limit_micros": 50000000,
                 "resets_at": "2026-08-01T00:00:00Z"})"));
         QVERIFY(u.isValid());
+        QCOMPARE(u.message, QStringLiteral("Usage limit exceeded."));
         QCOMPARE(u.spentMicros, qint64(51000000));
         QCOMPARE(u.limitMicros, qint64(50000000));
         QVERIFY(u.resetsAt.isValid());
+    }
+
+    void testUsageLimit409Discrimination() {
+        // Mirrors codersdk isChatUsageLimitExceededResponse: only a payload
+        // with both a message and a parseable resets_at is a usage-limit
+        // response; anything else must fall through to requestFailed.
+        QVERIFY(ChatUsageLimitExceeded::fromJson(parseObj(
+                                                     R"({"message": "Usage limit exceeded.",
+                        "limit_micros": 50000000,
+                        "resets_at": "2026-08-01T00:00:00Z"})"))
+                    .isUsageLimit());
+        // Plain 409 conflict bodies from coderd/exp_chats.go.
+        QVERIFY(!ChatUsageLimitExceeded::fromJson(
+                     parseObj(R"({"message": "Chat is in an invalid state."})"))
+                     .isUsageLimit());
+        QVERIFY(
+            !ChatUsageLimitExceeded::fromJson(
+                 parseObj(R"({"message": "Chat is not in a state that accepts new messages."})"))
+                 .isUsageLimit());
+        // Missing message, invalid resets_at, and empty/non-JSON bodies.
+        QVERIFY(
+            !ChatUsageLimitExceeded::fromJson(parseObj(R"({"resets_at": "2026-08-01T00:00:00Z"})"))
+                 .isUsageLimit());
+        QVERIFY(!ChatUsageLimitExceeded::fromJson(
+                     parseObj(R"({"message": "x", "resets_at": "not-a-date"})"))
+                     .isUsageLimit());
+        QVERIFY(!ChatUsageLimitExceeded::fromJson(QJsonObject{}).isUsageLimit());
     }
 };
 
