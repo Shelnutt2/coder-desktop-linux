@@ -23,7 +23,7 @@ public:
         WorkspaceState,
         BuildComplete,
         VpnState,
-        TaskUpdate,
+        AgentUpdate,
         General,
     };
     Q_ENUM(Category)
