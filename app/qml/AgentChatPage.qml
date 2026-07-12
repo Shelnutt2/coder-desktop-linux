@@ -33,9 +33,30 @@ Rectangle {
         }
         if (chatId.length > 0) chat = agentsController.openChat(chatId)
     }
-    Component.onCompleted: reopenChat()
-    onChatIdChanged: if (!chat || chat.chatId !== chatId) reopenChat()
-    Component.onDestruction: if (chat) chat.destroy()
+    Component.onCompleted: {
+        reopenChat()
+        syncFocus()
+    }
+    onChatIdChanged: {
+        if (!chat || chat.chatId !== chatId) reopenChat()
+        syncFocus()
+    }
+    Component.onDestruction: {
+        if (chat) chat.destroy()
+        if (agentsController.focusedChatId === chatId)
+            agentsController.focusedChatId = ""
+    }
+
+    // Notification focus suppression: report the open chat to the
+    // controller only while this page is visible in an active window.
+    readonly property bool chatInFocus: visible && Window.active
+    onChatInFocusChanged: syncFocus()
+    function syncFocus() {
+        if (chatInFocus)
+            agentsController.focusedChatId = chatId
+        else if (agentsController.focusedChatId === chatId)
+            agentsController.focusedChatId = ""
+    }
 
     property bool showDiff: false
 
