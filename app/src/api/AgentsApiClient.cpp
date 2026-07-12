@@ -123,15 +123,26 @@ void AgentsApiClient::sendMessage(const QString& chatId, const QJsonArray& conte
     const QString path = QStringLiteral("%1/%2/messages").arg(QLatin1String(kChatsBase), chatId);
     QNetworkReply* reply =
         m_nam->post(buildRequest(path), QJsonDocument(body).toJson(QJsonDocument::Compact));
-    // No connectErrorHandler: HTTP 409 is a structured usage-limit response,
-    // not a generic failure, so error routing is handled inline.
+    // No connectErrorHandler: HTTP 409 may be a structured usage-limit
+    // response, so error routing is handled inline.
     connect(reply, &QNetworkReply::finished, this, [this, reply, chatId, path]() {
         reply->deleteLater();
         const int status = reply->attribute(QNetworkRequest::HttpStatusCodeAttribute).toInt();
         const QByteArray payload = reply->readAll();
         if (status == 409) {
+            // A 409 is a usage-limit response only when the payload passes
+            // ChatUsageLimitExceeded::isUsageLimit() (mirrors codersdk
+            // isChatUsageLimitExceededResponse). The server also answers
+            // plain 409s such as "Chat is in an invalid state." and "Chat
+            // is not in a state that accepts new messages.", which are
+            // generic failures.
             const QJsonObject obj = QJsonDocument::fromJson(payload).object();
-            emit usageLimitExceeded(chatId, ChatUsageLimitExceeded::fromJson(obj));
+            const ChatUsageLimitExceeded limit = ChatUsageLimitExceeded::fromJson(obj);
+            if (limit.isUsageLimit()) {
+                emit usageLimitExceeded(chatId, limit);
+                return;
+            }
+            emit requestFailed(path, status, reply->errorString(), payload);
             return;
         }
         if (reply->error() != QNetworkReply::NoError) {
