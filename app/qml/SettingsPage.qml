@@ -528,6 +528,73 @@ Item {
             Rectangle { Layout.fillWidth: true; height: 1; color: CoderTheme.divider }
 
             // ================================================================
+            // AGENTS
+            // ================================================================
+            Label {
+                text: "AGENTS"
+                font.pixelSize: 11
+                font.weight: Font.DemiBold
+                color: CoderTheme.textSecondary
+                Layout.fillWidth: true
+                Layout.leftMargin: 16
+                Layout.topMargin: 24
+                Layout.bottomMargin: 8
+            }
+
+            SettingToggle {
+                label: "Agent notifications"
+                settingKey: "agentNotificationsEnabled"
+                checked: settingsManager.agentNotificationsEnabled
+                locked: settingsManager.agentNotificationsEnabledLocked
+            }
+
+            // Send message shortcut (agentsController.sendShortcut,
+            // QSettings-backed UI preference, not MDM-managed)
+            Rectangle {
+                Layout.fillWidth: true
+                color: "transparent"
+                implicitHeight: 56
+
+                RowLayout {
+                    anchors.fill: parent
+                    anchors.leftMargin: 16
+                    anchors.rightMargin: 16
+                    spacing: 12
+
+                    ColumnLayout {
+                        Layout.fillWidth: true
+                        spacing: 2
+
+                        Label {
+                            text: "Send message shortcut"
+                            font.pixelSize: 14
+                            color: CoderTheme.textPrimary
+                        }
+                        Label {
+                            text: agentsController.sendShortcut === "modifier_enter"
+                                ? "Enter inserts a newline"
+                                : "Shift+Enter inserts a newline"
+                            font.pixelSize: 11
+                            color: CoderTheme.textSecondary
+                        }
+                    }
+
+                    ComboBox {
+                        Layout.alignment: Qt.AlignRight | Qt.AlignVCenter
+                        model: ["Enter to send", "Ctrl+Enter to send"]
+                        currentIndex: agentsController.sendShortcut === "modifier_enter" ? 1 : 0
+                        onActivated: function(index) {
+                            agentsController.sendShortcut =
+                                index === 1 ? "modifier_enter" : "enter"
+                        }
+                    }
+                }
+            }
+
+            // ---- section divider ----
+            Rectangle { Layout.fillWidth: true; height: 1; color: CoderTheme.divider }
+
+            // ================================================================
             // DATA & REFRESH
             // ================================================================
             Label {
@@ -614,7 +681,7 @@ Item {
                         RowLayout {
                             spacing: 6
                             Label {
-                                text: "Cache workspace & task data"
+                                text: "Cache workspace data"
                                 font.pixelSize: 14
                                 color: CoderTheme.textPrimary
                             }
