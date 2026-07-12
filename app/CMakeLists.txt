@@ -86,6 +86,12 @@ add_executable(coder-desktop
     src/agents/ChatSession.cpp
     src/agents/AgentsController.h
     src/agents/AgentsController.cpp
+    src/agents/PlanStepParser.h
+    src/agents/PlanStepParser.cpp
+    src/agents/JsonSchemaParser.h
+    src/agents/JsonSchemaParser.cpp
+    src/agents/DiffParser.h
+    src/agents/DiffParser.cpp
     src/models/ChatListModel.h
     src/models/ChatListModel.cpp
     src/models/ChatMessagesModel.h
@@ -140,6 +146,23 @@ qt_add_qml_module(coder-desktop
         qml/CoderTheme.qml
         qml/StatusChip.qml
         qml/CoderButton.qml
+        qml/AgentsPage.qml
+        qml/AgentCreatePage.qml
+        qml/AgentChatPage.qml
+        qml/agents/MarkdownText.qml
+        qml/agents/ReasoningBlock.qml
+        qml/agents/ToolCallCard.qml
+        qml/agents/SourceCitationRow.qml
+        qml/agents/FileChip.qml
+        qml/agents/SkillChip.qml
+        qml/agents/SubagentInlineCard.qml
+        qml/agents/StreamingIndicator.qml
+        qml/agents/ChatStatusCallout.qml
+        qml/agents/QueuedMessagesList.qml
+        qml/agents/ChatComposer.qml
+        qml/agents/PlanCard.qml
+        qml/agents/ActionRequiredForm.qml
+        qml/agents/ChatDiffPage.qml
 )
 if(ENABLE_DLP)
     qt_target_qml_sources(coder-desktop QML_FILES qml/SecureDevPage.qml)
@@ -302,6 +325,16 @@ if(BUILD_TESTING)
     target_include_directories(tst_chatmodels PRIVATE src)
     target_link_libraries(tst_chatmodels PRIVATE Qt6::Core Qt6::Test)
     add_test(NAME ChatModelsTest COMMAND tst_chatmodels)
+
+    add_executable(tst_agentparsers
+        tests/unit/tst_agentparsers.cpp
+        src/agents/PlanStepParser.cpp
+        src/agents/JsonSchemaParser.cpp
+        src/agents/DiffParser.cpp
+    )
+    target_include_directories(tst_agentparsers PRIVATE src)
+    target_link_libraries(tst_agentparsers PRIVATE Qt6::Core Qt6::Test)
+    add_test(NAME AgentParsersTest COMMAND tst_agentparsers)
 endif()
 
 # ---------------------------------------------------------------------------
