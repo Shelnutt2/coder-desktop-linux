@@ -290,7 +290,7 @@ Corrected phases:
 ### Phase 3: Rich Features (Weeks 11–16)
 - [ ] Terminal (xterm.js in WebEngine)
 - [ ] Web views for workspace apps (VPN + proxy modes)
-- [ ] AI Tasks (create, monitor, message, logs)
+- [x] Coder Agents (chat, streaming, plan mode, diff viewer; replaces the removed AI Tasks feature)
 - [ ] Build logs streaming
 - [ ] Multi-deployment UI
 - [ ] Update detection for workspaces
