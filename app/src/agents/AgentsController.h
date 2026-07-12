@@ -220,8 +220,10 @@ private:
 /// here rather than in SettingsManager because they are per-user UI state,
 /// not policy-managed settings.
 ///
-/// Notification dispatch is out of scope here; chatStatusChanged() and
-/// actionRequired() give a later stage the hooks it needs.
+/// Notification dispatch lives in AgentNotifier, fed by
+/// chatStatusChanged() and actionRequired(). Both the watch socket and the
+/// polling fallback emit those signals; the first list fetch after start()
+/// is suppressed so existing chats do not fire a notification burst.
 class AgentsController : public QObject {
     Q_OBJECT
     Q_PROPERTY(bool available READ isAvailable NOTIFY availabilityChanged)
@@ -240,6 +242,10 @@ class AgentsController : public QObject {
     Q_PROPERTY(QString lastModelConfigId READ lastModelConfigId WRITE setLastModelConfigId NOTIFY
                    uiPrefsChanged)
     Q_PROPERTY(QString sendShortcut READ sendShortcut WRITE setSendShortcut NOTIFY uiPrefsChanged)
+    // Chat currently open in an active window; set from QML so notification
+    // dispatch can skip the chat the user is already looking at.
+    Q_PROPERTY(
+        QString focusedChatId READ focusedChatId WRITE setFocusedChatId NOTIFY focusedChatIdChanged)
 
 public:
     /// api must outlive this controller.
@@ -272,10 +278,15 @@ public:
     [[nodiscard]] QString sendShortcut() const { return m_sendShortcut; }
     void setSendShortcut(const QString& shortcut);
 
+    [[nodiscard]] QString focusedChatId() const { return m_focusedChatId; }
+    void setFocusedChatId(const QString& chatId);
+
     /// Loads the cached chat list, runs the availability probe, fetches the
     /// live list, and opens the watch socket (or starts polling).
     Q_INVOKABLE void start();
-    /// Tears down the watch socket and polling.
+    /// Tears down the watch socket, polling, all open ChatControllers (and
+    /// their stream sockets), the chat list, counts, and the availability
+    /// probe state, then emits stopped(). Safe before a deployment switch.
     Q_INVOKABLE void stop();
     /// Immediately refetches the chat list.
     Q_INVOKABLE void refreshNow();
@@ -312,6 +323,9 @@ signals:
     void organizationChanged();
     void configsChanged();
     void uiPrefsChanged();
+    void focusedChatIdChanged();
+    /// stop() finished tearing everything down (logout or deployment switch).
+    void stopped();
     /// The full chat list was replaced (initial load, cache load, or poll).
     void chatsReset(const QList<Chat>& chats);
     /// One chat was created or updated by a watch event.
@@ -323,7 +337,8 @@ signals:
     void attachmentUploaded(const QString& localPath, const QString& fileId, const QString& name,
                             const QString& mediaType);
     void attachmentUploadFailed(const QString& localPath, const QString& error);
-    /// Hooks for a later notification stage.
+    /// Notification hooks, emitted by watch events and by polled list
+    /// diffs (suppressed on the first fetch after start()).
     void chatStatusChanged(const Chat& chat, ChatStatus oldStatus, ChatStatus newStatus);
     void actionRequired(const Chat& chat);
 
@@ -348,6 +363,11 @@ private:
     QTimer m_pollTimer;
     QList<Chat> m_chats;
     bool m_started = false;
+    /// Suppresses status-change signals for the first chat-list load after
+    /// start() (cache load and initial fetch), mirroring PollingController's
+    /// first-fetch suppression.
+    bool m_firstFetch = true;
+    QString m_focusedChatId;
 
     // Availability probe state.
     bool m_canCreate = false;
