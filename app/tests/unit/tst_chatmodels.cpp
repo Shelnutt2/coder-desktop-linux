@@ -199,6 +199,46 @@ private slots:
         QCOMPARE(model.rowCount(), 2);
     }
 
+    void testSetChatsAppliesGranularlyNoReset() {
+        // The 15s polling fallback replaces the whole list through
+        // setChats(); it must sync granularly so the view keeps its scroll
+        // position and selection.
+        ChatListModel model;
+        const QDateTime now = QDateTime::currentDateTimeUtc();
+        model.setChats({
+            makeChat("a", "A", now.addSecs(-10)),
+            makeChat("b", "B", now.addSecs(-20)),
+        });
+        QCOMPARE(model.rowCount(), 2);
+
+        QSignalSpy resetSpy(&model, &QAbstractItemModel::modelReset);
+        QSignalSpy insertSpy(&model, &QAbstractItemModel::rowsInserted);
+        QSignalSpy dataSpy(&model, &QAbstractItemModel::dataChanged);
+
+        // Changed content: a retitled, b unchanged, c added at the top.
+        model.setChats({
+            makeChat("a", "A renamed", now.addSecs(-10)),
+            makeChat("b", "B", now.addSecs(-20)),
+            makeChat("c", "C", now),
+        });
+
+        QCOMPARE(resetSpy.count(), 0);
+        QCOMPARE(insertSpy.count(), 1);
+        QVERIFY(dataSpy.count() >= 1);
+        QCOMPARE(model.rowCount(), 3);
+        QCOMPARE(idAt(model, 0), QStringLiteral("c"));
+        QCOMPARE(model.data(model.index(1), ChatListModel::TitleRole).toString(),
+                 QStringLiteral("A renamed"));
+
+        // Shrinking the list is granular too.
+        QSignalSpy removeSpy(&model, &QAbstractItemModel::rowsRemoved);
+        model.setChats({makeChat("c", "C", now)});
+        QCOMPARE(resetSpy.count(), 0);
+        QCOMPARE(removeSpy.count(), 2);
+        QCOMPARE(model.rowCount(), 1);
+        QCOMPARE(idAt(model, 0), QStringLiteral("c"));
+    }
+
     void testUpsertArchivedLeavesDefaultFilter() {
         ChatListModel model;
         const QDateTime now = QDateTime::currentDateTimeUtc();
