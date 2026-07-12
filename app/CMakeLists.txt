@@ -47,11 +47,6 @@ add_executable(coder-desktop
     src/api/TerminalWebSocket.cpp
     src/api/BuildLogWebSocket.h
     src/api/BuildLogWebSocket.cpp
-    src/api/dto/Task.h
-    src/api/TaskWatchWebSocket.h
-    src/api/TaskWatchWebSocket.cpp
-    src/models/TaskModel.h
-    src/models/TaskModel.cpp
     src/webview/AppBrowserWidget.h
     src/webview/AppBrowserWidget.cpp
     src/util/UniqueFd.h
@@ -86,6 +81,8 @@ add_executable(coder-desktop
     src/agents/ChatSession.cpp
     src/agents/AgentsController.h
     src/agents/AgentsController.cpp
+    src/agents/AgentNotifier.h
+    src/agents/AgentNotifier.cpp
     src/agents/PlanStepParser.h
     src/agents/PlanStepParser.cpp
     src/agents/JsonSchemaParser.h
@@ -135,8 +132,6 @@ qt_add_qml_module(coder-desktop
         qml/DeploymentPage.qml
         qml/SettingsPage.qml
         qml/AppBrowserPage.qml
-        qml/TasksPage.qml
-        qml/TaskDetailPage.qml
         qml/WorkspaceDetailPage.qml
         qml/AppTile.qml
         qml/CategoryFilterBar.qml
