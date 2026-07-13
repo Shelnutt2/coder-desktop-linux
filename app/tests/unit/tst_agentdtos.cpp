@@ -470,6 +470,23 @@ private slots:
                      .isUsageLimit());
         QVERIFY(!ChatUsageLimitExceeded::fromJson(QJsonObject{}).isUsageLimit());
     }
+
+    // -----------------------------------------------------------------------
+    // Chats-by-workspace map
+    // -----------------------------------------------------------------------
+
+    void testParseChatsByWorkspaceMap() {
+        const QVariantMap map = parseChatsByWorkspaceMap(parseObj(R"({
+            "ws-1": "chat-1",
+            "ws-2": "chat-2",
+            "ws-bad": 42
+        })"));
+        QCOMPARE(map.size(), 2);
+        QCOMPARE(map.value(QStringLiteral("ws-1")).toString(), QStringLiteral("chat-1"));
+        QCOMPARE(map.value(QStringLiteral("ws-2")).toString(), QStringLiteral("chat-2"));
+        QVERIFY(!map.contains(QStringLiteral("ws-bad")));
+        QVERIFY(parseChatsByWorkspaceMap(QJsonObject{}).isEmpty());
+    }
 };
 
 QTEST_MAIN(TestAgentDtos)
