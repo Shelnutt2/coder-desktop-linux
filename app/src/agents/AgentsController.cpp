@@ -12,6 +12,7 @@
 #include <QSettings>
 #include <QStandardPaths>
 
+#include "agents/AskUserQuestionParser.h"
 #include "agents/DiffParser.h"
 #include "agents/JsonSchemaParser.h"
 #include "agents/PlanStepParser.h"
@@ -225,6 +226,15 @@ QVariantMap ChatController::parseToolSchema(const QString& schemaJson) const {
     return out;
 }
 
+QVariantList ChatController::parseAskUserQuestions(const QString& argsJson) const {
+    return AskUserQuestionParser::parse(argsJson);
+}
+
+QString ChatController::formatAskUserAnswers(const QVariantList& questions,
+                                             const QVariantList& answers) const {
+    return AskUserQuestionParser::formatAnswers(questions, answers);
+}
+
 void ChatController::sendMessage(const QString& text, const QString& busyBehavior) {
     if (text.trimmed().isEmpty()) return;
     QJsonObject part;
@@ -417,6 +427,15 @@ AgentsController::AgentsController(AgentsApiClient* api, QObject* parent)
                 m_mcpServers = servers;
                 emit configsChanged();
             });
+    connect(m_api, &AgentsApiClient::chatsByWorkspaceReceived, this,
+            [this](const QVariantMap& chatsByWorkspace) {
+                // Chunked requests merge into one map; refreshWorkspacesInUse
+                // clears it before issuing a new batch.
+                for (auto it = chatsByWorkspace.constBegin(); it != chatsByWorkspace.constEnd();
+                     ++it)
+                    m_workspacesInUse.insert(it.key(), it.value());
+                emit workspacesInUseChanged();
+            });
     connect(m_api, &AgentsApiClient::organizationsReceived, this, [this](const QJsonArray& orgs) {
         QString id;
         for (const QJsonValue& v : orgs) {
@@ -513,6 +532,9 @@ void AgentsController::stop() {
     m_mcpServers.clear();
     emit configsChanged();
 
+    m_workspacesInUse.clear();
+    emit workspacesInUseChanged();
+
     emit stopped();
 }
 
@@ -524,6 +546,15 @@ ChatController* AgentsController::openChat(const QString& chatId) {
     auto* controller = new ChatController(m_api, chatId, this);
     controller->start();
     return controller;
+}
+
+void AgentsController::refreshWorkspacesInUse(const QStringList& workspaceIds) {
+    m_workspacesInUse.clear();
+    emit workspacesInUseChanged();
+    // The by-workspace endpoint caps a request at 25 workspace IDs.
+    constexpr int kMaxIdsPerRequest = 25;
+    for (qsizetype i = 0; i < workspaceIds.size(); i += kMaxIdsPerRequest)
+        m_api->getChatsByWorkspace(workspaceIds.mid(i, kMaxIdsPerRequest));
 }
 
 QVariantList AgentsController::subagentsOf(const QString& chatId) const {
