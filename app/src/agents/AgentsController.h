@@ -134,6 +134,14 @@ public:
     /// supported (bool) and fields (list); unsupported schemas yield
     /// supported=false so the caller falls back to a raw JSON editor.
     [[nodiscard]] Q_INVOKABLE QVariantMap parseToolSchema(const QString& schemaJson) const;
+    /// ask_user_question args parsing (AskUserQuestionParser). Returns an
+    /// empty list until argsJson parses as a valid questions object, so the
+    /// timeline can fall back to the generic tool-call card while streaming.
+    [[nodiscard]] Q_INVOKABLE QVariantList parseAskUserQuestions(const QString& argsJson) const;
+    /// Formats the outgoing answer message for parseAskUserQuestions()
+    /// questions plus answer maps {kind: "option"|"other", label, text}.
+    [[nodiscard]] Q_INVOKABLE QString formatAskUserAnswers(const QVariantList& questions,
+                                                           const QVariantList& answers) const;
 
 public slots:
     void sendMessage(const QString& text, const QString& busyBehavior = QStringLiteral("queue"));
@@ -237,6 +245,9 @@ class AgentsController : public QObject {
     Q_PROPERTY(QVariantList modelConfigs READ modelConfigs NOTIFY configsChanged)
     Q_PROPERTY(QString defaultModelConfigId READ defaultModelConfigId NOTIFY configsChanged)
     Q_PROPERTY(QVariantList mcpServers READ mcpServers NOTIFY configsChanged)
+    // Workspace ID -> latest chat ID map from refreshWorkspacesInUse(), used
+    // by the create page to tag workspaces that already have an agent chat.
+    Q_PROPERTY(QVariantMap workspacesInUse READ workspacesInUse NOTIFY workspacesInUseChanged)
     Q_PROPERTY(
         QString lastWorkspaceId READ lastWorkspaceId WRITE setLastWorkspaceId NOTIFY uiPrefsChanged)
     Q_PROPERTY(QString lastModelConfigId READ lastModelConfigId WRITE setLastModelConfigId NOTIFY
@@ -267,6 +278,7 @@ public:
     [[nodiscard]] QVariantList modelConfigs() const;
     [[nodiscard]] QString defaultModelConfigId() const;
     [[nodiscard]] QVariantList mcpServers() const;
+    [[nodiscard]] QVariantMap workspacesInUse() const { return m_workspacesInUse; }
 
     // Persisted UI preferences (QSettings-backed).
     [[nodiscard]] QString lastWorkspaceId() const { return m_lastWorkspaceId; }
@@ -299,6 +311,10 @@ public:
     /// derived from the current chat-list state.
     [[nodiscard]] Q_INVOKABLE QVariantList subagentsOf(const QString& chatId) const;
 
+    /// Refreshes workspacesInUse via GET /chats/by-workspace, chunking the
+    /// IDs to the server's 25-per-request cap.
+    Q_INVOKABLE void refreshWorkspacesInUse(const QStringList& workspaceIds);
+
     /// Creates a new chat. attachments are maps {fileId, name, mediaType}
     /// from uploadAttachment(). Emits chatCreated() on success.
     Q_INVOKABLE void createChat(const QString& prompt, const QString& workspaceId,
@@ -322,6 +338,7 @@ signals:
     void countsChanged();
     void organizationChanged();
     void configsChanged();
+    void workspacesInUseChanged();
     void uiPrefsChanged();
     void focusedChatIdChanged();
     /// stop() finished tearing everything down (logout or deployment switch).
@@ -384,6 +401,7 @@ private:
     QString m_organizationId;
     QList<ChatModelConfig> m_modelConfigs;
     QList<McpServerConfig> m_mcpServers;
+    QVariantMap m_workspacesInUse;
 
     QString m_lastWorkspaceId;
     QString m_lastModelConfigId;
