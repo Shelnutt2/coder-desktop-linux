@@ -47,11 +47,6 @@ add_executable(coder-desktop
     src/api/TerminalWebSocket.cpp
     src/api/BuildLogWebSocket.h
     src/api/BuildLogWebSocket.cpp
-    src/api/dto/Task.h
-    src/api/TaskWatchWebSocket.h
-    src/api/TaskWatchWebSocket.cpp
-    src/models/TaskModel.h
-    src/models/TaskModel.cpp
     src/webview/AppBrowserWidget.h
     src/webview/AppBrowserWidget.cpp
     src/util/UniqueFd.h
@@ -72,6 +67,34 @@ add_executable(coder-desktop
     src/auth/LoginFlowController.cpp
     src/api/PollingController.h
     src/api/PollingController.cpp
+    src/api/dto/Chat.h
+    src/api/dto/ChatMessage.h
+    src/api/dto/ChatStreamEvent.h
+    src/api/dto/ChatModels.h
+    src/api/AgentsApiClient.h
+    src/api/AgentsApiClient.cpp
+    src/api/ChatStreamWebSocket.h
+    src/api/ChatStreamWebSocket.cpp
+    src/api/ChatWatchWebSocket.h
+    src/api/ChatWatchWebSocket.cpp
+    src/agents/ChatSession.h
+    src/agents/ChatSession.cpp
+    src/agents/AgentsController.h
+    src/agents/AgentsController.cpp
+    src/agents/AgentNotifier.h
+    src/agents/AgentNotifier.cpp
+    src/agents/PlanStepParser.h
+    src/agents/PlanStepParser.cpp
+    src/agents/AskUserQuestionParser.h
+    src/agents/AskUserQuestionParser.cpp
+    src/agents/JsonSchemaParser.h
+    src/agents/JsonSchemaParser.cpp
+    src/agents/DiffParser.h
+    src/agents/DiffParser.cpp
+    src/models/ChatListModel.h
+    src/models/ChatListModel.cpp
+    src/models/ChatMessagesModel.h
+    src/models/ChatMessagesModel.cpp
     src/terminal/TerminalBridge.h
     src/terminal/TerminalBridge.cpp
 )
@@ -111,8 +134,6 @@ qt_add_qml_module(coder-desktop
         qml/DeploymentPage.qml
         qml/SettingsPage.qml
         qml/AppBrowserPage.qml
-        qml/TasksPage.qml
-        qml/TaskDetailPage.qml
         qml/WorkspaceDetailPage.qml
         qml/AppTile.qml
         qml/CategoryFilterBar.qml
@@ -122,6 +143,24 @@ qt_add_qml_module(coder-desktop
         qml/CoderTheme.qml
         qml/StatusChip.qml
         qml/CoderButton.qml
+        qml/AgentsPage.qml
+        qml/AgentCreatePage.qml
+        qml/AgentChatPage.qml
+        qml/agents/MarkdownText.qml
+        qml/agents/ReasoningBlock.qml
+        qml/agents/ToolCallCard.qml
+        qml/agents/SourceCitationRow.qml
+        qml/agents/FileChip.qml
+        qml/agents/SkillChip.qml
+        qml/agents/SubagentInlineCard.qml
+        qml/agents/AskUserQuestionCard.qml
+        qml/agents/StreamingIndicator.qml
+        qml/agents/ChatStatusCallout.qml
+        qml/agents/QueuedMessagesList.qml
+        qml/agents/ChatComposer.qml
+        qml/agents/PlanCard.qml
+        qml/agents/ActionRequiredForm.qml
+        qml/agents/ChatDiffPage.qml
 )
 if(ENABLE_DLP)
     qt_target_qml_sources(coder-desktop QML_FILES qml/SecureDevPage.qml)
@@ -150,6 +189,20 @@ qt_add_resources(coder-desktop "brand_assets"
     FILES
         assets/coder-logo.svg
         assets/coder-icon.svg
+)
+
+# Monochrome UI icons bundled so the agents UI never depends on the host
+# freedesktop icon theme or emoji font coverage. Rendering needs the Qt SVG
+# image plugin at runtime (packaged as libqt6svg / qt6-qtsvg).
+qt_add_resources(coder-desktop "agent_icons"
+    PREFIX "/CoderDesktop"
+    FILES
+        assets/icons/paperclip.svg
+        assets/icons/send.svg
+        assets/icons/stop.svg
+        assets/icons/plan.svg
+        assets/icons/subagent.svg
+        assets/icons/question.svg
 )
 
 target_include_directories(coder-desktop PRIVATE src ${CMAKE_CURRENT_BINARY_DIR})
@@ -255,6 +308,75 @@ if(BUILD_TESTING)
     target_include_directories(tst_filesync PRIVATE src)
     target_link_libraries(tst_filesync PRIVATE Qt6::Core Qt6::Test Qt6::Network)
     add_test(NAME FileSyncTest COMMAND tst_filesync)
+
+    add_executable(tst_agentdtos
+        tests/unit/tst_agentdtos.cpp
+        src/api/dto/Chat.h
+        src/api/dto/ChatMessage.h
+        src/api/dto/ChatStreamEvent.h
+        src/api/dto/ChatModels.h
+    )
+    target_include_directories(tst_agentdtos PRIVATE src)
+    target_link_libraries(tst_agentdtos PRIVATE Qt6::Core Qt6::Test)
+    add_test(NAME AgentDtosTest COMMAND tst_agentdtos)
+
+    add_executable(tst_chatsession
+        tests/unit/tst_chatsession.cpp
+        src/agents/ChatSession.cpp
+    )
+    target_include_directories(tst_chatsession PRIVATE src)
+    target_link_libraries(tst_chatsession PRIVATE Qt6::Core Qt6::Test)
+    add_test(NAME ChatSessionTest COMMAND tst_chatsession)
+
+    add_executable(tst_chatmodels
+        tests/unit/tst_chatmodels.cpp
+        src/agents/ChatSession.cpp
+        src/models/ChatListModel.cpp
+        src/models/ChatMessagesModel.cpp
+    )
+    target_include_directories(tst_chatmodels PRIVATE src)
+    target_link_libraries(tst_chatmodels PRIVATE Qt6::Core Qt6::Test)
+    add_test(NAME ChatModelsTest COMMAND tst_chatmodels)
+
+    add_executable(tst_agentparsers
+        tests/unit/tst_agentparsers.cpp
+        src/agents/PlanStepParser.cpp
+        src/agents/JsonSchemaParser.cpp
+        src/agents/DiffParser.cpp
+        src/agents/AskUserQuestionParser.cpp
+    )
+    target_include_directories(tst_agentparsers PRIVATE src)
+    target_link_libraries(tst_agentparsers PRIVATE Qt6::Core Qt6::Test)
+    add_test(NAME AgentParsersTest COMMAND tst_agentparsers)
+
+    # Offscreen layout-contract harness for AgentChatPage.qml. Loads the
+    # CoderDesktop QML module from the filesystem module dir generated in
+    # this build directory, so it must build after coder-desktop. Test-only
+    # target; not installed.
+    add_executable(tst_chatlayout tests/unit/tst_chatlayout.cpp)
+    add_dependencies(tst_chatlayout coder-desktop)
+    target_include_directories(tst_chatlayout PRIVATE src)
+    target_compile_definitions(tst_chatlayout PRIVATE
+        CHAT_LAYOUT_IMPORT_DIR="${CMAKE_CURRENT_BINARY_DIR}"
+        CHAT_LAYOUT_HARNESS="${CMAKE_CURRENT_SOURCE_DIR}/tests/qml/ChatLayoutHarness.qml"
+    )
+    # Bundle the same UI icons the app ships so the harness renders the
+    # composer/send icons instead of logging qrc:/ load errors.
+    qt_add_resources(tst_chatlayout "agent_icons_test"
+        PREFIX "/CoderDesktop"
+        FILES
+            assets/icons/paperclip.svg
+            assets/icons/send.svg
+            assets/icons/stop.svg
+            assets/icons/plan.svg
+            assets/icons/subagent.svg
+            assets/icons/question.svg
+    )
+    target_link_libraries(tst_chatlayout PRIVATE
+        Qt6::Core Qt6::Gui Qt6::Quick Qt6::QuickControls2 Qt6::Test)
+    add_test(NAME ChatLayoutTest COMMAND tst_chatlayout)
+    set_tests_properties(ChatLayoutTest PROPERTIES
+        ENVIRONMENT "QT_QPA_PLATFORM=offscreen")
 endif()
 
 # ---------------------------------------------------------------------------

@@ -26,6 +26,7 @@ BuildRequires:  libGL-devel
 Requires:       qt6-qtbase >= 6.5
 Requires:       qt6-qtdeclarative >= 6.5
 Requires:       qt6-qtquickcontrols2 >= 6.5
+Requires:       qt6-qtsvg >= 6.5
 Requires:       libsecret
 Recommends:     wlroots >= 0.19
 

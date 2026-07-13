@@ -1,4 +1,5 @@
 #include "tray/SystemTrayIcon.h"
+#include "agents/AgentsController.h"
 #include "data/SessionManager.h"
 #include "filesync/FileSyncManager.h"
 #include "vpn/VpnBridge.h"
@@ -21,8 +22,12 @@ static QIcon makeFallbackIcon() {
 }
 
 SystemTrayIcon::SystemTrayIcon(VpnBridge* vpn, SessionManager* session, FileSyncManager* fileSync,
-                               QObject* parent)
-    : QSystemTrayIcon(parent), m_vpn(vpn), m_session(session), m_fileSync(fileSync) {
+                               AgentsController* agents, QObject* parent)
+    : QSystemTrayIcon(parent),
+      m_vpn(vpn),
+      m_session(session),
+      m_fileSync(fileSync),
+      m_agents(agents) {
     // Use a themed icon; fall back to a simple branded icon.
     QIcon icon = QIcon::fromTheme(QStringLiteral("network-vpn"));
     if (icon.isNull()) icon = QIcon::fromTheme(QStringLiteral("network-wired"));
@@ -42,6 +47,14 @@ SystemTrayIcon::SystemTrayIcon(VpnBridge* vpn, SessionManager* session, FileSync
                 &SystemTrayIcon::updateTooltip);
     }
 
+    if (m_agents) {
+        connect(m_agents, &AgentsController::countsChanged, this,
+                &SystemTrayIcon::updateAgentsSection);
+        connect(m_session, &SessionManager::authStateChanged, this,
+                &SystemTrayIcon::updateAgentsSection);
+        updateAgentsSection();
+    }
+
     show();
 }
 
@@ -54,6 +67,17 @@ void SystemTrayIcon::buildMenu() {
 
     // Workspaces submenu — empty for now; will be populated by WorkspaceModel.
     m_workspacesMenu = m_menu.addMenu(QStringLiteral("Workspaces"));
+
+    m_menu.addSeparator();
+
+    // Agents summary (disabled info row) + "Open Agents", both hidden until
+    // updateAgentsSection() finds an authenticated session with activity.
+    m_agentsSummaryAction = m_menu.addAction(QString());
+    m_agentsSummaryAction->setEnabled(false);
+    m_agentsSummaryAction->setVisible(false);
+    m_openAgentsAction = m_menu.addAction(QStringLiteral("Open Agents"));
+    m_openAgentsAction->setVisible(false);
+    connect(m_openAgentsAction, &QAction::triggered, this, &SystemTrayIcon::showAgentsRequested);
 
     m_menu.addSeparator();
 
@@ -86,6 +110,28 @@ void SystemTrayIcon::updateTooltip() {
         tip += QStringLiteral("\nFile Sync: %1").arg(m_fileSync->statusSummary());
     }
     setToolTip(tip);
+}
+
+void SystemTrayIcon::updateAgentsSection() {
+    if (!m_agents || !m_agentsSummaryAction) return;
+    const bool authed = m_session && m_session->isAuthenticated();
+    m_openAgentsAction->setVisible(authed);
+
+    QStringList parts;
+    if (m_agents->runningCount() > 0)
+        parts << QStringLiteral("%1 running").arg(m_agents->runningCount());
+    if (m_agents->requiresActionCount() > 0)
+        parts << (m_agents->requiresActionCount() == 1
+                      ? QStringLiteral("1 needs action")
+                      : QStringLiteral("%1 need action").arg(m_agents->requiresActionCount()));
+    if (m_agents->unreadCount() > 0)
+        parts << QStringLiteral("%1 unread").arg(m_agents->unreadCount());
+
+    const bool show = authed && !parts.isEmpty();
+    m_agentsSummaryAction->setVisible(show);
+    if (show)
+        m_agentsSummaryAction->setText(
+            QStringLiteral("Agents: %1").arg(parts.join(QStringLiteral(", "))));
 }
 
 void SystemTrayIcon::onConnectClicked() {

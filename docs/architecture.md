@@ -216,7 +216,7 @@ The Qt 6 application runs as the logged-in user and provides:
 
 - **System tray** icon with quick VPN connect/disconnect
 - **Workspace browser** — list, start, stop, monitor workspaces
-- **AI task monitoring** — live status of AI coding tasks
+- **Coder Agents** — chat with AI agents: streaming responses, live status, and notifications
 - **Settings UI** — deployment URLs, VPN preferences, DLP toggles
 - **DLP compositor** — launches `libcoderdlp.so` in-process when enabled
 
@@ -383,7 +383,7 @@ properly clean up:
 |------|----------|-----------|---------|
 | App → Helper | D-Bus system bus | Method calls | `Start`, `Stop`, `GetStatus` |
 | Helper → App | D-Bus system bus | Signals | `StateChanged`, `PeerUpdated`, `LogMessage` |
-| App → Coder API | HTTPS/REST | Request/Response | Workspace listing, build logs, task status |
+| App → Coder API | HTTPS/REST | Request/Response | Workspace listing, build logs, agent chats |
 | Helper → Coder | WireGuard (UDP) | Bidirectional | VPN tunnel to workspaces via tailscale |
 | App → DLP lib | `dlopen()` / C API | In-process calls | Compositor lifecycle management |
 | DLP → Xwayland | Wayland protocol | In-process fork | X11 app compatibility layer |

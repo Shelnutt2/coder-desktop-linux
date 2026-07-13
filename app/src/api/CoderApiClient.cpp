@@ -82,10 +82,6 @@ QNetworkReply* CoderApiClient::listTemplates() {
     return get(QStringLiteral("/api/v2/templates"));
 }
 
-QNetworkReply* CoderApiClient::listTasks() {
-    return get(QStringLiteral("/api/v2/tasks"));
-}
-
 QNetworkReply* CoderApiClient::getBuildInfo() {
     return get(QStringLiteral("/api/v2/buildinfo"));
 }
@@ -105,25 +101,6 @@ void CoderApiClient::fetchWorkspaces() {
         // The Coder API returns { "workspaces": [...], "count": N }
         const QJsonArray arr = doc.object().value(QLatin1String("workspaces")).toArray();
         emit workspacesReceived(arr);
-    });
-}
-
-void CoderApiClient::fetchTasks() {
-    QNetworkReply* reply = listTasks();
-    connect(reply, &QNetworkReply::finished, this, [this, reply]() {
-        reply->deleteLater();
-        if (reply->error() != QNetworkReply::NoError)
-            return;  // requestFailed already emitted by connectErrorHandler
-
-        const QJsonDocument doc = QJsonDocument::fromJson(reply->readAll());
-        // The Coder tasks API returns { "tasks": [...] } or a flat array.
-        QJsonArray arr;
-        if (doc.isArray()) {
-            arr = doc.array();
-        } else {
-            arr = doc.object().value(QLatin1String("tasks")).toArray();
-        }
-        emit tasksReceived(arr);
     });
 }
 

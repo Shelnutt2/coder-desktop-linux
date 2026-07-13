@@ -7,28 +7,26 @@
 #include <QString>
 #include <QTimer>
 
-#include "models/TaskModel.h"
 #include "models/WorkspaceModel.h"
 
 class CoderApiClient;
 class NotificationManager;
 class SettingsManager;
 
-/// Orchestrates periodic polling of workspaces/tasks, persistent disk caching,
+/// Orchestrates periodic polling of workspaces, persistent disk caching,
 /// and status-change desktop notifications.
 ///
 /// Typical ownership:
 /// @code
-///   auto *polling = new PollingController(api, wsModel, taskModel,
-///                                         notifMgr, settings, this);
+///   auto *polling = new PollingController(api, wsModel, notifMgr,
+///                                         settings, this);
 ///   polling->start();   // loads cache, fetches immediately, starts timer
 /// @endcode
 ///
-/// The controller connects to CoderApiClient::workspacesReceived /
-/// tasksReceived and drives WorkspaceModel / TaskModel updates.  It also
-/// detects status changes between poll cycles and routes desktop
-/// notifications through NotificationManager (gated by
-/// SettingsManager::notificationsEnabled()).
+/// The controller connects to CoderApiClient::workspacesReceived and drives
+/// WorkspaceModel updates.  It also detects status changes between poll
+/// cycles and routes desktop notifications through NotificationManager
+/// (gated by SettingsManager::notificationsEnabled()).
 class PollingController : public QObject {
     Q_OBJECT
     Q_PROPERTY(int refreshIntervalSec READ refreshIntervalSec WRITE setRefreshIntervalSec NOTIFY
@@ -37,7 +35,7 @@ class PollingController : public QObject {
 
 public:
     /// All references must outlive this controller.
-    explicit PollingController(CoderApiClient& api, WorkspaceModel& workspaces, TaskModel& tasks,
+    explicit PollingController(CoderApiClient& api, WorkspaceModel& workspaces,
                                NotificationManager& notifications, SettingsManager& settings,
                                QObject* parent = nullptr);
 
@@ -53,14 +51,11 @@ public slots:
     /// Stop the periodic poll timer.
     void stop();
 
-    /// Trigger an immediate workspace + task fetch (callable from QML).
+    /// Trigger an immediate workspace fetch (callable from QML).
     Q_INVOKABLE void refreshNow();
 
     /// Slot connected to CoderApiClient::workspacesReceived().
     void handleWorkspacesReceived(const QJsonArray& arr);
-
-    /// Slot connected to CoderApiClient::tasksReceived().
-    void handleTasksReceived(const QJsonArray& arr);
 
 signals:
     void refreshIntervalChanged();
@@ -69,19 +64,16 @@ signals:
 private:
     // -- Change detection (for notifications) --------------------------------
     void detectWorkspaceChanges(const QList<WorkspaceModel::WorkspaceInfo>& newList);
-    void detectTaskChanges(const QList<TaskModel::TaskInfo>& newList);
 
     // -- Persistent cache I/O ------------------------------------------------
     void loadCache();
     void saveWorkspaceCache(const QJsonArray& arr);
-    void saveTaskCache(const QJsonArray& arr);
     void purgeCache();
     [[nodiscard]] QString cacheDirForDeployment() const;
 
     // -- Dependencies (non-owning references) --------------------------------
     CoderApiClient& m_api;
     WorkspaceModel& m_workspaceModel;
-    TaskModel& m_taskModel;
     NotificationManager& m_notifications;
     SettingsManager& m_settings;
 
@@ -89,7 +81,7 @@ private:
     int m_refreshIntervalSec = 10;
 
     /// Suppresses notifications on the very first data load so the user is
-    /// not spammed with "changed" alerts for every existing workspace/task.
+    /// not spammed with "changed" alerts for every existing workspace.
     bool m_firstFetch = true;
 };
 

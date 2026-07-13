@@ -25,6 +25,11 @@ ApplicationWindow {
         CoderTheme.mode = Qt.binding(function() { return settingsManager.theme })
     }
 
+    // Invoked from C++ (tray "Open Agents", agent notification clicks).
+    function openAgentsTab() {
+        tabBar.currentIndex = 1
+    }
+
     // ---- Keyboard shortcuts ----
     Shortcut { sequence: "Ctrl+1"; onActivated: tabBar.currentIndex = 0 }
     Shortcut { sequence: "Ctrl+2"; onActivated: tabBar.currentIndex = 1 }
@@ -117,7 +122,7 @@ ApplicationWindow {
                 Layout.fillHeight: true
 
                 WorkspacesPage { anchors.fill: parent; visible: tabBar.currentIndex === 0 }
-                TasksPage      { anchors.fill: parent; visible: tabBar.currentIndex === 1 }
+                AgentsPage     { anchors.fill: parent; visible: tabBar.currentIndex === 1 }
                 FileSyncPage   { anchors.fill: parent; visible: tabBar.currentIndex === 2 }
                 VpnPage        { anchors.fill: parent; visible: tabBar.currentIndex === 3 }
                 Loader {
@@ -157,12 +162,34 @@ ApplicationWindow {
                     font.capitalization: Font.MixedCase
                 }
                 TabButton {
-                    text: "Tasks"
-                    icon.name: "dialog-information"
+                    text: "Agents"
+                    icon.name: "mail-message-new"
                     icon.color: tabBar.currentIndex === 1 ? CoderTheme.primary : CoderTheme.textSecondary
                     display: AbstractButton.TextUnderIcon
                     font.pixelSize: 10
                     font.capitalization: Font.MixedCase
+
+                    // Attention badge: unread + running + requires-action count.
+                    Rectangle {
+                        visible: agentsController.badgeCount > 0
+                        anchors.top: parent.top
+                        anchors.right: parent.right
+                        anchors.topMargin: 4
+                        anchors.rightMargin: 10
+                        width: Math.max(14, badgeLabel.implicitWidth + 6)
+                        height: 14
+                        radius: 7
+                        color: agentsController.requiresActionCount > 0
+                            ? CoderTheme.warning : CoderTheme.primary
+                        Label {
+                            id: badgeLabel
+                            anchors.centerIn: parent
+                            text: agentsController.badgeCount > 99 ? "99+" : agentsController.badgeCount
+                            color: "#ffffff"
+                            font.pixelSize: 9
+                            font.bold: true
+                        }
+                    }
                 }
                 TabButton {
                     text: "File Sync"

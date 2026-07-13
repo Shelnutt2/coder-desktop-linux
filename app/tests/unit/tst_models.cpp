@@ -50,6 +50,28 @@ private slots:
                  QStringLiteral("Running"));
     }
 
+    void testWorkspaceInfoForId() {
+        WorkspaceModel model;
+
+        WorkspaceModel::WorkspaceInfo ws;
+        ws.id = QStringLiteral("ws-1");
+        ws.name = QStringLiteral("dev");
+        ws.status = 0;  // Running
+        model.setWorkspaces({ws});
+
+        const QVariantMap found = model.infoForId(QStringLiteral("ws-1"));
+        QVERIFY(found.value(QStringLiteral("found")).toBool());
+        QCOMPARE(found.value(QStringLiteral("name")).toString(), QStringLiteral("dev"));
+        QCOMPARE(found.value(QStringLiteral("statusString")).toString(), QStringLiteral("Running"));
+
+        // Unknown and empty IDs resolve to a not-found placeholder.
+        const QVariantMap missing = model.infoForId(QStringLiteral("nope"));
+        QVERIFY(!missing.value(QStringLiteral("found")).toBool());
+        QCOMPARE(missing.value(QStringLiteral("statusString")).toString(),
+                 QStringLiteral("Unknown"));
+        QVERIFY(!model.infoForId(QString()).value(QStringLiteral("found")).toBool());
+    }
+
     void testWorkspaceUpdateExisting() {
         WorkspaceModel model;
 

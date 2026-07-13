@@ -153,6 +153,22 @@ void WorkspaceModel::clear() {
     emit countChanged();
 }
 
+QVariantMap WorkspaceModel::infoForId(const QString& id) const {
+    QVariantMap info;
+    info.insert(QStringLiteral("found"), false);
+    info.insert(QStringLiteral("name"), QString());
+    info.insert(QStringLiteral("statusString"), QStringLiteral("Unknown"));
+    if (id.isEmpty()) return info;
+    for (const WorkspaceInfo& ws : m_workspaces) {
+        if (ws.id != id) continue;
+        info.insert(QStringLiteral("found"), true);
+        info.insert(QStringLiteral("name"), ws.name);
+        info.insert(QStringLiteral("statusString"), statusToString(ws.status));
+        break;
+    }
+    return info;
+}
+
 // ---------------------------------------------------------------------------
 // Observable state
 // ---------------------------------------------------------------------------
