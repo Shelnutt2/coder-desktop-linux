@@ -85,6 +85,8 @@ add_executable(coder-desktop
     src/agents/AgentNotifier.cpp
     src/agents/PlanStepParser.h
     src/agents/PlanStepParser.cpp
+    src/agents/AskUserQuestionParser.h
+    src/agents/AskUserQuestionParser.cpp
     src/agents/JsonSchemaParser.h
     src/agents/JsonSchemaParser.cpp
     src/agents/DiffParser.h
@@ -151,6 +153,7 @@ qt_add_qml_module(coder-desktop
         qml/agents/FileChip.qml
         qml/agents/SkillChip.qml
         qml/agents/SubagentInlineCard.qml
+        qml/agents/AskUserQuestionCard.qml
         qml/agents/StreamingIndicator.qml
         qml/agents/ChatStatusCallout.qml
         qml/agents/QueuedMessagesList.qml
@@ -186,6 +189,20 @@ qt_add_resources(coder-desktop "brand_assets"
     FILES
         assets/coder-logo.svg
         assets/coder-icon.svg
+)
+
+# Monochrome UI icons bundled so the agents UI never depends on the host
+# freedesktop icon theme or emoji font coverage. Rendering needs the Qt SVG
+# image plugin at runtime (packaged as libqt6svg / qt6-qtsvg).
+qt_add_resources(coder-desktop "agent_icons"
+    PREFIX "/CoderDesktop"
+    FILES
+        assets/icons/paperclip.svg
+        assets/icons/send.svg
+        assets/icons/stop.svg
+        assets/icons/plan.svg
+        assets/icons/subagent.svg
+        assets/icons/question.svg
 )
 
 target_include_directories(coder-desktop PRIVATE src ${CMAKE_CURRENT_BINARY_DIR})
@@ -326,6 +343,7 @@ if(BUILD_TESTING)
         src/agents/PlanStepParser.cpp
         src/agents/JsonSchemaParser.cpp
         src/agents/DiffParser.cpp
+        src/agents/AskUserQuestionParser.cpp
     )
     target_include_directories(tst_agentparsers PRIVATE src)
     target_link_libraries(tst_agentparsers PRIVATE Qt6::Core Qt6::Test)
