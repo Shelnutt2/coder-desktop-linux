@@ -224,107 +224,115 @@ ColumnLayout {
     }
 
     // ---- Chip row + send ----
+    // The chip group wraps in a Flow so narrow widths (480px design size)
+    // flow onto a second line instead of overflowing off-screen.
     RowLayout {
         Layout.fillWidth: true
         spacing: 6
 
-        // Attachment picker.
-        ToolButton {
-            text: "\u{1F4CE}"
-            font.pixelSize: 13
-            enabled: !composer.disabled
-            onClicked: fileDialog.open()
-            ToolTip.visible: hovered
-            ToolTip.text: "Attach file"
-        }
+        Flow {
+            Layout.fillWidth: true
+            Layout.alignment: Qt.AlignVCenter
+            spacing: 6
 
-        // Compact model override.
-        ComboBox {
-            id: modelBox
-            Layout.preferredWidth: 110
-            font.pixelSize: 10
-            flat: true
-            enabled: !composer.disabled
-            model: {
-                var items = [{ id: "", displayName: "Model" }]
-                var configs = agentsController.modelConfigs
-                for (var i = 0; i < configs.length; ++i) items.push(configs[i])
-                return items
+            // Attachment picker.
+            ToolButton {
+                icon.source: "qrc:/CoderDesktop/assets/icons/paperclip.svg"
+                icon.color: enabled ? CoderTheme.textSecondary : CoderTheme.textDisabled
+                icon.width: 15
+                icon.height: 15
+                enabled: !composer.disabled
+                onClicked: fileDialog.open()
+                ToolTip.visible: hovered
+                ToolTip.text: "Attach file"
             }
-            textRole: "displayName"
-            valueRole: "id"
-            onActivated: composer.modelOverrideId = currentValue
-        }
 
-        // MCP server override menu (per-message mcp_server_ids).
-        ToolButton {
-            text: "MCP"
-            font.pixelSize: 10
-            enabled: !composer.disabled
-            visible: agentsController.mcpServers.length > 0
-            onClicked: mcpMenu.open()
-            Menu {
-                id: mcpMenu
-                Repeater {
-                    model: agentsController.mcpServers
-                    MenuItem {
-                        required property var modelData
-                        text: modelData.displayName
-                        checkable: true
-                        // force_on servers are always included and locked.
-                        enabled: !modelData.forceOn
-                        checked: modelData.forceOn
-                                 || composer.mcpOverrideIds.indexOf(modelData.id) >= 0
-                        onToggled: {
-                            var ids = composer.mcpOverrideIds.slice()
-                            var at = ids.indexOf(modelData.id)
-                            if (checked && at < 0) ids.push(modelData.id)
-                            if (!checked && at >= 0) ids.splice(at, 1)
-                            composer.mcpOverrideIds = ids
+            // Compact model override.
+            ComboBox {
+                id: modelBox
+                width: 110
+                font.pixelSize: 10
+                flat: true
+                enabled: !composer.disabled
+                model: {
+                    var items = [{ id: "", displayName: "Model" }]
+                    var configs = agentsController.modelConfigs
+                    for (var i = 0; i < configs.length; ++i) items.push(configs[i])
+                    return items
+                }
+                textRole: "displayName"
+                valueRole: "id"
+                onActivated: composer.modelOverrideId = currentValue
+            }
+
+            // MCP server override menu (per-message mcp_server_ids).
+            ToolButton {
+                text: "MCP"
+                font.pixelSize: 10
+                enabled: !composer.disabled
+                visible: agentsController.mcpServers.length > 0
+                onClicked: mcpMenu.open()
+                Menu {
+                    id: mcpMenu
+                    Repeater {
+                        model: agentsController.mcpServers
+                        MenuItem {
+                            required property var modelData
+                            text: modelData.displayName
+                            checkable: true
+                            // force_on servers are always included and locked.
+                            enabled: !modelData.forceOn
+                            checked: modelData.forceOn
+                                     || composer.mcpOverrideIds.indexOf(modelData.id) >= 0
+                            onToggled: {
+                                var ids = composer.mcpOverrideIds.slice()
+                                var at = ids.indexOf(modelData.id)
+                                if (checked && at < 0) ids.push(modelData.id)
+                                if (!checked && at >= 0) ids.splice(at, 1)
+                                composer.mcpOverrideIds = ids
+                            }
                         }
                     }
                 }
             }
-        }
 
-        // Persistent plan-mode toggle.
-        ToolButton {
-            text: "Plan"
-            font.pixelSize: 10
-            checkable: true
-            enabled: !composer.disabled
-            checked: composer.chat ? composer.chat.planMode : false
-            onClicked: composer.chat.setPlanModeEnabled(checked)
-            ToolTip.visible: hovered
-            ToolTip.text: "Plan mode"
-        }
+            // Persistent plan-mode toggle.
+            ToolButton {
+                text: "Plan"
+                font.pixelSize: 10
+                checkable: true
+                enabled: !composer.disabled
+                checked: composer.chat ? composer.chat.planMode : false
+                onClicked: composer.chat.setPlanModeEnabled(checked)
+                ToolTip.visible: hovered
+                ToolTip.text: "Plan mode"
+            }
 
-        // Busy behavior for sends while the agent works.
-        ToolButton {
-            text: composer.busyBehavior === "queue" ? "Queue" : "Interrupt"
-            font.pixelSize: 10
-            enabled: !composer.disabled
-            onClicked: busyMenu.open()
-            ToolTip.visible: hovered
-            ToolTip.text: "What happens when you send while the agent is busy"
-            Menu {
-                id: busyMenu
-                MenuItem {
-                    text: "Queue (default)"
-                    checkable: true
-                    checked: composer.busyBehavior === "queue"
-                    onTriggered: composer.busyBehavior = "queue"
-                }
-                MenuItem {
-                    text: "Interrupt"
-                    checkable: true
-                    checked: composer.busyBehavior === "interrupt"
-                    onTriggered: composer.busyBehavior = "interrupt"
+            // Busy behavior for sends while the agent works.
+            ToolButton {
+                text: composer.busyBehavior === "queue" ? "Queue" : "Interrupt"
+                font.pixelSize: 10
+                enabled: !composer.disabled
+                onClicked: busyMenu.open()
+                ToolTip.visible: hovered
+                ToolTip.text: "What happens when you send while the agent is busy"
+                Menu {
+                    id: busyMenu
+                    MenuItem {
+                        text: "Queue (default)"
+                        checkable: true
+                        checked: composer.busyBehavior === "queue"
+                        onTriggered: composer.busyBehavior = "queue"
+                    }
+                    MenuItem {
+                        text: "Interrupt"
+                        checkable: true
+                        checked: composer.busyBehavior === "interrupt"
+                        onTriggered: composer.busyBehavior = "interrupt"
+                    }
                 }
             }
         }
-
-        Item { Layout.fillWidth: true }
 
         // Send button; morphs into a Stop square while the agent runs and no
         // sendable input exists.
@@ -334,31 +342,23 @@ ColumnLayout {
             enabled: !composer.disabled && (stopMode || composer.canSend)
             implicitWidth: 36
             implicitHeight: 36
+            Layout.alignment: Qt.AlignBottom
             onClicked: stopMode ? composer.chat.interrupt() : composer.sendNow()
             ToolTip.visible: hovered
             ToolTip.text: stopMode ? "Stop the agent (Esc)" : "Send"
+
+            display: AbstractButton.IconOnly
+            icon.source: stopMode ? "qrc:/CoderDesktop/assets/icons/stop.svg"
+                                  : "qrc:/CoderDesktop/assets/icons/send.svg"
+            icon.color: CoderTheme.textInvert
+            icon.width: 15
+            icon.height: 15
 
             background: Rectangle {
                 radius: 18
                 color: sendButton.enabled
                     ? (sendButton.stopMode ? CoderTheme.error : CoderTheme.primary)
                     : CoderTheme.surfaceSecondary
-            }
-            contentItem: Item {
-                // Paper-plane triangle for send; square for stop.
-                Label {
-                    anchors.centerIn: parent
-                    visible: !sendButton.stopMode
-                    text: "\u27a4"
-                    color: CoderTheme.textInvert
-                    font.pixelSize: 15
-                }
-                Rectangle {
-                    anchors.centerIn: parent
-                    visible: sendButton.stopMode
-                    width: 12; height: 12; radius: 2
-                    color: CoderTheme.textInvert
-                }
             }
         }
     }
