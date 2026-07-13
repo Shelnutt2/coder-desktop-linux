@@ -3,8 +3,8 @@ import QtQuick.Controls
 import QtQuick.Layouts
 import CoderDesktop
 
-// Compact row for one sub-agent chat inside the chat page's collapsible
-// sub-agent strip: status dot, title, status text, and a chevron. Clicking
+// Compact row for one sub-agent chat inside the chat page's sub-agent
+// drawer: status dot, title, status text, and a chevron. Clicking
 // navigates into the child chat. Navigation uses a TapHandler with the
 // DragThreshold gesture policy so only a real click activates it; drag or
 // flick scroll gestures over the row are cancelled and never navigate.

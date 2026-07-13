@@ -5,12 +5,19 @@ import CoderDesktop
 
 // Status callouts between the timeline and the composer: stream errors
 // (kind-aware copy, Retry when retryable), server retry countdown,
-// requires-action notice, and the usage-limit banner from HTTP 409.
+// requires-action notice with its interactive tool forms, and the
+// usage-limit banner from HTTP 409.
+//
+// Reserves nothing when idle: the whole column is hidden unless one of
+// the events is active, so the page's bottom dock collapses to just the
+// composer.
 ColumnLayout {
     id: callout
     // The page's ChatController context object.
     property var chat: null
     spacing: 6
+    visible: chat !== null
+             && (chat.hasError || chat.hasRetry || chat.hasActionRequired || chat.hasUsageLimit)
 
     function errorHeadline(kind) {
         if (kind === "overloaded") return "The model provider is overloaded."
@@ -109,7 +116,7 @@ ColumnLayout {
         }
     }
 
-    // ---- Requires-action banner ----
+    // ---- Requires-action banner + interactive tool forms ----
     Rectangle {
         visible: callout.chat && callout.chat.hasActionRequired
         Layout.fillWidth: true
@@ -132,6 +139,20 @@ ColumnLayout {
                 Layout.fillWidth: true
                 wrapMode: Text.Wrap
             }
+        }
+    }
+
+    // One form per pending action_required tool call; the Repeater is
+    // empty (zero height) whenever no action is pending.
+    Repeater {
+        model: callout.chat && callout.chat.hasActionRequired ? callout.chat.actionToolCalls : []
+        ActionRequiredForm {
+            required property var modelData
+            Layout.fillWidth: true
+            chat: callout.chat
+            toolCallId: modelData.toolCallId
+            toolName: modelData.toolName
+            argsJson: modelData.argsJson
         }
     }
 

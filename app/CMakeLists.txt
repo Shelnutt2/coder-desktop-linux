@@ -348,6 +348,35 @@ if(BUILD_TESTING)
     target_include_directories(tst_agentparsers PRIVATE src)
     target_link_libraries(tst_agentparsers PRIVATE Qt6::Core Qt6::Test)
     add_test(NAME AgentParsersTest COMMAND tst_agentparsers)
+
+    # Offscreen layout-contract harness for AgentChatPage.qml. Loads the
+    # CoderDesktop QML module from the filesystem module dir generated in
+    # this build directory, so it must build after coder-desktop. Test-only
+    # target; not installed.
+    add_executable(tst_chatlayout tests/unit/tst_chatlayout.cpp)
+    add_dependencies(tst_chatlayout coder-desktop)
+    target_include_directories(tst_chatlayout PRIVATE src)
+    target_compile_definitions(tst_chatlayout PRIVATE
+        CHAT_LAYOUT_IMPORT_DIR="${CMAKE_CURRENT_BINARY_DIR}"
+        CHAT_LAYOUT_HARNESS="${CMAKE_CURRENT_SOURCE_DIR}/tests/qml/ChatLayoutHarness.qml"
+    )
+    # Bundle the same UI icons the app ships so the harness renders the
+    # composer/send icons instead of logging qrc:/ load errors.
+    qt_add_resources(tst_chatlayout "agent_icons_test"
+        PREFIX "/CoderDesktop"
+        FILES
+            assets/icons/paperclip.svg
+            assets/icons/send.svg
+            assets/icons/stop.svg
+            assets/icons/plan.svg
+            assets/icons/subagent.svg
+            assets/icons/question.svg
+    )
+    target_link_libraries(tst_chatlayout PRIVATE
+        Qt6::Core Qt6::Gui Qt6::Quick Qt6::QuickControls2 Qt6::Test)
+    add_test(NAME ChatLayoutTest COMMAND tst_chatlayout)
+    set_tests_properties(ChatLayoutTest PROPERTIES
+        ENVIRONMENT "QT_QPA_PLATFORM=offscreen")
 endif()
 
 # ---------------------------------------------------------------------------
