@@ -441,6 +441,56 @@ private slots:
         QCOMPARE(olderSpy.count(), 1);
         QCOMPARE(olderSpy.first().first().toInt(), 2);
     }
+
+    // -----------------------------------------------------------------------
+    // Stream replay ordering (regression)
+    // -----------------------------------------------------------------------
+
+    // Regression: a stream socket that connected with after_id=0 replays the
+    // full history as message events. When the REST page (the NEWEST ids,
+    // e.g. 5158447..5164185 on dev.coder.com chat 0cd036c5) lands mid-replay,
+    // later-replayed OLDER messages must insert in id order instead of being
+    // appended past the newest ids.
+    void testStreamReplayOlderMessageInsertsInIdOrder() {
+        ChatSession s(QStringLiteral("0cd036c5-0961-40fe-93ab-1eef442c875e"));
+        QSignalSpy upsertSpy(&s, &ChatSession::messageUpserted);
+
+        // Initial REST page: the two newest durable messages (real ids and
+        // timestamp format from the live payload).
+        const QList<ChatMessage> page = {
+            ChatMessage::fromJson(QJsonDocument::fromJson(R"({
+                "id": 5164185,
+                "chat_id": "0cd036c5-0961-40fe-93ab-1eef442c875e",
+                "created_at": "2026-07-13T14:52:15.612947Z",
+                "role": "assistant",
+                "content": [{"type": "text", "text": "newest"}]})")
+                                      .object()),
+            ChatMessage::fromJson(QJsonDocument::fromJson(R"({
+                "id": 5158447,
+                "chat_id": "0cd036c5-0961-40fe-93ab-1eef442c875e",
+                "created_at": "2026-07-13T12:55:01.960083Z",
+                "role": "assistant",
+                "content": [{"type": "text", "text": "older page entry"}]})")
+                                      .object()),
+        };
+        s.setInitialMessages(page);
+        QCOMPARE(s.afterId(), qint64(5164185));
+
+        // Stream replay continues with a message OLDER than the whole page.
+        s.applyEvent(messageEvent(QStringLiteral("0cd036c5-0961-40fe-93ab-1eef442c875e"), 5150000,
+                                  QStringLiteral("replayed old")));
+
+        QCOMPARE(s.messages().size(), 3);
+        QCOMPARE(s.messages()[0].id, qint64(5150000));
+        QCOMPARE(s.messages()[1].id, qint64(5158447));
+        QCOMPARE(s.messages()[2].id, qint64(5164185));
+        // The cursor stays at the newest durable id.
+        QCOMPARE(s.afterId(), qint64(5164185));
+        // The upsert reported the actual insertion index (0, oldest end).
+        QCOMPARE(upsertSpy.count(), 1);
+        QCOMPARE(upsertSpy.first().at(0).toInt(), 0);
+        QCOMPARE(upsertSpy.first().at(1).toBool(), false);
+    }
 };
 
 QTEST_MAIN(TestChatSession)
