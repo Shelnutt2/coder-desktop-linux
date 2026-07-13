@@ -4,8 +4,12 @@
 #include <QVariantMap>
 
 namespace {
-constexpr int kFlushIntervalMs = 16;
-}
+// Streaming tail deltas coalesce through this timer so per-token events
+// repaint the tail row at most ~20 times a second. Raising this from a
+// per-frame 16ms materially cuts per-delta QML re-layout work (the tail
+// row rebuilds its parts Repeater on every flush).
+constexpr int kFlushIntervalMs = 50;
+}  // namespace
 
 ChatMessagesModel::ChatMessagesModel(ChatSession* session, QObject* parent)
     : QAbstractListModel(parent), m_session(session) {
@@ -162,7 +166,9 @@ void ChatMessagesModel::flushTail() {
     if (!m_tailDirty || !m_tailVisible) return;
     m_tailDirty = false;
     const QModelIndex idx = index(0);
-    emit dataChanged(idx, idx);
+    // Only the parts payload changes while streaming; the explicit roles
+    // vector lets bindings on role/createdAt/isStreaming skip re-evaluation.
+    emit dataChanged(idx, idx, {PartsRole});
 }
 
 void ChatMessagesModel::removeTailRow() {
@@ -186,7 +192,8 @@ void ChatMessagesModel::onMessageUpserted(int durableIndex, bool wasExisting, bo
         m_tailVisible = false;
         ++m_durableCount;
         const QModelIndex idx = index(0);
-        emit dataChanged(idx, idx);
+        emit dataChanged(idx, idx,
+                         {MessageIdRole, RoleRole, CreatedAtRole, IsStreamingRole, PartsRole});
         return;
     }
 
@@ -194,7 +201,9 @@ void ChatMessagesModel::onMessageUpserted(int durableIndex, bool wasExisting, bo
 
     if (wasExisting) {
         const QModelIndex idx = index(rowForDurableIndex(durableIndex));
-        emit dataChanged(idx, idx);
+        // Upserts replace an existing message's content; its id and role
+        // are stable.
+        emit dataChanged(idx, idx, {CreatedAtRole, PartsRole});
         return;
     }
 
@@ -251,4 +260,24 @@ void ChatMessagesModel::finishLoadOlder(bool hasMore) {
     if (!m_loadingOlder) return;
     m_loadingOlder = false;
     emit loadingOlderChanged();
+}
+
+// ---------------------------------------------------------------------------
+// Row queries
+// ---------------------------------------------------------------------------
+
+bool ChatMessagesModel::hasNewerUserMessage(int row) const {
+    // Rows are newest-first; anything below `row` (smaller indices) is newer.
+    const int count = rowCount();
+    if (row <= 0 || row > count) return false;
+    for (int r = 0; r < row && r < count; ++r) {
+        const bool isTailRow = m_tailVisible && r == 0;
+        const int durableIndex = m_durableCount - 1 - (r - (m_tailVisible ? 1 : 0));
+        if (!isTailRow && (durableIndex < 0 || durableIndex >= m_session->messages().size()))
+            continue;
+        const ChatMessage& msg =
+            isTailRow ? m_session->tail() : m_session->messages().at(durableIndex);
+        if (msg.role == QLatin1String("user")) return true;
+    }
+    return false;
 }
