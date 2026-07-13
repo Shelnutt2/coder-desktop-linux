@@ -487,6 +487,100 @@ private slots:
         QVERIFY(!map.contains(QStringLiteral("ws-bad")));
         QVERIFY(parseChatsByWorkspaceMap(QJsonObject{}).isEmpty());
     }
+
+    // -----------------------------------------------------------------------
+    // Live payload excerpts (dev.coder.com, v2.35.x dev build)
+    // -----------------------------------------------------------------------
+
+    // Live timestamps carry variable-precision sub-second fractions (5 or 6
+    // digits) with a Z suffix; Qt::ISODateWithMs must parse both so the chat
+    // list's updatedAt ordering never degrades to invalid-QDateTime garbage.
+    void testLiveTimestampPrecisionVariants() {
+        // Excerpt of a real chat list entry (long fields stripped).
+        const Chat c = Chat::fromJson(parseObj(R"({
+            "id": "9ed0924c-4cd7-4a58-844c-962c5fedde4e",
+            "organization_id": "703f72a1-76f6-4f89-9de6-8a3989693fe5",
+            "owner_id": "3c86d3f2-56e1-443b-bade-8ef40f27f59c",
+            "owner_username": "seth",
+            "root_chat_id": "9ed0924c-4cd7-4a58-844c-962c5fedde4e",
+            "title": "update coder-mobile-android",
+            "status": "completed",
+            "created_at": "2026-07-12T15:31:03.63536Z",
+            "updated_at": "2026-07-12T17:50:01.440693Z",
+            "archived": false,
+            "shared": false,
+            "pin_order": 0,
+            "labels": {},
+            "has_unread": false,
+            "client_type": "api",
+            "children": []})"));
+        QVERIFY(c.createdAt.isValid());
+        QVERIFY(c.updatedAt.isValid());
+        QVERIFY(c.updatedAt > c.createdAt);
+        QCOMPARE(c.status, ChatStatus::Completed);
+    }
+
+    // Excerpt of a real GET /messages entry: the part container key is
+    // "content" (not "parts"), ids are int64, and tool parts carry the
+    // full field set observed on the wire.
+    void testLiveMessageExcerpt() {
+        const ChatMessage m = ChatMessage::fromJson(parseObj(R"({
+            "id": 5164185,
+            "chat_id": "0cd036c5-0961-40fe-93ab-1eef442c875e",
+            "model_config_id": "f5a10cdb-4b86-4e5e-9d0e-2a355a33bde9",
+            "created_at": "2026-07-13T14:52:15.612947Z",
+            "role": "assistant",
+            "content": [
+                {"type": "reasoning", "text": "planning",
+                 "mcp_server_config_id": null,
+                 "created_at": "2026-07-13T14:51:36.941691Z",
+                 "completed_at": "2026-07-13T14:51:40.78862Z",
+                 "skill_name": ""},
+                {"type": "tool-call", "text": "",
+                 "tool_call_id": "toolu_01RPLmR8ySNyZ4EVbY4CRgX9",
+                 "tool_name": "wait_agent",
+                 "args": {"chat_id": "83ac3024-c8d1-4e81-a2cb-60fdb99c6729",
+                          "timeout_seconds": 3600},
+                 "file_id": null,
+                 "created_at": "2026-07-13T14:52:15.594928Z"},
+                {"type": "tool-result", "text": "",
+                 "tool_call_id": "toolu_014M8cNM2QARkXhM6NXFtAdg",
+                 "tool_name": "spawn_agent",
+                 "result": {"type": "general", "status": "running"},
+                 "created_at": "2026-07-13T14:52:08.775067Z"},
+                {"type": "file", "text": "",
+                 "media_type": "image/png",
+                 "name": "before-base-480x700.png",
+                 "file_id": "4a52eae0-38eb-47e4-b667-c35ece04fada"}
+            ],
+            "usage": {"input_tokens": 2, "output_tokens": 178,
+                      "total_tokens": 180, "cache_creation_tokens": 2037,
+                      "cache_read_tokens": 227143, "context_limit": 1000000}})"));
+        QCOMPARE(m.id, qint64(5164185));
+        QCOMPARE(m.role, QStringLiteral("assistant"));
+        QVERIFY(m.createdAt.isValid());
+        QCOMPARE(m.parts.size(), 4);
+
+        QCOMPARE(m.parts[0].type, ChatMessagePartType::Reasoning);
+        QVERIFY(m.parts[0].createdAt.isValid());
+        QVERIFY(m.parts[0].completedAt.isValid());
+
+        QCOMPARE(m.parts[1].type, ChatMessagePartType::ToolCall);
+        QCOMPARE(m.parts[1].toolName, QStringLiteral("wait_agent"));
+        QCOMPARE(m.parts[1].args.value(QLatin1String("timeout_seconds")).toInt(), 3600);
+
+        QCOMPARE(m.parts[2].type, ChatMessagePartType::ToolResult);
+        QVERIFY(m.parts[2].result.isObject());
+
+        QCOMPARE(m.parts[3].type, ChatMessagePartType::File);
+        QCOMPARE(m.parts[3].mediaType, QStringLiteral("image/png"));
+        QCOMPARE(m.parts[3].name, QStringLiteral("before-base-480x700.png"));
+        QCOMPARE(m.parts[3].fileId, QStringLiteral("4a52eae0-38eb-47e4-b667-c35ece04fada"));
+
+        QVERIFY(m.usage.hasValue);
+        QCOMPARE(m.usage.totalTokens, qint64(180));
+        QCOMPARE(m.usage.contextLimit, qint64(1000000));
+    }
 };
 
 QTEST_MAIN(TestAgentDtos)
