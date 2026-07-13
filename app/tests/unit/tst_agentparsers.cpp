@@ -2,6 +2,7 @@
 #include <QJsonObject>
 #include <QtTest>
 
+#include "agents/AskUserQuestionParser.h"
 #include "agents/DiffParser.h"
 #include "agents/JsonSchemaParser.h"
 #include "agents/PlanStepParser.h"
@@ -277,6 +278,94 @@ private slots:
         QCOMPARE(kindAt(3), QStringLiteral("del"));
         QCOMPARE(kindAt(4), QStringLiteral("add"));
         QCOMPARE(kindAt(5), QStringLiteral("context"));
+    }
+
+    // -- AskUserQuestionParser ------------------------------------------------
+
+    static QVariantMap optionAnswer(const QString& label, int index) {
+        return {{QStringLiteral("kind"), QStringLiteral("option")},
+                {QStringLiteral("label"), label},
+                {QStringLiteral("optionIndex"), index}};
+    }
+
+    static QVariantMap otherAnswer(const QString& text) {
+        return {{QStringLiteral("kind"), QStringLiteral("other")}, {QStringLiteral("text"), text}};
+    }
+
+    void askUserParseValid() {
+        const QString args = QStringLiteral(R"({"questions": [
+            {"header": "Scope", "question": "Which scope?",
+             "options": [{"label": "Small", "description": "Just the fix"},
+                          {"label": "Large", "description": "Refactor too"}]}
+        ]})");
+        const QVariantList questions = AskUserQuestionParser::parse(args);
+        QCOMPARE(questions.size(), 1);
+        const QVariantMap q = questions.first().toMap();
+        QCOMPARE(q.value(QStringLiteral("header")).toString(), QStringLiteral("Scope"));
+        QCOMPARE(q.value(QStringLiteral("question")).toString(), QStringLiteral("Which scope?"));
+        const QVariantList options = q.value(QStringLiteral("options")).toList();
+        QCOMPARE(options.size(), 2);
+        QCOMPARE(options.first().toMap().value(QStringLiteral("label")).toString(),
+                 QStringLiteral("Small"));
+        QCOMPARE(options.first().toMap().value(QStringLiteral("description")).toString(),
+                 QStringLiteral("Just the fix"));
+    }
+
+    void askUserParseFiltersModelProvidedOther() {
+        // Model-provided "Other" options (any case) are dropped; the UI
+        // appends its own free-text Other, matching the web UI.
+        const QString args = QStringLiteral(R"({"questions": [
+            {"header": "H", "question": "Q",
+             "options": [{"label": "A", "description": ""},
+                          {"label": " other ", "description": "x"},
+                          {"label": "OTHER", "description": "y"}]}
+        ]})");
+        const QVariantList questions = AskUserQuestionParser::parse(args);
+        QCOMPARE(questions.size(), 1);
+        const QVariantList options =
+            questions.first().toMap().value(QStringLiteral("options")).toList();
+        QCOMPARE(options.size(), 1);
+        QCOMPARE(options.first().toMap().value(QStringLiteral("label")).toString(),
+                 QStringLiteral("A"));
+    }
+
+    void askUserParseInvalidOrPartial() {
+        // Truncated streaming JSON, wrong shapes, and empty questions all
+        // yield an empty list so the caller falls back to the generic card.
+        QVERIFY(AskUserQuestionParser::parse(QString()).isEmpty());
+        QVERIFY(AskUserQuestionParser::parse(QStringLiteral("{\"questions\": [{\"hea")).isEmpty());
+        QVERIFY(AskUserQuestionParser::parse(QStringLiteral("not json")).isEmpty());
+        QVERIFY(AskUserQuestionParser::parse(QStringLiteral("{}")).isEmpty());
+        QVERIFY(AskUserQuestionParser::parse(QStringLiteral(R"({"questions": []})")).isEmpty());
+        QVERIFY(AskUserQuestionParser::parse(QStringLiteral(R"({"questions": "x"})")).isEmpty());
+        QVERIFY(AskUserQuestionParser::parse(QStringLiteral(R"({"questions": [1]})")).isEmpty());
+        QVERIFY(AskUserQuestionParser::parse(QStringLiteral("[]")).isEmpty());
+    }
+
+    void askUserFormatSingleQuestion() {
+        const QVariantList questions = AskUserQuestionParser::parse(QStringLiteral(
+            R"({"questions": [{"header": "Scope", "question": "Q",
+                "options": [{"label": "Small", "description": ""}]}]})"));
+        // Single question: just the answer text.
+        QCOMPARE(AskUserQuestionParser::formatAnswers(questions, {optionAnswer("Small", 0)}),
+                 QStringLiteral("Small"));
+        // Free-form answers are prefixed and trimmed.
+        QCOMPARE(AskUserQuestionParser::formatAnswers(questions, {otherAnswer("  my answer  ")}),
+                 QStringLiteral("Other: my answer"));
+    }
+
+    void askUserFormatMultipleQuestions() {
+        const QVariantList questions = AskUserQuestionParser::parse(QStringLiteral(
+            R"({"questions": [
+                {"header": "Scope", "question": "Q1",
+                 "options": [{"label": "Small", "description": ""}]},
+                {"header": "", "question": "Q2",
+                 "options": [{"label": "Yes", "description": ""}]}
+            ]})"));
+        // Numbered lines with the header, falling back to "Question N".
+        QCOMPARE(AskUserQuestionParser::formatAnswers(
+                     questions, {optionAnswer("Small", 0), otherAnswer("custom")}),
+                 QStringLiteral("1. Scope: Small\n2. Question 2: Other: custom"));
     }
 };
 
