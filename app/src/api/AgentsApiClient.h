@@ -8,6 +8,7 @@
 #include <QNetworkRequest>
 #include <QObject>
 #include <QString>
+#include <QStringList>
 #include <QVariantMap>
 
 #include "api/dto/Chat.h"
@@ -97,6 +98,11 @@ public:
     /// GET /api/experimental/chats/usage-limits/status.
     /// Emits usageLimitStatusReceived().
     Q_INVOKABLE void usageLimitStatus();
+    /// GET /api/experimental/chats/by-workspace?workspace_ids=a,b,c: the
+    /// latest non-archived chat ID per workspace, RBAC-filtered. The server
+    /// caps the request at 25 IDs; callers must chunk larger lists. Emits
+    /// chatsByWorkspaceReceived().
+    Q_INVOKABLE void getChatsByWorkspace(const QStringList& workspaceIds);
 
     // -- Files ----------------------------------------------------------------
     /// POST /api/experimental/chats/files?organization={orgId}.
@@ -152,6 +158,8 @@ signals:
     void modelConfigsReceived(const QList<ChatModelConfig>& configs);
     void mcpServersReceived(const QList<McpServerConfig>& servers);
     void usageLimitStatusReceived(const ChatUsageLimitStatus& status);
+    /// Map of workspace ID -> latest chat ID for getChatsByWorkspace().
+    void chatsByWorkspaceReceived(const QVariantMap& chatsByWorkspace);
     void fileUploaded(const QString& fileId);
     void fileDownloaded(const QString& fileId, const QByteArray& data, const QString& contentType);
     void createChatPermissionReceived(bool allowed);

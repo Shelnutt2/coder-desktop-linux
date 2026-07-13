@@ -7,6 +7,7 @@
 #include <QList>
 #include <QMetaType>
 #include <QString>
+#include <QVariantMap>
 
 // Model catalog, model config, MCP server, and usage-limit DTOs for the
 // experimental Coder Agents chat API. JSON field names match
@@ -223,5 +224,20 @@ struct ChatUsageLimitExceeded {
 };
 
 Q_DECLARE_METATYPE(ChatUsageLimitExceeded)
+
+// ---------------------------------------------------------------------------
+// Chats-by-workspace map (GET /api/experimental/chats/by-workspace)
+// ---------------------------------------------------------------------------
+
+/// Parses the by-workspace response body, a JSON object mapping workspace
+/// IDs to the latest non-archived chat ID readable by the caller. Non-string
+/// values are skipped.
+inline QVariantMap parseChatsByWorkspaceMap(const QJsonObject& obj) {
+    QVariantMap map;
+    for (auto it = obj.constBegin(); it != obj.constEnd(); ++it) {
+        if (it.value().isString()) map.insert(it.key(), it.value().toString());
+    }
+    return map;
+}
 
 #endif  // CODER_DTO_CHATMODELS_H
