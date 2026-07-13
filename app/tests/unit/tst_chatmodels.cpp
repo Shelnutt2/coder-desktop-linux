@@ -317,16 +317,20 @@ private slots:
         QCOMPARE(model.rowCount(), 1);
 
         QSignalSpy dataSpy(&model, &QAbstractItemModel::dataChanged);
-        // A burst of deltas produces at most one dataChanged per ~16ms flush.
+        // A burst of deltas produces at most one dataChanged per flush
+        // interval (~50ms).
         for (int i = 0; i < 20; ++i)
             session.applyEvent(textDelta(QStringLiteral("c1"), QStringLiteral("x")));
         QCOMPARE(dataSpy.count(), 0);  // nothing flushed synchronously
-        QTest::qWait(60);
+        QTest::qWait(150);
         QVERIFY(dataSpy.count() >= 1);
         QVERIFY(dataSpy.count() < 20);
-        // The flush targets only the tail row.
+        // The flush targets only the tail row, and only the parts role, so
+        // bindings on the other roles skip re-evaluation.
         QCOMPARE(dataSpy.first().at(0).toModelIndex().row(), 0);
         QCOMPARE(dataSpy.first().at(1).toModelIndex().row(), 0);
+        QCOMPARE(dataSpy.first().at(2).value<QList<int>>(),
+                 QList<int>{ChatMessagesModel::PartsRole});
 
         // The accumulated text is visible after the flush.
         const QVariantList parts =
@@ -442,6 +446,46 @@ private slots:
         QCOMPARE(result.value(QStringLiteral("resultText")).toString(), QStringLiteral("ok"));
         // Tool duration pairs the result with its call by tool_call_id.
         QCOMPARE(result.value(QStringLiteral("durationMs")).toLongLong(), qint64(2000));
+    }
+
+    void testHasNewerUserMessage() {
+        ChatSession session(QStringLiteral("c1"));
+        ChatMessagesModel model(&session);
+        // Rows (newest-first): 0 = user "answer", 1 = assistant "question",
+        // 2 = user "prompt".
+        const ChatMessage assistant = ChatMessage::fromJson(QJsonDocument::fromJson(R"({
+            "id": 2, "chat_id": "c1", "role": "assistant",
+            "content": [{"type": "text", "text": "question"}]})")
+                                                                .object());
+        session.setInitialMessages({makeMessage(1, "prompt"), assistant, makeMessage(3, "answer")});
+        QCOMPARE(model.rowCount(), 3);
+
+        // The assistant row at index 1 has a newer user message (row 0).
+        QVERIFY(model.hasNewerUserMessage(1));
+        // The oldest row sees both newer rows, one of which is a user row.
+        QVERIFY(model.hasNewerUserMessage(2));
+        // The newest row has nothing newer; out-of-range rows are false.
+        QVERIFY(!model.hasNewerUserMessage(0));
+        QVERIFY(!model.hasNewerUserMessage(-1));
+        QVERIFY(!model.hasNewerUserMessage(99));
+    }
+
+    void testHasNewerUserMessageOnlyAssistantAbove() {
+        ChatSession session(QStringLiteral("c1"));
+        ChatMessagesModel model(&session);
+        const ChatMessage a1 = ChatMessage::fromJson(QJsonDocument::fromJson(R"({
+            "id": 2, "chat_id": "c1", "role": "assistant",
+            "content": [{"type": "text", "text": "one"}]})")
+                                                         .object());
+        const ChatMessage a2 = ChatMessage::fromJson(QJsonDocument::fromJson(R"({
+            "id": 3, "chat_id": "c1", "role": "assistant",
+            "content": [{"type": "text", "text": "two"}]})")
+                                                         .object());
+        session.setInitialMessages({makeMessage(1, "prompt"), a1, a2});
+        // Rows (newest-first): 0 and 1 are assistant messages; the user
+        // message itself sits at row 2, so no row has a newer user message.
+        QVERIFY(!model.hasNewerUserMessage(1));
+        QVERIFY(!model.hasNewerUserMessage(2));
     }
 };
 
