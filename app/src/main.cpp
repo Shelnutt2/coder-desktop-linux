@@ -202,7 +202,7 @@ int main(int argc, char* argv[]) {
 
     // ---- Polling controller (auto-refresh, caching, notifications) ----
     PollingController pollingController(apiClient, workspaceModel, taskModel, notificationManager,
-                                        settingsManager);
+                                        settingsManager, sessionManager);
 
     // NOTE: PollingController's constructor already connects
     // apiClient.workspacesReceived/tasksReceived to its handler slots.
