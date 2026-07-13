@@ -12,8 +12,18 @@ Rectangle {
     // The page's ChatController context object.
     property var chat: null
     property string planMarkdown: ""
-    property var steps: chat ? chat.parsePlanSteps(planMarkdown) : []
+    // Parsed steps are recomputed only when the plan markdown actually
+    // changes (handler assignment, not a binding), so streaming deltas on
+    // the same message never re-run the C++ parser.
+    property var steps: []
     signal keepPlanningRequested()
+
+    function reparse() {
+        steps = (chat && planMarkdown.length > 0) ? chat.parsePlanSteps(planMarkdown) : []
+    }
+    onPlanMarkdownChanged: reparse()
+    onChatChanged: reparse()
+    Component.onCompleted: reparse()
 
     visible: steps.length > 0
     implicitHeight: col.implicitHeight + 24
@@ -30,7 +40,13 @@ Rectangle {
 
         RowLayout {
             spacing: 6
-            Label { text: "\u2637"; color: CoderTheme.info; font.pixelSize: 13 }
+            Image {
+                source: "qrc:/CoderDesktop/assets/icons/plan.svg"
+                sourceSize.width: 14
+                sourceSize.height: 14
+                Layout.preferredWidth: 14
+                Layout.preferredHeight: 14
+            }
             Label {
                 text: "Plan (" + card.steps.length + " steps)"
                 color: CoderTheme.info
