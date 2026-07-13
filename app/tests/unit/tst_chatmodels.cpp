@@ -487,6 +487,72 @@ private slots:
         QVERIFY(!model.hasNewerUserMessage(1));
         QVERIFY(!model.hasNewerUserMessage(2));
     }
+
+    // -----------------------------------------------------------------------
+    // Regressions from live dev.coder.com payloads
+    // -----------------------------------------------------------------------
+
+    // Regression: sub-agent rows must inherit the parent's time-group
+    // section. On the live list, chat 0cd036c5 (updated today) has children
+    // last updated the previous day; grouping children by their own
+    // updated_at splits the "Today" section with interleaved "Yesterday"
+    // headers, which reads as a mis-ordered list.
+    void testSubagentInheritsParentTimeGroup() {
+        const QDateTime now = QDateTime::currentDateTimeUtc();
+        Chat parent = makeChat(QStringLiteral("parent"), QStringLiteral("Parent"), now);
+        Chat child = makeChat(QStringLiteral("child"), QStringLiteral("Child"), now.addDays(-2));
+        child.parentChatId = QStringLiteral("parent");
+        parent.children = {child};
+
+        ChatListModel m;
+        m.setChats({parent});
+        QCOMPARE(m.rowCount(), 2);
+        QCOMPARE(m.data(m.index(0), ChatListModel::TimeGroupRole).toString(),
+                 QStringLiteral("Today"));
+        // The child row two days old still belongs to the parent's section.
+        QVERIFY(m.data(m.index(1), ChatListModel::IsSubagentRole).toBool());
+        QCOMPARE(m.data(m.index(1), ChatListModel::TimeGroupRole).toString(),
+                 QStringLiteral("Today"));
+    }
+
+    void testSubagentInheritsPinnedSection() {
+        const QDateTime now = QDateTime::currentDateTimeUtc();
+        Chat parent = makeChat(QStringLiteral("parent"), QStringLiteral("Parent"), now,
+                               /*pinOrder=*/1);
+        Chat child = makeChat(QStringLiteral("child"), QStringLiteral("Child"), now.addDays(-2));
+        child.parentChatId = QStringLiteral("parent");
+        parent.children = {child};
+
+        ChatListModel m;
+        m.setChats({parent});
+        QCOMPARE(m.rowCount(), 2);
+        QCOMPARE(m.data(m.index(0), ChatListModel::TimeGroupRole).toString(),
+                 QStringLiteral("Pinned"));
+        QCOMPARE(m.data(m.index(1), ChatListModel::TimeGroupRole).toString(),
+                 QStringLiteral("Pinned"));
+    }
+
+    // Regression: a durable message replayed by the stream with an id OLDER
+    // than the loaded page must land at the oldest row end, keeping the
+    // newest-first row order intact.
+    void testOutOfOrderDurableInsertKeepsNewestFirstRows() {
+        ChatSession session(QStringLiteral("c1"));
+        ChatMessagesModel model(&session);
+        session.setInitialMessages(
+            {makeMessage(5158447, "page old"), makeMessage(5164185, "page new")});
+        QCOMPARE(model.rowCount(), 2);
+
+        // Stream replays an older durable message after the page landed.
+        session.applyEvent(messageEvent(QStringLiteral("c1"), 5150000, "replayed"));
+
+        QCOMPARE(model.rowCount(), 3);
+        QCOMPARE(model.data(model.index(0), ChatMessagesModel::MessageIdRole).toLongLong(),
+                 qint64(5164185));
+        QCOMPARE(model.data(model.index(1), ChatMessagesModel::MessageIdRole).toLongLong(),
+                 qint64(5158447));
+        QCOMPARE(model.data(model.index(2), ChatMessagesModel::MessageIdRole).toLongLong(),
+                 qint64(5150000));
+    }
 };
 
 QTEST_MAIN(TestChatModels)
