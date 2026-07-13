@@ -196,6 +196,7 @@ private:
     void applyChatInfo(const Chat& chat);
     void loadPersistedDraft();
     void persistDraft();
+    void openStreamOnce();
 
     static constexpr int kMessagePageSize = 50;
 
@@ -206,6 +207,7 @@ private:
     ChatMessagesModel* m_model = nullptr;     // Qt parent-owned (this)
     QString m_draft;
     bool m_initialLoaded = false;
+    bool m_streamOpened = false;
     Chat m_chat;
     QStringList m_prompts;
     bool m_hasUsageLimit = false;

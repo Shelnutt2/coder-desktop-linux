@@ -247,8 +247,14 @@ void ChatSession::applyMessage(const ChatMessage& message) {
             return;
         }
     }
-    m_messages.append(message);
-    emit messageUpserted(static_cast<int>(m_messages.size()) - 1, false, hadTail);
+    // Insert preserving ascending id order. Stream replays (a socket that
+    // connected with after_id=0 replays the full history) can deliver
+    // messages with ids OLDER than the REST page that landed mid-replay,
+    // so a blind append would corrupt the newest-first row mapping.
+    int pos = static_cast<int>(m_messages.size());
+    while (pos > 0 && m_messages.at(pos - 1).id > message.id) --pos;
+    m_messages.insert(pos, message);
+    emit messageUpserted(pos, false, hadTail);
 }
 
 void ChatSession::commitHistoryReset() {
