@@ -323,6 +323,10 @@ class ChatLayoutTest : public QObject {
         std::unique_ptr<QQmlEngine> engine;
         QQuickWindow* window = nullptr;  // owned by engine root object
         QQuickItem* page = nullptr;      // owned by window
+        // Set when the harness fails to load because a QML runtime module
+        // (QtQuick, Controls, WorkerScript, ...) is not installed on the
+        // host. Lets the test skip instead of fail on minimal CI images.
+        bool missingQmlModules = false;
     };
 
     // The generated CoderDesktop qmldir carries "prefer :/CoderDesktop/",
@@ -366,7 +370,11 @@ class ChatLayoutTest : public QObject {
         QQmlComponent component(l.engine.get(), QUrl::fromLocalFile(CHAT_LAYOUT_HARNESS));
         QObject* root = component.create();
         if (!root) {
-            for (const auto& e : component.errors()) qWarning() << e;
+            for (const auto& e : component.errors()) {
+                qWarning() << e;
+                if (e.description().contains(QStringLiteral("is not installed")))
+                    l.missingQmlModules = true;
+            }
         }
         l.window = qobject_cast<QQuickWindow*>(root);
         if (!l.window) return l;
@@ -461,6 +469,7 @@ private slots:
 
         Scenario clean;  // 13 sub-agents, nothing queued, no callouts
         Loaded l = load(clean, width, height);
+        if (l.missingQmlModules) QSKIP("QML runtime modules are not installed on this host");
         QVERIFY(l.window);
         QVERIFY(l.page);
         dumpSections(l.page, QString("contract %1x%2").arg(width).arg(height));
@@ -511,6 +520,7 @@ private slots:
         const QList<QSize> sizes{{480, 700}, {1280, 800}};
         for (const QSize& size : sizes) {
             Loaded l = load(scenario, size.width(), size.height());
+            if (l.missingQmlModules) QSKIP("QML runtime modules are not installed on this host");
             QVERIFY(l.window);
             if (openDrawer) {
                 if (QObject* drawer = l.window->findChild<QObject*>("subagentDrawer")) {
