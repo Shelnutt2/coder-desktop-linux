@@ -233,7 +233,9 @@ Item {
                 id: row
                 required property var model
                 required property int index
-                width: chatList.width
+                // Centered readable rows when the window is maximized.
+                width: Math.min(chatList.width, 900)
+                anchors.horizontalCenter: parent ? parent.horizontalCenter : undefined
                 height: rowLayout.implicitHeight + 16
                 radius: CoderTheme.radius
                 color: rowMa.containsMouse ? CoderTheme.hoverBg : CoderTheme.surface
@@ -250,11 +252,13 @@ Item {
                     spacing: 8
 
                     // Sub-agent connector.
-                    Label {
+                    Image {
                         visible: row.model.isSubagent
-                        text: "\u2937"
-                        color: CoderTheme.textDisabled
-                        font.pixelSize: 11
+                        source: "qrc:/CoderDesktop/assets/icons/subagent.svg"
+                        sourceSize.width: 12
+                        sourceSize.height: 12
+                        Layout.preferredWidth: 12
+                        Layout.preferredHeight: 12
                     }
 
                     // Status indicator: colored dot, spinning arc while
@@ -416,20 +420,28 @@ Item {
                 visible: chatList.count === 0 && agentsController.available
                 opacity: 0.6
 
+                // Distinguish "no agents at all" from "nothing matches the
+                // current search or filter".
+                readonly property bool filtered: chatListModel.searchText.length > 0
+                                                 || chatListModel.filter !== 0
+
                 Label {
-                    text: "No agents yet"
+                    text: parent.filtered ? "No matching agents" : "No agents yet"
                     font.pixelSize: 16
                     color: CoderTheme.textSecondary
                     Layout.alignment: Qt.AlignHCenter
                 }
                 Label {
-                    text: "Start a new agent to delegate work"
+                    text: parent.filtered
+                        ? "Try a different search or filter"
+                        : "Start a new agent to delegate work"
                     font.pixelSize: 12
                     color: CoderTheme.textDisabled
                     Layout.alignment: Qt.AlignHCenter
                 }
                 CoderButton {
                     text: "New agent"
+                    visible: !parent.filtered
                     Layout.alignment: Qt.AlignHCenter
                     onClicked: agentsPage.showCreate = true
                 }
