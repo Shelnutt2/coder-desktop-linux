@@ -4,10 +4,13 @@ import QtQuick.Layouts
 import QtQuick.Dialogs
 import CoderDesktop
 
-// Chat composer: autosizing multiline editor (capped at ~40% of the window
-// height, internally scrollable beyond that), attachment chips, per-message
-// override chips (model, MCP, plan mode, busy behavior), and a send button
-// that morphs into Stop while the agent is running.
+// Chat composer: one compact input row (min ~48px) that grows with the
+// text up to ~40% of the window height and scrolls internally beyond
+// that. An options button in front of the editor holds the attachment
+// picker and the per-message overrides (model, MCP, plan mode, busy
+// behavior); the send button morphs into Stop while the agent is running.
+// Attachment chips and active-override chips render only when present, so
+// the idle composer stays a single row.
 //
 // Key handling honors agentsController.sendShortcut:
 //  - "enter": Enter sends, Shift+Enter inserts a newline.
@@ -139,141 +142,55 @@ ColumnLayout {
         }
     }
 
-    // ---- Editor ----
-    Rectangle {
-        Layout.fillWidth: true
-        // Autosize with the text up to ~40% of the window; beyond that the
-        // inner Flickable scrolls.
-        readonly property real maxEditorHeight: (Window.window ? Window.window.height : 700) * 0.4
-        implicitHeight: Math.min(input.implicitHeight + 16, maxEditorHeight)
-        radius: CoderTheme.radius
-        color: CoderTheme.surface
-        border.color: input.activeFocus ? CoderTheme.primary : CoderTheme.border
-        border.width: 1
-
-        Flickable {
-            id: editorFlick
-            anchors.fill: parent
-            anchors.margins: 4
-            contentWidth: width
-            contentHeight: input.implicitHeight
-            clip: true
-            boundsBehavior: Flickable.StopAtBounds
-            // Consume wheel events so scrolling the composer never scrolls
-            // the chat timeline behind it.
-            WheelHandler {
-                onWheel: function(event) {
-                    editorFlick.contentY = Math.max(0, Math.min(
-                        editorFlick.contentHeight - editorFlick.height,
-                        editorFlick.contentY - event.angleDelta.y))
-                    event.accepted = true
-                }
-            }
-
-            TextArea.flickable: TextArea {
-                id: input
-                placeholderText: composer.disabled
-                    ? "This chat is read-only"
-                    : "Message the agent\u2026"
-                wrapMode: TextArea.Wrap
-                enabled: !composer.disabled
-                color: CoderTheme.textPrimary
-                placeholderTextColor: CoderTheme.textDisabled
-                font.pixelSize: 13
-                background: null
-                onTextChanged: if (composer.chat && composer.chat.draft !== text)
-                                   composer.chat.draft = text
-
-                Keys.onPressed: function(event) {
-                    // Esc interrupts a running agent.
-                    if (event.key === Qt.Key_Escape && composer.agentBusy) {
-                        composer.chat.interrupt()
-                        event.accepted = true
-                        return
-                    }
-                    if (event.key === Qt.Key_Return || event.key === Qt.Key_Enter) {
-                        var modifier = (event.modifiers & Qt.ControlModifier)
-                        var shift = (event.modifiers & Qt.ShiftModifier)
-                        var sendOnPlainEnter = agentsController.sendShortcut !== "modifier_enter"
-                        var shouldSend = sendOnPlainEnter ? !shift : modifier
-                        if (shouldSend) {
-                            composer.sendNow()
-                            event.accepted = true
-                            return
-                        }
-                        // Fall through: newline.
-                    }
-                    // Up/Down in an empty composer cycles prompt history
-                    // (newest first, as returned by GET /prompts).
-                    if ((event.key === Qt.Key_Up || event.key === Qt.Key_Down)
-                            && composer.chat && composer.chat.prompts.length > 0
-                            && (input.text.length === 0 || composer.historyIndex >= 0)) {
-                        var prompts = composer.chat.prompts
-                        var idx = composer.historyIndex
-                        idx += (event.key === Qt.Key_Up) ? 1 : -1
-                        if (idx < -1) idx = -1
-                        if (idx >= prompts.length) idx = prompts.length - 1
-                        composer.historyIndex = idx
-                        input.text = idx >= 0 ? prompts[idx] : ""
-                        input.cursorPosition = input.text.length
-                        event.accepted = true
-                    }
-                }
-            }
-        }
-    }
-
-    // ---- Chip row + send ----
-    // The chip group wraps in a Flow so narrow widths (480px design size)
-    // flow onto a second line instead of overflowing off-screen.
+    // ---- Input row: options, editor, send ----
     RowLayout {
         Layout.fillWidth: true
         spacing: 6
 
-        Flow {
-            Layout.fillWidth: true
-            Layout.alignment: Qt.AlignVCenter
-            spacing: 6
+        // Options: attachments plus per-message overrides, folded into one
+        // menu so the composer stays a single ~48px row when idle.
+        ToolButton {
+            id: optionsButton
+            implicitWidth: 30
+            implicitHeight: 30
+            padding: 0
+            text: "+"
+            font.pixelSize: 16
+            enabled: !composer.disabled
+            Layout.alignment: Qt.AlignBottom
+            onClicked: optionsMenu.open()
+            ToolTip.visible: hovered
+            ToolTip.text: "Attachments and message options"
 
-            // Attachment picker.
-            ToolButton {
-                icon.source: "qrc:/CoderDesktop/assets/icons/paperclip.svg"
-                icon.color: enabled ? CoderTheme.textSecondary : CoderTheme.textDisabled
-                icon.width: 15
-                icon.height: 15
-                enabled: !composer.disabled
-                onClicked: fileDialog.open()
-                ToolTip.visible: hovered
-                ToolTip.text: "Attach file"
-            }
-
-            // Compact model override.
-            ComboBox {
-                id: modelBox
-                width: 110
-                font.pixelSize: 10
-                flat: true
-                enabled: !composer.disabled
-                model: {
-                    var items = [{ id: "", displayName: "Model" }]
-                    var configs = agentsController.modelConfigs
-                    for (var i = 0; i < configs.length; ++i) items.push(configs[i])
-                    return items
+            Menu {
+                id: optionsMenu
+                MenuItem {
+                    text: "Attach file\u2026"
+                    onTriggered: fileDialog.open()
                 }
-                textRole: "displayName"
-                valueRole: "id"
-                onActivated: composer.modelOverrideId = currentValue
-            }
-
-            // MCP server override menu (per-message mcp_server_ids).
-            ToolButton {
-                text: "MCP"
-                font.pixelSize: 10
-                enabled: !composer.disabled
-                visible: agentsController.mcpServers.length > 0
-                onClicked: mcpMenu.open()
                 Menu {
-                    id: mcpMenu
+                    title: "Model"
+                    MenuItem {
+                        text: "Default"
+                        checkable: true
+                        checked: composer.modelOverrideId.length === 0
+                        onTriggered: composer.modelOverrideId = ""
+                    }
+                    Repeater {
+                        model: agentsController.modelConfigs
+                        MenuItem {
+                            required property var modelData
+                            text: modelData.displayName
+                            checkable: true
+                            checked: composer.modelOverrideId === modelData.id
+                            onTriggered: composer.modelOverrideId = modelData.id
+                        }
+                    }
+                }
+                Menu {
+                    title: "MCP servers"
+                    // MCP server override menu (per-message mcp_server_ids).
+                    enabled: agentsController.mcpServers.length > 0
                     Repeater {
                         model: agentsController.mcpServers
                         MenuItem {
@@ -294,30 +211,16 @@ ColumnLayout {
                         }
                     }
                 }
-            }
-
-            // Persistent plan-mode toggle.
-            ToolButton {
-                text: "Plan"
-                font.pixelSize: 10
-                checkable: true
-                enabled: !composer.disabled
-                checked: composer.chat ? composer.chat.planMode : false
-                onClicked: composer.chat.setPlanModeEnabled(checked)
-                ToolTip.visible: hovered
-                ToolTip.text: "Plan mode"
-            }
-
-            // Busy behavior for sends while the agent works.
-            ToolButton {
-                text: composer.busyBehavior === "queue" ? "Queue" : "Interrupt"
-                font.pixelSize: 10
-                enabled: !composer.disabled
-                onClicked: busyMenu.open()
-                ToolTip.visible: hovered
-                ToolTip.text: "What happens when you send while the agent is busy"
+                MenuItem {
+                    // Persistent plan-mode toggle.
+                    text: "Plan mode"
+                    checkable: true
+                    checked: composer.chat ? composer.chat.planMode : false
+                    onTriggered: composer.chat.setPlanModeEnabled(checked)
+                }
                 Menu {
-                    id: busyMenu
+                    // Busy behavior for sends while the agent works.
+                    title: "When busy"
                     MenuItem {
                         text: "Queue (default)"
                         checkable: true
@@ -334,14 +237,150 @@ ColumnLayout {
             }
         }
 
-        // Send button; morphs into a Stop square while the agent runs and no
-        // sendable input exists.
+        // Active-override chips: zero footprint unless an override is on.
+        Rectangle {
+            visible: composer.chat ? composer.chat.planMode : false
+            implicitWidth: planChipLabel.implicitWidth + 12
+            implicitHeight: 20
+            radius: 10
+            color: CoderTheme.activeSurface
+            Layout.alignment: Qt.AlignBottom
+            Layout.bottomMargin: 5
+            Label {
+                id: planChipLabel
+                anchors.centerIn: parent
+                text: "Plan"
+                color: CoderTheme.primary
+                font.pixelSize: 10
+            }
+            ToolTip.visible: planChipHover.hovered
+            ToolTip.text: "Plan mode is on"
+            HoverHandler { id: planChipHover }
+        }
+        Rectangle {
+            visible: composer.modelOverrideId.length > 0
+            implicitWidth: modelChipLabel.implicitWidth + 12
+            implicitHeight: 20
+            radius: 10
+            color: CoderTheme.surfaceSecondary
+            border.color: CoderTheme.border
+            border.width: 1
+            Layout.alignment: Qt.AlignBottom
+            Layout.bottomMargin: 5
+            Label {
+                id: modelChipLabel
+                anchors.centerIn: parent
+                text: {
+                    var configs = agentsController.modelConfigs
+                    for (var i = 0; i < configs.length; ++i)
+                        if (configs[i].id === composer.modelOverrideId)
+                            return configs[i].displayName
+                    return "Model"
+                }
+                color: CoderTheme.textSecondary
+                font.pixelSize: 10
+            }
+        }
+
+        // ---- Editor ----
+        Rectangle {
+            Layout.fillWidth: true
+            // Autosize with the text up to ~40% of the window; beyond that
+            // the inner Flickable scrolls.
+            readonly property real maxEditorHeight:
+                (Window.window ? Window.window.height : 700) * 0.4
+            implicitHeight: Math.max(36, Math.min(input.implicitHeight + 8, maxEditorHeight))
+            radius: CoderTheme.radius
+            color: CoderTheme.surface
+            border.color: input.activeFocus ? CoderTheme.primary : CoderTheme.border
+            border.width: 1
+
+            Flickable {
+                id: editorFlick
+                anchors.fill: parent
+                anchors.margins: 4
+                contentWidth: width
+                contentHeight: input.implicitHeight
+                clip: true
+                boundsBehavior: Flickable.StopAtBounds
+                // Consume wheel events so scrolling the composer never
+                // scrolls the chat timeline behind it.
+                WheelHandler {
+                    onWheel: function(event) {
+                        editorFlick.contentY = Math.max(0, Math.min(
+                            editorFlick.contentHeight - editorFlick.height,
+                            editorFlick.contentY - event.angleDelta.y))
+                        event.accepted = true
+                    }
+                }
+
+                TextArea.flickable: TextArea {
+                    id: input
+                    placeholderText: composer.disabled
+                        ? "This chat is read-only"
+                        : "Message the agent\u2026"
+                    wrapMode: TextArea.Wrap
+                    enabled: !composer.disabled
+                    color: CoderTheme.textPrimary
+                    placeholderTextColor: CoderTheme.textDisabled
+                    font.pixelSize: 13
+                    background: null
+                    topPadding: 5
+                    bottomPadding: 5
+                    leftPadding: 8
+                    rightPadding: 8
+                    onTextChanged: if (composer.chat && composer.chat.draft !== text)
+                                       composer.chat.draft = text
+
+                    Keys.onPressed: function(event) {
+                        // Esc interrupts a running agent.
+                        if (event.key === Qt.Key_Escape && composer.agentBusy) {
+                            composer.chat.interrupt()
+                            event.accepted = true
+                            return
+                        }
+                        if (event.key === Qt.Key_Return || event.key === Qt.Key_Enter) {
+                            var modifier = (event.modifiers & Qt.ControlModifier)
+                            var shift = (event.modifiers & Qt.ShiftModifier)
+                            var sendOnPlainEnter =
+                                agentsController.sendShortcut !== "modifier_enter"
+                            var shouldSend = sendOnPlainEnter ? !shift : modifier
+                            if (shouldSend) {
+                                composer.sendNow()
+                                event.accepted = true
+                                return
+                            }
+                            // Fall through: newline.
+                        }
+                        // Up/Down in an empty composer cycles prompt history
+                        // (newest first, as returned by GET /prompts).
+                        if ((event.key === Qt.Key_Up || event.key === Qt.Key_Down)
+                                && composer.chat && composer.chat.prompts.length > 0
+                                && (input.text.length === 0 || composer.historyIndex >= 0)) {
+                            var prompts = composer.chat.prompts
+                            var idx = composer.historyIndex
+                            idx += (event.key === Qt.Key_Up) ? 1 : -1
+                            if (idx < -1) idx = -1
+                            if (idx >= prompts.length) idx = prompts.length - 1
+                            composer.historyIndex = idx
+                            input.text = idx >= 0 ? prompts[idx] : ""
+                            input.cursorPosition = input.text.length
+                            event.accepted = true
+                        }
+                    }
+                }
+            }
+        }
+
+        // Send button; morphs into a Stop square while the agent runs and
+        // no sendable input exists. Bottom-anchored so it stays by the
+        // newest line while the editor grows.
         Button {
             id: sendButton
             readonly property bool stopMode: composer.agentBusy && !composer.canSend
             enabled: !composer.disabled && (stopMode || composer.canSend)
-            implicitWidth: 36
-            implicitHeight: 36
+            implicitWidth: 32
+            implicitHeight: 32
             Layout.alignment: Qt.AlignBottom
             onClicked: stopMode ? composer.chat.interrupt() : composer.sendNow()
             ToolTip.visible: hovered
@@ -355,7 +394,7 @@ ColumnLayout {
             icon.height: 15
 
             background: Rectangle {
-                radius: 18
+                radius: 16
                 color: sendButton.enabled
                     ? (sendButton.stopMode ? CoderTheme.error : CoderTheme.primary)
                     : CoderTheme.surfaceSecondary
