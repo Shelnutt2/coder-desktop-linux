@@ -23,6 +23,23 @@ Rectangle {
 
     color: CoderTheme.background
 
+    // Content is centered at a readable width when the window is maximized
+    // (mirrors the web UI's ~900px chat column).
+    readonly property real contentMaxWidth: 900
+
+    // Input fence: this page is loaded on top of the still-live chat list
+    // (AgentsPage keeps its ListView underneath). Plain Rectangles do not
+    // consume pointer events, so without this any wheel or click not
+    // handled by a child of this page would fall through to the hidden
+    // chat-list rows and navigate to whatever chat happens to sit under
+    // the cursor. Declared first so all page content stacks above it.
+    MouseArea {
+        anchors.fill: parent
+        acceptedButtons: Qt.AllButtons
+        onClicked: {}
+        onWheel: function(wheel) { wheel.accepted = true }
+    }
+
     // ChatController lives for the lifetime of this page and is recreated
     // when the page navigates to a different chat (sub-agent breadcrumbs).
     property var chat: null
@@ -32,6 +49,7 @@ Rectangle {
             chat = null
         }
         if (chatId.length > 0) chat = agentsController.openChat(chatId)
+        refreshWorkspaceInfo()
     }
     Component.onCompleted: {
         reopenChat()
@@ -60,18 +78,38 @@ Rectangle {
 
     property bool showDiff: false
 
-    // Sub-agent children, recomputed on chat-list changes.
+    // Associated workspace (name + status) resolved from WorkspaceModel.
+    // Re-resolved when the chat metadata or the workspace list changes, so
+    // the chip fills in even when chats load before workspaces.
+    property var workspaceInfo: ({ found: false, name: "", statusString: "Unknown" })
+    function refreshWorkspaceInfo() {
+        workspaceInfo = workspaceModel.infoForId(chat && chat.workspaceId ? chat.workspaceId : "")
+    }
+    Connections {
+        target: workspaceModel
+        function onCountChanged() { page.refreshWorkspaceInfo() }
+        function onDataChanged() { page.refreshWorkspaceInfo() }
+    }
+
+    // Sub-agent children. Recomputed on chat-list changes, but only
+    // reassigned when the result actually differs so unrelated chat
+    // upserts do not rebuild the strip's delegates.
     property var subagents: agentsController.subagentsOf(chatId)
+    function refreshSubagents() {
+        var next = agentsController.subagentsOf(chatId)
+        if (JSON.stringify(next) !== JSON.stringify(subagents)) subagents = next
+    }
     Connections {
         target: agentsController
-        function onChatUpserted(c) { page.subagents = agentsController.subagentsOf(page.chatId) }
-        function onChatsReset(c) { page.subagents = agentsController.subagentsOf(page.chatId) }
+        function onChatUpserted(c) { page.refreshSubagents() }
+        function onChatsReset(c) { page.refreshSubagents() }
     }
 
     // Jump to the newest end after the user sends a message.
     Connections {
         target: page.chat
         function onMessageSent() { timeline.positionViewAtBeginning() }
+        function onChatInfoChanged() { page.refreshWorkspaceInfo() }
     }
 
     function statusChipStatus(s) {
@@ -142,6 +180,39 @@ Rectangle {
             StatusChip {
                 visible: page.chat !== null
                 status: page.chat ? page.statusChipStatus(page.chat.statusString) : "Stopped"
+            }
+
+            // Associated workspace chip (name + status dot).
+            Rectangle {
+                visible: page.chat !== null && page.chat.workspaceId.length > 0
+                implicitWidth: wsChipRow.implicitWidth + 16
+                implicitHeight: 22
+                radius: 11
+                color: CoderTheme.surfaceSecondary
+                border.color: CoderTheme.border
+                border.width: 1
+
+                RowLayout {
+                    id: wsChipRow
+                    anchors.centerIn: parent
+                    spacing: 5
+                    Rectangle {
+                        width: 7; height: 7; radius: 3.5
+                        color: CoderTheme.statusColor(page.workspaceInfo.statusString)
+                    }
+                    Label {
+                        text: page.workspaceInfo.found ? page.workspaceInfo.name : "workspace"
+                        color: CoderTheme.textSecondary
+                        font.pixelSize: 10
+                        elide: Text.ElideRight
+                        Layout.maximumWidth: 140
+                    }
+                }
+                ToolTip.visible: wsChipHover.hovered
+                ToolTip.text: "Workspace: " + (page.workspaceInfo.found
+                    ? page.workspaceInfo.name + " (" + page.workspaceInfo.statusString + ")"
+                    : page.chat ? page.chat.workspaceId : "")
+                HoverHandler { id: wsChipHover }
             }
 
             // Connection pill; click reconnects when degraded.
@@ -305,7 +376,10 @@ Rectangle {
 
                     ColumnLayout {
                         id: rowContent
-                        width: parent.width
+                        // Centered readable column when the window is wider
+                        // than the max content width.
+                        width: Math.min(parent.width, page.contentMaxWidth)
+                        anchors.horizontalCenter: parent.horizontalCenter
                         spacing: 4
 
                         // Per-part rendering; user text collapses into a
@@ -317,6 +391,17 @@ Rectangle {
                                 id: partItem
                                 required property var modelData
                                 readonly property string ptype: modelData.type
+                                // ask_user_question tool calls render as an
+                                // interactive question card once their args
+                                // parse as a valid questions object; until
+                                // then (streaming/incomplete) the generic
+                                // tool card is used.
+                                readonly property var askQuestions:
+                                    (ptype === "tool-call" || ptype === "tool-result")
+                                    && modelData.toolName === "ask_user_question"
+                                    && page.chat
+                                        ? page.chat.parseAskUserQuestions(modelData.argsJson)
+                                        : []
                                 Layout.fillWidth: true
                                 implicitHeight: partLoader.item ? partLoader.item.implicitHeight : 0
 
@@ -329,7 +414,8 @@ Rectangle {
                                         if (partItem.ptype === "reasoning") return reasoningComp
                                         if (partItem.ptype === "tool-call"
                                                 || partItem.ptype === "tool-result")
-                                            return toolComp
+                                            return partItem.askQuestions.length > 0
+                                                ? askUserComp : toolComp
                                         if (partItem.ptype === "source") return sourceComp
                                         if (partItem.ptype === "file"
                                                 || partItem.ptype === "image"
@@ -393,6 +479,24 @@ Rectangle {
                                         }
                                     }
                                     Component {
+                                        id: askUserComp
+                                        AskUserQuestionCard {
+                                            chat: page.chat
+                                            questions: partItem.askQuestions
+                                            isError: partItem.modelData.isError === true
+                                            // A newer user message means the
+                                            // questions were already answered
+                                            // (here or elsewhere). count in
+                                            // the binding re-evaluates it as
+                                            // messages arrive.
+                                            answered: timeline.model
+                                                ? timeline.model.count >= 0
+                                                  && timeline.model.hasNewerUserMessage(
+                                                         messageRow.index)
+                                                : false
+                                        }
+                                    }
+                                    Component {
                                         id: sourceComp
                                         SourceCitationRow {
                                             title: partItem.modelData.title
@@ -432,17 +536,18 @@ Rectangle {
                         }
 
                         // Plan card on the newest assistant message while the
-                        // chat is in plan mode. Hidden when the message parses
-                        // to zero plan steps so no empty card is rendered.
+                        // chat is in plan mode. planMarkdown stays empty while
+                        // the message is still streaming so PlanCard's parsed
+                        // steps are not recomputed on every delta flush.
                         PlanCard {
-                            visible: page.chat && page.chat.planMode
-                                     && messageRow.model.role === "assistant"
-                                     && messageRow.index === 0
-                                     && messageRow.model.isStreaming !== true
-                                     && steps.length > 0
+                            visible: steps.length > 0
                             Layout.fillWidth: true
                             chat: page.chat
                             planMarkdown: {
+                                if (!page.chat || !page.chat.planMode) return ""
+                                if (messageRow.model.role !== "assistant"
+                                        || messageRow.index !== 0) return ""
+                                if (messageRow.model.isStreaming === true) return ""
                                 var parts = messageRow.model.parts
                                 for (var i = parts.length - 1; i >= 0; --i)
                                     if (parts[i].type === "text") return parts[i].text
@@ -484,20 +589,106 @@ Rectangle {
             }
         }
 
-        // ---- Sub-agent cards ----
-        ColumnLayout {
+        // ---- Sub-agent strip ----
+        // Single compact collapsible strip above the composer. Collapsed by
+        // default (header row only); expanded shows a self-scrolling list
+        // capped at ~30% of the page height. Expand state lives on this
+        // page instance only (per page session).
+        Rectangle {
+            id: subagentStrip
             visible: page.subagents.length > 0
             Layout.fillWidth: true
-            spacing: 4
-            Repeater {
+            Layout.maximumWidth: page.contentMaxWidth
+            Layout.alignment: Qt.AlignHCenter
+            property bool expanded: false
+            readonly property int runningCount: {
+                var n = 0
+                for (var i = 0; i < page.subagents.length; ++i) {
+                    var s = page.subagents[i].statusString
+                    if (s === "running" || s === "pending" || s === "waiting") ++n
+                }
+                return n
+            }
+            implicitHeight: stripHeader.height
+                            + (expanded ? subagentList.height + 4 : 0)
+            radius: CoderTheme.radiusSm
+            color: CoderTheme.surface
+            border.color: CoderTheme.border
+            border.width: 1
+            clip: true
+
+            Item {
+                id: stripHeader
+                anchors.top: parent.top
+                anchors.left: parent.left
+                anchors.right: parent.right
+                height: 32
+
+                RowLayout {
+                    anchors.fill: parent
+                    anchors.leftMargin: 10
+                    anchors.rightMargin: 10
+                    spacing: 6
+
+                    Label {
+                        text: subagentStrip.expanded ? "\u25be" : "\u25b8"
+                        color: CoderTheme.textSecondary
+                        font.pixelSize: 12
+                    }
+                    Label {
+                        text: "Sub-agents (" + page.subagents.length + ")"
+                              + (subagentStrip.runningCount > 0
+                                 ? " - " + subagentStrip.runningCount + " running" : "")
+                        color: CoderTheme.textPrimary
+                        font.pixelSize: 12
+                        font.weight: Font.Medium
+                        elide: Text.ElideRight
+                        Layout.fillWidth: true
+                    }
+                }
+                // Real click only: a drag past the threshold cancels the
+                // tap, so scroll gestures never toggle the strip.
+                TapHandler {
+                    gesturePolicy: TapHandler.DragThreshold
+                    onTapped: subagentStrip.expanded = !subagentStrip.expanded
+                }
+                HoverHandler { cursorShape: Qt.PointingHandCursor }
+            }
+
+            ListView {
+                id: subagentList
+                visible: subagentStrip.expanded
+                anchors.top: stripHeader.bottom
+                anchors.left: parent.left
+                anchors.right: parent.right
+                anchors.leftMargin: 4
+                anchors.rightMargin: 4
+                height: subagentStrip.expanded
+                        ? Math.min(contentHeight, page.height * 0.3) : 0
+                clip: true
+                spacing: 2
+                interactive: contentHeight > height
+                boundsBehavior: Flickable.StopAtBounds
                 model: page.subagents
-                SubagentInlineCard {
+
+                delegate: SubagentInlineCard {
                     required property var modelData
-                    Layout.fillWidth: true
+                    width: subagentList.width
                     chatId: modelData.id
                     title: modelData.title
                     statusString: modelData.statusString
                     onOpenRequested: function(id) { page.openChildRequested(id) }
+                }
+
+                // Contain wheel events: scroll this list in place and never
+                // let the wheel reach anything behind it.
+                WheelHandler {
+                    onWheel: function(event) {
+                        subagentList.contentY = Math.max(0, Math.min(
+                            subagentList.contentHeight - subagentList.height,
+                            subagentList.contentY - event.angleDelta.y))
+                        event.accepted = true
+                    }
                 }
             }
         }
@@ -508,6 +699,8 @@ Rectangle {
             ActionRequiredForm {
                 required property var modelData
                 Layout.fillWidth: true
+                Layout.maximumWidth: page.contentMaxWidth
+                Layout.alignment: Qt.AlignHCenter
                 chat: page.chat
                 toolCallId: modelData.toolCallId
                 toolName: modelData.toolName
@@ -518,15 +711,21 @@ Rectangle {
         // ---- Status callouts / queue / composer ----
         ChatStatusCallout {
             Layout.fillWidth: true
+            Layout.maximumWidth: page.contentMaxWidth
+            Layout.alignment: Qt.AlignHCenter
             chat: page.chat
         }
         QueuedMessagesList {
             Layout.fillWidth: true
+            Layout.maximumWidth: page.contentMaxWidth
+            Layout.alignment: Qt.AlignHCenter
             chat: page.chat
         }
         ChatComposer {
             id: composer
             Layout.fillWidth: true
+            Layout.maximumWidth: page.contentMaxWidth
+            Layout.alignment: Qt.AlignHCenter
             chat: page.chat
             disabled: (page.chat && page.chat.archived) || !agentsController.available
         }
