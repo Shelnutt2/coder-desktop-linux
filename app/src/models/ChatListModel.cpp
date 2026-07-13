@@ -48,7 +48,13 @@ QVariant ChatListModel::data(const QModelIndex& index, int role) const {
             return relativeTimeFor(c.updatedAt);
         case TimeGroupRole:
             // Sub-agents inherit their position (and section) from the
-            // parent row above them.
+            // parent row above them; grouping by the child's own timestamp
+            // would split the parent's section with interleaved headers.
+            if (r.isSubagent) {
+                for (const Chat& parent : m_chats) {
+                    if (parent.id == r.parentId) return timeGroupFor(parent);
+                }
+            }
             return timeGroupFor(c);
         case DiffStatusRole:
             return c.diffStatus.hasValue ? QStringLiteral("+%1 -%2")

@@ -207,8 +207,11 @@ void ChatMessagesModel::onMessageUpserted(int durableIndex, bool wasExisting, bo
         return;
     }
 
-    // Appended durable message becomes the newest row.
-    const int row = m_tailVisible ? 1 : 0;
+    // Inserted durable message. Ids ascend oldest-to-newest in the session
+    // list, so the new row index mirrors the durable position: an append at
+    // the newest end lands at row 0 (after the optional tail row), an
+    // out-of-order stream replay lands further down.
+    const int row = (m_durableCount - durableIndex) + (m_tailVisible ? 1 : 0);
     beginInsertRows(QModelIndex(), row, row);
     ++m_durableCount;
     endInsertRows();
