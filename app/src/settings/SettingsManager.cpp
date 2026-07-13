@@ -31,6 +31,8 @@ static const struct {
     {"disableFileDownload", false},
     {"theme", QStringLiteral("system")},
     {"notificationsEnabled", true},
+    {"workspaceListOnlyMine", true},
+    {"workspaceNotifyOnlyMine", true},
     {"checkForUpdates", true},
     {"logLevel", QStringLiteral("info")},
     {"refreshIntervalSec", 10},
@@ -180,6 +182,14 @@ bool SettingsManager::notificationsEnabled() const {
     return resolve(QStringLiteral("notificationsEnabled"), true).toBool();
 }
 
+bool SettingsManager::workspaceListOnlyMine() const {
+    return resolve(QStringLiteral("workspaceListOnlyMine"), true).toBool();
+}
+
+bool SettingsManager::workspaceNotifyOnlyMine() const {
+    return resolve(QStringLiteral("workspaceNotifyOnlyMine"), true).toBool();
+}
+
 bool SettingsManager::checkForUpdates() const {
     return resolve(QStringLiteral("checkForUpdates"), true).toBool();
 }
@@ -260,6 +270,14 @@ bool SettingsManager::themeLocked() const {
 }
 bool SettingsManager::notificationsEnabledLocked() const {
     return m_mdm->isLocked(QStringLiteral("notificationsEnabled"));
+}
+
+bool SettingsManager::workspaceListOnlyMineLocked() const {
+    return m_mdm->isLocked(QStringLiteral("workspaceListOnlyMine"));
+}
+
+bool SettingsManager::workspaceNotifyOnlyMineLocked() const {
+    return m_mdm->isLocked(QStringLiteral("workspaceNotifyOnlyMine"));
 }
 bool SettingsManager::checkForUpdatesLocked() const {
     return m_mdm->isLocked(QStringLiteral("checkForUpdates"));
