@@ -98,6 +98,21 @@ ChatController::ChatController(AgentsApiClient* api, const QString& chatId, QObj
                 m_session->setInitialMessages(messages);
                 m_session->setQueuedMessages(queued);
                 m_model->setHasMore(hasMore);
+                // Open the stream only after the initial REST page has
+                // advanced the after_id cursor. Opening it concurrently
+                // (with after_id=0) makes the server replay the entire
+                // history over the socket while the page lands, racing two
+                // writers into the session (mirrors Android's MOB-26 fix).
+                openStreamOnce();
+            });
+
+    connect(m_api, &AgentsApiClient::requestFailed, this,
+            [this](const QString& endpoint, int, const QString&, const QByteArray&) {
+                // The initial page failed; open the stream anyway so live
+                // updates can still recover the chat.
+                const QString messagesPath =
+                    QStringLiteral("/api/experimental/chats/%1/messages").arg(m_chatId);
+                if (!m_initialLoaded && endpoint.startsWith(messagesPath)) openStreamOnce();
             });
 
     connect(m_api, &AgentsApiClient::usageLimitExceeded, this,
@@ -167,6 +182,13 @@ void ChatController::start() {
     m_api->listMessages(m_chatId, 0, 0, kMessagePageSize);
     m_api->getChat(m_chatId);
     m_api->getPrompts(m_chatId);
+    // The stream socket opens from the messagesReceived handler once the
+    // initial page has landed (or from requestFailed if it never does).
+}
+
+void ChatController::openStreamOnce() {
+    if (m_streamOpened) return;
+    m_streamOpened = true;
     m_stream->openStream(m_chatId);
 }
 
