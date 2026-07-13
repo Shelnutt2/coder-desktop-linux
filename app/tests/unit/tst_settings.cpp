@@ -68,6 +68,8 @@ private slots:
         QCOMPARE(mgr.disableFileDownload(), false);
         QCOMPARE(mgr.theme(), QStringLiteral("system"));
         QCOMPARE(mgr.notificationsEnabled(), true);
+        QCOMPARE(mgr.workspaceListOnlyMine(), true);
+        QCOMPARE(mgr.workspaceNotifyOnlyMine(), true);
 
         QCOMPARE(mgr.mdmEnabled(), false);
         QCOMPARE(mgr.isLocked(QStringLiteral("theme")), false);
@@ -92,6 +94,12 @@ private slots:
 
         mgr.setUserPreference(QStringLiteral("autoConnectVpn"), true);
         QCOMPARE(mgr.autoConnectVpn(), true);
+
+        mgr.setUserPreference(QStringLiteral("workspaceListOnlyMine"), false);
+        QCOMPARE(mgr.workspaceListOnlyMine(), false);
+
+        mgr.setUserPreference(QStringLiteral("workspaceNotifyOnlyMine"), false);
+        QCOMPARE(mgr.workspaceNotifyOnlyMine(), false);
 
         mgr.setUserPreference(QStringLiteral("deploymentUrl"),
                               QStringLiteral("https://coder.example.com"));
@@ -161,6 +169,35 @@ private slots:
         // Attempt to change — should be a no-op.
         mgr.setUserPreference(QStringLiteral("dlpEnabled"), false);
         QCOMPARE(mgr.dlpEnabled(), true);
+    }
+
+    // -----------------------------------------------------------------
+    // MDM can lock the workspace scope settings
+    // -----------------------------------------------------------------
+    void testWorkspaceScopeMdmLock() {
+        QTemporaryDir tmpDir;
+        QVERIFY(tmpDir.isValid());
+
+        QJsonObject entry;
+        entry[QStringLiteral("value")] = true;
+        entry[QStringLiteral("locked")] = true;
+
+        QJsonObject settings;
+        settings[QStringLiteral("workspaceListOnlyMine")] = entry;
+        settings[QStringLiteral("workspaceNotifyOnlyMine")] = entry;
+
+        const QString mdmPath = writePolicyFile(tmpDir, settings);
+
+        SettingsManager mgr(mdmPath, userSettingsPath(tmpDir));
+
+        QCOMPARE(mgr.workspaceListOnlyMineLocked(), true);
+        QCOMPARE(mgr.workspaceNotifyOnlyMineLocked(), true);
+
+        // Attempts to change should be no-ops.
+        mgr.setUserPreference(QStringLiteral("workspaceListOnlyMine"), false);
+        mgr.setUserPreference(QStringLiteral("workspaceNotifyOnlyMine"), false);
+        QCOMPARE(mgr.workspaceListOnlyMine(), true);
+        QCOMPARE(mgr.workspaceNotifyOnlyMine(), true);
     }
 
     // -----------------------------------------------------------------

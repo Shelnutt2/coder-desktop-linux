@@ -202,6 +202,29 @@ private slots:
         QCOMPARE(client.baseUrl(), QStringLiteral("https://coder.example.com"));
     }
 
+    void testListWorkspacesQuery() {
+        CoderApiClient client;
+        client.setBaseUrl(QStringLiteral("https://coder.example.com"));
+
+        // No query -> plain endpoint, no q= parameter.
+        QNetworkReply* plain = client.listWorkspaces();
+        QVERIFY(plain);
+        QCOMPARE(plain->request().url().toString(),
+                 QStringLiteral("https://coder.example.com/api/v2/workspaces"));
+        plain->abort();
+        plain->deleteLater();
+
+        // owner:me -> q= parameter (colon is a legal query character and
+        // stays unencoded).
+        QNetworkReply* mine = client.listWorkspaces(QStringLiteral("owner:me"));
+        QVERIFY(mine);
+        QCOMPARE(mine->request().url().toString(),
+                 QStringLiteral("https://coder.example.com/api/v2/workspaces?q=owner:me"));
+        QCOMPARE(mine->request().url().query(), QStringLiteral("q=owner:me"));
+        mine->abort();
+        mine->deleteLater();
+    }
+
     void testAuthStateSignal() {
         CoderApiClient client;
         QVERIFY(!client.isAuthenticated());
