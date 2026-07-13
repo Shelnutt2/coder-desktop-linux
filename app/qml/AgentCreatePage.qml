@@ -14,6 +14,16 @@ Rectangle {
 
     color: CoderTheme.background
 
+    // Input fence: this page is loaded on top of the still-live chat list;
+    // consume all pointer events so nothing falls through to the hidden
+    // rows underneath (see AgentChatPage for the full explanation).
+    MouseArea {
+        anchors.fill: parent
+        acceptedButtons: Qt.AllButtons
+        onClicked: {}
+        onWheel: function(wheel) { wheel.accepted = true }
+    }
+
     // Attachment chips: {localPath, name, fileId, uploading, failed, mediaType}
     property var attachments: []
     property var mcpSelectedIds: []
@@ -68,6 +78,24 @@ Rectangle {
         onAccepted: page.addAttachment(selectedFile)
     }
 
+    // Mark workspaces that already have an agent chat ("in use") in the
+    // picker, refreshed via GET /chats/by-workspace whenever the workspace
+    // list is available.
+    function refreshInUse() {
+        var ids = []
+        var count = workspaceModel.count
+        for (var i = 0; i < count; ++i) {
+            var idx = workspaceModel.index(i, 0)
+            ids.push(workspaceModel.data(idx, 257))  // IdRole
+        }
+        if (ids.length > 0) agentsController.refreshWorkspacesInUse(ids)
+    }
+    Component.onCompleted: refreshInUse()
+    Connections {
+        target: workspaceModel
+        function onCountChanged() { page.refreshInUse() }
+    }
+
     Flickable {
         anchors.fill: parent
         anchors.margins: 16
@@ -78,7 +106,9 @@ Rectangle {
 
         ColumnLayout {
             id: content
-            width: parent.width
+            // Centered readable form width when the window is maximized.
+            width: Math.min(parent.width, 700)
+            anchors.horizontalCenter: parent.horizontalCenter
             spacing: 12
 
             RowLayout {
@@ -170,14 +200,19 @@ Rectangle {
                 valueRole: "id"
                 model: {
                     // First entry is "No workspace"; the rest mirror
-                    // workspaceModel rows.
+                    // workspaceModel rows, tagged "(in use)" when the
+                    // workspace already has an agent chat.
+                    var inUse = agentsController.workspacesInUse
                     var items = [{ id: "", name: "No workspace" }]
                     var count = workspaceModel.count
                     for (var i = 0; i < count; ++i) {
                         var idx = workspaceModel.index(i, 0)
+                        var wsId = workspaceModel.data(idx, 257)   // IdRole
+                        var wsName = workspaceModel.data(idx, 258) // NameRole
                         items.push({
-                            id: workspaceModel.data(idx, 257),   // IdRole
-                            name: workspaceModel.data(idx, 258)  // NameRole
+                            id: wsId,
+                            name: inUse[wsId] !== undefined
+                                ? wsName + "  (in use)" : wsName
                         })
                     }
                     return items
