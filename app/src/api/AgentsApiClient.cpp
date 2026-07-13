@@ -312,6 +312,21 @@ void AgentsApiClient::usageLimitStatus() {
     });
 }
 
+void AgentsApiClient::getChatsByWorkspace(const QStringList& workspaceIds) {
+    if (workspaceIds.isEmpty()) return;
+    QUrlQuery q;
+    q.addQueryItem(QStringLiteral("workspace_ids"), workspaceIds.join(QLatin1Char(',')));
+    const QString path = QStringLiteral("%1/by-workspace?%2")
+                             .arg(QLatin1String(kChatsBase), q.toString(QUrl::FullyEncoded));
+    QNetworkReply* reply = get(path);
+    connect(reply, &QNetworkReply::finished, this, [this, reply]() {
+        reply->deleteLater();
+        if (reply->error() != QNetworkReply::NoError) return;
+        emit chatsByWorkspaceReceived(
+            parseChatsByWorkspaceMap(QJsonDocument::fromJson(reply->readAll()).object()));
+    });
+}
+
 // ---------------------------------------------------------------------------
 // Files
 // ---------------------------------------------------------------------------
