@@ -12,8 +12,9 @@ env:
   WAYLAND_VERSION: "1.23.1"
 
 jobs:
-  build-release:
-    name: Build & Package Release
+  # Builds .tar.gz, .deb, .rpm (CPack) and .AppImage (linuxdeploy).
+  build-packages:
+    name: Build tar.gz / deb / rpm / AppImage
     runs-on: ubuntu-24.04
     steps:
       - uses: actions/checkout@v4
@@ -63,7 +64,8 @@ jobs:
             libxcb-ewmh-dev \
             libxcb-xinput-dev \
             libxcb-icccm4-dev \
-            libxcb-res0-dev
+            libxcb-res0-dev \
+            libfuse2t64
 
       - name: Build wayland ${{ env.WAYLAND_VERSION }} from source
         run: |
@@ -80,11 +82,13 @@ jobs:
             -G Ninja \
             -DCMAKE_BUILD_TYPE=Release \
             -DCMAKE_INSTALL_PREFIX=/usr \
+            -DCODER_DESKTOP_VERSION="${GITHUB_REF_NAME#v}" \
+            -DCPACK_FORCE_ALL_GENERATORS=ON \
             -DWLROOTS_FROM_SOURCE=ON \
             -DWLROOTS_XWAYLAND=OFF
 
       - name: Build all targets
-        run: cmake --build build -j$(nproc)
+        run: cmake --build build -j"$(nproc)"
 
       - name: Run tests
         run: |
@@ -94,28 +98,90 @@ jobs:
         env:
           QT_QPA_PLATFORM: offscreen
 
-      - name: Build deb package
-        run: |
-          cd packaging/deb
-          ./build.sh ../../build
-        continue-on-error: true
+      - name: Package (tar.gz, deb, rpm)
+        run: cd build && cpack
 
-      - name: Build rpm package
+      - name: Install linuxdeploy
         run: |
-          cd packaging/rpm
-          ./build.sh ../../build
-        continue-on-error: true
+          wget -q https://github.com/linuxdeploy/linuxdeploy/releases/download/continuous/linuxdeploy-x86_64.AppImage
+          wget -q https://github.com/linuxdeploy/linuxdeploy-plugin-qt/releases/download/continuous/linuxdeploy-plugin-qt-x86_64.AppImage
+          chmod +x linuxdeploy-x86_64.AppImage linuxdeploy-plugin-qt-x86_64.AppImage
+          sudo mv linuxdeploy-x86_64.AppImage /usr/local/bin/linuxdeploy
+          sudo mv linuxdeploy-plugin-qt-x86_64.AppImage /usr/local/bin/linuxdeploy-plugin-qt
 
-      - name: Gather release artifacts
-        id: artifacts
+      - name: Build AppImage
+        run: cmake --build build --target appimage
+        env:
+          APPIMAGE_EXTRACT_AND_RUN: "1"
+
+      - name: Gather artifacts
         run: |
           mkdir -p dist
-          cp build/libcodervpn.so dist/ || true
-          cp build/coder-dlp-compositor/libcoderdlp.so dist/ || true
-          cp build/app/coder-desktop dist/ || true
-          cp packaging/deb/*.deb dist/ 2>/dev/null || true
-          cp packaging/rpm/*.rpm dist/ 2>/dev/null || true
+          cp build/*.tar.gz dist/
+          cp build/*.deb dist/
+          cp build/*.rpm dist/
+          cp build/*.AppImage dist/
           ls -lh dist/
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: packages
+          path: dist/*
+          if-no-files-found: error
+
+  # Builds the Alpine .apk natively with abuild (musl).
+  build-apk:
+    name: Build apk (Alpine)
+    runs-on: ubuntu-24.04
+    container: alpine:3.23
+    steps:
+      - name: Install checkout prerequisites
+        run: apk add --no-cache git tar
+
+      - uses: actions/checkout@v4
+
+      - name: Build apk with abuild
+        run: |
+          sh packaging/apk/build-apk.sh "${GITHUB_REF_NAME#v}" "$PWD/dist"
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: apk
+          path: dist/*.apk
+          if-no-files-found: error
+
+  # Builds the snap (classic confinement) with snapcraft.
+  build-snap:
+    name: Build snap
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Build snap
+        uses: snapcore/action-build@v1
+        id: snapcraft
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: snap
+          path: ${{ steps.snapcraft.outputs.snap }}
+          if-no-files-found: error
+
+  # Attaches all artifacts to the GitHub release for the tag.
+  release:
+    name: Create GitHub Release
+    runs-on: ubuntu-24.04
+    needs: [build-packages, build-apk, build-snap]
+    steps:
+      - uses: actions/download-artifact@v4
+        with:
+          path: dist
+          merge-multiple: true
+
+      - name: List artifacts
+        run: ls -lh dist/
 
       - name: Create GitHub Release
         uses: softprops/action-gh-release@v2
@@ -123,4 +189,11 @@ jobs:
           generate_release_notes: true
           draft: false
           prerelease: ${{ contains(github.ref_name, '-rc') || contains(github.ref_name, '-beta') || contains(github.ref_name, '-alpha') }}
-          files: dist/*
+          fail_on_unmatched_files: true
+          files: |
+            dist/*.tar.gz
+            dist/*.deb
+            dist/*.rpm
+            dist/*.apk
+            dist/*.AppImage
+            dist/*.snap

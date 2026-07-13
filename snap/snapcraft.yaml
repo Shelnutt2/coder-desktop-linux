@@ -1,0 +1,110 @@
+name: coder-desktop
+base: core24
+adopt-info: coder-desktop
+summary: Coder Desktop for Linux
+description: |
+  Coder Desktop provides a native Linux desktop experience for managing
+  Coder remote development workspaces. Features include a built-in VPN
+  tunnel, system tray integration, workspace lifecycle management, a Data
+  Loss Prevention compositor, and native credential storage via libsecret.
+
+  Note: the VPN helper's D-Bus system service, polkit policy, and systemd
+  unit cannot be installed onto the host by a snap. The snap ships the
+  desktop application; system-level VPN helper integration requires the
+  .deb/.rpm/.apk package or a manual install of those files.
+license: AGPL-3.0-only
+grade: stable
+confinement: classic
+platforms:
+  amd64:
+
+parts:
+  coder-desktop:
+    plugin: nil
+    source: .
+    build-attributes:
+      - enable-patchelf
+    build-snaps:
+      - go/1.25/stable
+    build-packages:
+      - git
+      - cmake
+      - ninja-build
+      - meson
+      - pkg-config
+      - qt6-base-dev
+      - qt6-declarative-dev
+      - qt6-tools-dev-tools
+      - libqt6websockets6-dev
+      - libsecret-1-dev
+      - wayland-protocols
+      - libffi-dev
+      - libxml2-dev
+      - libdrm-dev
+      - libgbm-dev
+      - libxkbcommon-dev
+      - libegl-dev
+      - libgles-dev
+      - libpixman-1-dev
+      - libseat-dev
+      - libinput-dev
+      - hwdata
+      - libdisplay-info-dev
+      - libliftoff-dev
+    stage-packages:
+      - libqt6core6t64
+      - libqt6gui6t64
+      - libqt6network6t64
+      - libqt6widgets6t64
+      - libqt6dbus6t64
+      - libqt6qml6
+      - libqt6quick6
+      - libqt6quickcontrols2-6
+      - libqt6websockets6
+      - libqt6svg6
+      - qml6-module-qtquick
+      - qml6-module-qtquick-controls
+      - qml6-module-qtquick-layouts
+      - qml6-module-qtquick-templates
+      - qml6-module-qtquick-window
+      - qt6-qpa-plugins
+      - qt6-wayland
+      - libsecret-1-0
+    override-build: |
+      set -e
+
+      # Derive the snap version from the git tag (leading "v" stripped).
+      VERSION="$(git describe --tags --always 2>/dev/null | sed 's/^v//')"
+      [ -n "$VERSION" ] || VERSION="0.0.0"
+      craftctl set version="$VERSION"
+
+      # core24 ships wayland 1.22; wlroots 0.19 requires >= 1.23.
+      # Build and install wayland 1.23.1 into the build environment,
+      # mirroring the release CI job.
+      if ! pkg-config --atleast-version=1.23 wayland-server; then
+        git clone --depth 1 --branch 1.23.1 \
+          https://gitlab.freedesktop.org/wayland/wayland.git /tmp/wayland
+        meson setup /tmp/wayland/build /tmp/wayland \
+          --prefix=/usr --buildtype=release \
+          -Ddocumentation=false -Dtests=false
+        ninja -C /tmp/wayland/build
+        ninja -C /tmp/wayland/build install
+        ldconfig
+      fi
+
+      cmake -B build -G Ninja \
+        -DCMAKE_BUILD_TYPE=Release \
+        -DCMAKE_INSTALL_PREFIX=/usr \
+        -DCODER_DESKTOP_VERSION="$VERSION" \
+        -DWLROOTS_FROM_SOURCE=ON \
+        -DWLROOTS_XWAYLAND=OFF \
+        -DBUILD_TESTING=OFF
+      cmake --build build -j"$(nproc)"
+      DESTDIR="$CRAFT_PART_INSTALL" cmake --install build
+
+apps:
+  coder-desktop:
+    command: usr/bin/coder-desktop
+    environment:
+      QT_PLUGIN_PATH: $SNAP/usr/lib/x86_64-linux-gnu/qt6/plugins
+      QML2_IMPORT_PATH: $SNAP/usr/lib/x86_64-linux-gnu/qt6/qml

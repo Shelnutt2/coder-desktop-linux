@@ -1,0 +1,18 @@
+#!/bin/sh
+# Post-uninstall scriptlet shared by the .deb and .rpm packages.
+# Reloads systemd and the D-Bus system bus after the service unit and
+# bus policy files have been removed. Best-effort, safe in containers.
+set -e
+
+if command -v systemctl >/dev/null 2>&1; then
+    systemctl daemon-reload >/dev/null 2>&1 || true
+fi
+
+if command -v dbus-send >/dev/null 2>&1; then
+    dbus-send --system --type=method_call \
+        --dest=org.freedesktop.DBus \
+        /org/freedesktop/DBus \
+        org.freedesktop.DBus.ReloadConfig >/dev/null 2>&1 || true
+fi
+
+exit 0

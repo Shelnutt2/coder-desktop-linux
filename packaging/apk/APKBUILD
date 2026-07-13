@@ -1,0 +1,70 @@
+# Maintainer: Coder Technologies Inc. <support@coder.com>
+#
+# Alpine package for Coder Desktop. Built natively against musl inside an
+# Alpine container by packaging/apk/build-apk.sh, which templates pkgver
+# from the release tag and creates the source tarball from the checkout.
+#
+# wlroots is built from source (static) via -DWLROOTS_FROM_SOURCE=ON to
+# avoid a hard dependency on the distro wlroots version. The X11 backend
+# and Xwayland are disabled to keep the xcb dependency tree out of the
+# build. If the DLP compositor fails to build on a future Alpine release,
+# the fallback is to add -DENABLE_DLP=OFF below and drop the wlroots
+# build dependencies.
+pkgname=coder-desktop
+pkgver=0.1.0
+pkgrel=0
+pkgdesc="Coder Desktop for Linux - Remote development workspace manager"
+url="https://coder.com"
+arch="all"
+license="AGPL-3.0-only"
+depends="
+	qt6-qtbase
+	qt6-qtdeclarative
+	libsecret
+	"
+makedepends="
+	cmake
+	samurai
+	go
+	pkgconf
+	qt6-qtbase-dev
+	qt6-qtdeclarative-dev
+	qt6-qtwebsockets-dev
+	libsecret-dev
+	meson
+	wayland-dev
+	wayland-protocols
+	libdrm-dev
+	mesa-dev
+	libxkbcommon-dev
+	pixman-dev
+	libseat-dev
+	libinput-dev
+	libdisplay-info-dev
+	libliftoff-dev
+	eudev-dev
+	hwdata-dev
+	libffi-dev
+	libxml2-dev
+	"
+# net: go module downloads and the wlroots ExternalProject git clone.
+# !check: tests are run in the main release CI job on Ubuntu.
+options="net !check"
+source="$pkgname-$pkgver.tar.gz"
+builddir="$srcdir/$pkgname-$pkgver"
+
+build() {
+	cmake -B build -G Ninja \
+		-DCMAKE_BUILD_TYPE=Release \
+		-DCMAKE_INSTALL_PREFIX=/usr \
+		-DCODER_DESKTOP_VERSION="$pkgver" \
+		-DWLROOTS_FROM_SOURCE=ON \
+		-DWLROOTS_X11_BACKEND=OFF \
+		-DWLROOTS_XWAYLAND=OFF \
+		-DBUILD_TESTING=OFF
+	cmake --build build
+}
+
+package() {
+	DESTDIR="$pkgdir" cmake --install build
+}

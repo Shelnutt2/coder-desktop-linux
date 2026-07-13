@@ -2,6 +2,19 @@ cmake_minimum_required(VERSION 3.21)
 project(coder-desktop-linux VERSION 0.1.0 LANGUAGES C CXX)
 
 # ---------------------------------------------------------------------------
+# Package version override.
+# CI passes the git tag (with the leading "v" stripped) so release artifacts
+# carry the tag version instead of the hardcoded project version.
+# ---------------------------------------------------------------------------
+set(CODER_DESKTOP_VERSION "" CACHE STRING
+    "Override the package version (e.g. from a git tag). Empty uses PROJECT_VERSION.")
+if(CODER_DESKTOP_VERSION)
+    set(CODER_PACKAGE_VERSION "${CODER_DESKTOP_VERSION}")
+else()
+    set(CODER_PACKAGE_VERSION "${PROJECT_VERSION}")
+endif()
+
+# ---------------------------------------------------------------------------
 # Default install prefix to dist/ for local development.
 # Override with: cmake -B build -DCMAKE_INSTALL_PREFIX=/usr
 # ---------------------------------------------------------------------------
@@ -137,10 +150,43 @@ install(FILES packaging/resources/coder-desktop.svg
 # )
 
 # ---------------------------------------------------------------------------
+# AppImage — stage a DESTDIR install into AppDir and run linuxdeploy.
+# Requires CMAKE_INSTALL_PREFIX=/usr so the AppDir has the standard layout,
+# and linuxdeploy + linuxdeploy-plugin-qt on PATH.
+# ---------------------------------------------------------------------------
+if(CMAKE_INSTALL_PREFIX STREQUAL "/usr")
+    add_custom_target(appimage
+        COMMAND ${CMAKE_COMMAND} -E rm -rf "${CMAKE_BINARY_DIR}/AppDir"
+        COMMAND ${CMAKE_COMMAND} -E env DESTDIR=${CMAKE_BINARY_DIR}/AppDir
+                ${CMAKE_COMMAND} --install ${CMAKE_BINARY_DIR}
+        COMMAND ${CMAKE_COMMAND} -E env
+                LINUXDEPLOY_OUTPUT_VERSION=${CODER_PACKAGE_VERSION}
+                bash ${CMAKE_SOURCE_DIR}/packaging/appimage/build-appimage.sh
+                "${CMAKE_BINARY_DIR}/AppDir"
+        WORKING_DIRECTORY ${CMAKE_BINARY_DIR}
+        COMMENT "Building AppImage (requires linuxdeploy + linuxdeploy-plugin-qt)"
+        VERBATIM
+    )
+else()
+    add_custom_target(appimage
+        COMMAND ${CMAKE_COMMAND} -E echo
+                "ERROR: the appimage target requires -DCMAKE_INSTALL_PREFIX=/usr (current: ${CMAKE_INSTALL_PREFIX})"
+        COMMAND ${CMAKE_COMMAND} -E false
+        VERBATIM
+    )
+endif()
+
+# ---------------------------------------------------------------------------
 # CPack — package generation (cmake --build build --target package)
 # ---------------------------------------------------------------------------
+
+# Release builds set this so a missing dpkg-deb/rpmbuild fails packaging
+# loudly instead of silently skipping the generator.
+option(CPACK_FORCE_ALL_GENERATORS
+    "Always enable the TGZ, DEB, and RPM generators regardless of tool detection" OFF)
+
 set(CPACK_PACKAGE_NAME "coder-desktop")
-set(CPACK_PACKAGE_VERSION "${PROJECT_VERSION}")
+set(CPACK_PACKAGE_VERSION "${CODER_PACKAGE_VERSION}")
 set(CPACK_PACKAGE_DESCRIPTION_SUMMARY
     "Coder Desktop for Linux — Remote development workspace manager")
 set(CPACK_PACKAGE_VENDOR "Coder Technologies Inc.")
@@ -149,32 +195,63 @@ set(CPACK_RESOURCE_FILE_LICENSE "${CMAKE_SOURCE_DIR}/LICENSE")
 set(CPACK_PACKAGE_FILE_NAME
     "${CPACK_PACKAGE_NAME}-${CPACK_PACKAGE_VERSION}-${CMAKE_SYSTEM_PROCESSOR}")
 
+# Shared post-install/post-uninstall scriptlets (systemd + D-Bus reload).
+set(CODER_PKG_POSTINST "${CMAKE_SOURCE_DIR}/packaging/scripts/postinst")
+set(CODER_PKG_POSTRM "${CMAKE_SOURCE_DIR}/packaging/scripts/postrm")
+
+# The dbus/polkit/systemd files install to absolute paths. CPack must stage
+# them under DESTDIR instead of writing to the real filesystem root.
+set(CPACK_SET_DESTDIR ON)
+
 # TGZ (always available)
 set(CPACK_GENERATOR "TGZ")
 
-# DEB (if dpkg-deb is available)
+# DEB (if dpkg-deb is available, or forced for release builds)
 find_program(DPKG_PROG dpkg-deb)
-if(DPKG_PROG)
+if(DPKG_PROG OR CPACK_FORCE_ALL_GENERATORS)
     list(APPEND CPACK_GENERATOR "DEB")
+    # Distro-native naming: coder-desktop_<version>_amd64.deb
+    set(CPACK_DEBIAN_FILE_NAME "DEB-DEFAULT")
     set(CPACK_DEBIAN_PACKAGE_MAINTAINER
         "Coder Technologies Inc. <support@coder.com>")
     set(CPACK_DEBIAN_PACKAGE_SECTION "devel")
     set(CPACK_DEBIAN_PACKAGE_DEPENDS
-        "libqt6core6 (>= 6.5), libqt6gui6 (>= 6.5), libqt6quick6 (>= 6.5), libqt6network6 (>= 6.5), libqt6widgets6 (>= 6.5), libsecret-1-0")
+        "libqt6core6 (>= 6.5) | libqt6core6t64 (>= 6.5), libqt6gui6 (>= 6.5) | libqt6gui6t64 (>= 6.5), libqt6quick6 (>= 6.5), libqt6network6 (>= 6.5) | libqt6network6t64 (>= 6.5), libqt6widgets6 (>= 6.5) | libqt6widgets6t64 (>= 6.5), libsecret-1-0")
+    set(CPACK_DEBIAN_PACKAGE_CONTROL_EXTRA
+        "${CODER_PKG_POSTINST};${CODER_PKG_POSTRM}")
     if(ENABLE_DLP AND NOT WLROOTS_BUILT_FROM_SOURCE)
         set(CPACK_DEBIAN_PACKAGE_RECOMMENDS
             "libwlroots12 (>= 0.19) | libwlroots-0.19-0")
     endif()
 endif()
 
-# RPM (if rpmbuild is available)
+# RPM (if rpmbuild is available, or forced for release builds)
 find_program(RPMBUILD_PROG rpmbuild)
-if(RPMBUILD_PROG)
+if(RPMBUILD_PROG OR CPACK_FORCE_ALL_GENERATORS)
     list(APPEND CPACK_GENERATOR "RPM")
+    # Distro-native naming: coder-desktop-<version>-1.x86_64.rpm
+    set(CPACK_RPM_FILE_NAME "RPM-DEFAULT")
     set(CPACK_RPM_PACKAGE_LICENSE "AGPL-3.0-only")
     set(CPACK_RPM_PACKAGE_GROUP "Development/Tools")
     set(CPACK_RPM_PACKAGE_REQUIRES
         "qt6-qtbase >= 6.5, qt6-qtdeclarative >= 6.5, libsecret")
+    set(CPACK_RPM_POST_INSTALL_SCRIPT_FILE "${CODER_PKG_POSTINST}")
+    set(CPACK_RPM_POST_UNINSTALL_SCRIPT_FILE "${CODER_PKG_POSTRM}")
+    # These system directories are owned by dbus/polkit/systemd packages;
+    # rpmbuild must not claim ownership of them.
+    set(CPACK_RPM_EXCLUDE_FROM_AUTO_FILELIST_ADDITION
+        "/usr/share/dbus-1"
+        "/usr/share/dbus-1/system.d"
+        "/usr/share/dbus-1/system-services"
+        "/usr/share/polkit-1"
+        "/usr/share/polkit-1/actions"
+        "/usr/lib/systemd"
+        "/usr/lib/systemd/system"
+        "/usr/share/applications"
+        "/usr/share/icons"
+        "/usr/share/icons/hicolor"
+        "/usr/share/icons/hicolor/scalable"
+        "/usr/share/icons/hicolor/scalable/apps")
     if(ENABLE_DLP AND NOT WLROOTS_BUILT_FROM_SOURCE)
         set(CPACK_RPM_PACKAGE_RECOMMENDS "wlroots >= 0.19")
     endif()
