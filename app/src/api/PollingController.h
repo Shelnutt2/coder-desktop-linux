@@ -1,6 +1,7 @@
 #ifndef POLLINGCONTROLLER_H
 #define POLLINGCONTROLLER_H
 
+#include <QHash>
 #include <QJsonArray>
 #include <QList>
 #include <QObject>
@@ -12,6 +13,7 @@
 
 class CoderApiClient;
 class NotificationManager;
+class SessionManager;
 class SettingsManager;
 
 /// Orchestrates periodic polling of workspaces/tasks, persistent disk caching,
@@ -29,6 +31,12 @@ class SettingsManager;
 /// detects status changes between poll cycles and routes desktop
 /// notifications through NotificationManager (gated by
 /// SettingsManager::notificationsEnabled()).
+///
+/// Workspace scope: when both `workspaceListOnlyMine` and
+/// `workspaceNotifyOnlyMine` are enabled (the default) the poll uses the
+/// server-side `owner:me` filter.  When the two scopes differ, all
+/// workspaces are fetched and the list / notification filtering happens
+/// client-side against SessionManager::currentUsername().
 class PollingController : public QObject {
     Q_OBJECT
     Q_PROPERTY(int refreshIntervalSec READ refreshIntervalSec WRITE setRefreshIntervalSec NOTIFY
@@ -39,7 +47,7 @@ public:
     /// All references must outlive this controller.
     explicit PollingController(CoderApiClient& api, WorkspaceModel& workspaces, TaskModel& tasks,
                                NotificationManager& notifications, SettingsManager& settings,
-                               QObject* parent = nullptr);
+                               SessionManager& session, QObject* parent = nullptr);
 
     [[nodiscard]] int refreshIntervalSec() const;
     void setRefreshIntervalSec(int sec);
@@ -71,6 +79,14 @@ private:
     void detectWorkspaceChanges(const QList<WorkspaceModel::WorkspaceInfo>& newList);
     void detectTaskChanges(const QList<TaskModel::TaskInfo>& newList);
 
+    // -- Workspace scope helpers ----------------------------------------------
+    /// Server-side query for the workspace poll (`owner:me` when both scopes
+    /// are restricted to the current user, empty otherwise).
+    [[nodiscard]] QString workspaceFetchQuery() const;
+    /// Drop workspaces not owned by the current user when the list scope is
+    /// restricted.  No-op when the username is unknown.
+    void applyListScope(QList<WorkspaceModel::WorkspaceInfo>& list) const;
+
     // -- Persistent cache I/O ------------------------------------------------
     void loadCache();
     void saveWorkspaceCache(const QJsonArray& arr);
@@ -84,13 +100,25 @@ private:
     TaskModel& m_taskModel;
     NotificationManager& m_notifications;
     SettingsManager& m_settings;
+    SessionManager& m_session;
 
     QTimer m_pollTimer;
     int m_refreshIntervalSec = 10;
 
+    /// Last-seen workspace scope settings, so a settings change that flips
+    /// either scope triggers an immediate refetch (once, not on every
+    /// unrelated settingsChanged emission).
+    bool m_listOnlyMine = true;
+    bool m_notifyOnlyMine = true;
+
     /// Suppresses notifications on the very first data load so the user is
     /// not spammed with "changed" alerts for every existing workspace/task.
     bool m_firstFetch = true;
+
+    /// Workspace id -> status from the previous poll (full fetched set, before
+    /// list scoping).  Kept separately from WorkspaceModel so notifications can
+    /// cover workspaces the list scope hides.
+    QHash<QString, int> m_lastWorkspaceStatus;
 };
 
 #endif  // POLLINGCONTROLLER_H

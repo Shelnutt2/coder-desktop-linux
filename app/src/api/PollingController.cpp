@@ -1,6 +1,7 @@
 #include "api/PollingController.h"
 
 #include "api/CoderApiClient.h"
+#include "data/SessionManager.h"
 #include "models/TaskModel.h"
 #include "models/WorkspaceModel.h"
 #include "notifications/NotificationManager.h"
@@ -22,13 +23,17 @@
 
 PollingController::PollingController(CoderApiClient& api, WorkspaceModel& workspaces,
                                      TaskModel& tasks, NotificationManager& notifications,
-                                     SettingsManager& settings, QObject* parent)
+                                     SettingsManager& settings, SessionManager& session,
+                                     QObject* parent)
     : QObject(parent),
       m_api(api),
       m_workspaceModel(workspaces),
       m_taskModel(tasks),
       m_notifications(notifications),
-      m_settings(settings) {
+      m_settings(settings),
+      m_session(session),
+      m_listOnlyMine(settings.workspaceListOnlyMine()),
+      m_notifyOnlyMine(settings.workspaceNotifyOnlyMine()) {
     // Wire timer to periodic refresh.
     connect(&m_pollTimer, &QTimer::timeout, this, &PollingController::refreshNow);
 
@@ -37,11 +42,20 @@ PollingController::PollingController(CoderApiClient& api, WorkspaceModel& worksp
             &PollingController::handleWorkspacesReceived);
     connect(&m_api, &CoderApiClient::tasksReceived, this, &PollingController::handleTasksReceived);
 
-    // React to settings changes (interval, cache toggle).
+    // React to settings changes (interval, cache toggle, workspace scope).
     connect(&m_settings, &SettingsManager::settingsChanged, this, [this]() {
         setRefreshIntervalSec(m_settings.refreshIntervalSec());
         if (m_settings.disableDataCache()) {
             purgeCache();
+        }
+        const bool listOnlyMine = m_settings.workspaceListOnlyMine();
+        const bool notifyOnlyMine = m_settings.workspaceNotifyOnlyMine();
+        if (listOnlyMine != m_listOnlyMine || notifyOnlyMine != m_notifyOnlyMine) {
+            m_listOnlyMine = listOnlyMine;
+            m_notifyOnlyMine = notifyOnlyMine;
+            if (m_pollTimer.isActive()) {
+                refreshNow();
+            }
         }
     });
 
@@ -81,6 +95,7 @@ bool PollingController::isPolling() const {
 void PollingController::start() {
     qDebug() << "[PollingController] start() — loading cache, then fetching";
     m_firstFetch = true;
+    m_lastWorkspaceStatus.clear();
     loadCache();
     refreshNow();
     m_pollTimer.start();
@@ -95,8 +110,31 @@ void PollingController::stop() {
 
 void PollingController::refreshNow() {
     qDebug() << "[PollingController] refreshNow() — fetching workspaces + tasks";
-    m_api.fetchWorkspaces();
+    m_api.fetchWorkspaces(workspaceFetchQuery());
     m_api.fetchTasks();
+}
+
+QString PollingController::workspaceFetchQuery() const {
+    // The single poll feeds both the UI list and notification comparison.
+    // Only when both consumers are scoped to the current user can the
+    // cheaper server-side filter be used; otherwise fetch everything and
+    // let applyListScope() / detectWorkspaceChanges() narrow client-side.
+    if (m_settings.workspaceListOnlyMine() && m_settings.workspaceNotifyOnlyMine()) {
+        return QStringLiteral("owner:me");
+    }
+    return QString();
+}
+
+void PollingController::applyListScope(QList<WorkspaceModel::WorkspaceInfo>& list) const {
+    if (!m_settings.workspaceListOnlyMine()) {
+        return;
+    }
+    const QString username = m_session.currentUsername();
+    if (username.isEmpty()) {
+        return;  // unknown user — do not hide everything
+    }
+    list.removeIf(
+        [&username](const WorkspaceModel::WorkspaceInfo& ws) { return ws.ownerName != username; });
 }
 
 // ---------------------------------------------------------------------------
@@ -114,8 +152,18 @@ void PollingController::handleWorkspacesReceived(const QJsonArray& arr) {
         list.append(WorkspaceModel::WorkspaceInfo::fromJson(v.toObject()));
     }
 
-    // Detect changes *before* updating the model (so we can compare old state).
+    // Detect changes *before* list scoping, so notify-all still sees other
+    // users' workspaces even when the list is limited to the current user.
     detectWorkspaceChanges(list);
+
+    // Refresh the notification baseline from the full fetched set.
+    m_lastWorkspaceStatus.clear();
+    m_lastWorkspaceStatus.reserve(list.size());
+    for (const auto& ws : list) {
+        m_lastWorkspaceStatus.insert(ws.id, ws.status);
+    }
+
+    applyListScope(list);
 
     m_workspaceModel.setWorkspaces(list);
     m_workspaceModel.setLoading(false);
@@ -162,19 +210,17 @@ void PollingController::detectWorkspaceChanges(
         return;
     }
 
-    // Build a map of the *current* model state (before we overwrite it).
-    QHash<QString, int> oldStatus;
-    for (int i = 0; i < m_workspaceModel.rowCount(); ++i) {
-        const auto idx = m_workspaceModel.index(i);
-        oldStatus[idx.data(WorkspaceModel::IdRole).toString()] =
-            idx.data(WorkspaceModel::StatusRole).toInt();
-    }
+    const bool onlyMine = m_settings.workspaceNotifyOnlyMine();
+    const QString username = m_session.currentUsername();
 
     for (const auto& ws : newList) {
-        if (!oldStatus.contains(ws.id)) {
+        if (onlyMine && !username.isEmpty() && ws.ownerName != username) {
+            continue;  // scoped to the current user's workspaces
+        }
+        if (!m_lastWorkspaceStatus.contains(ws.id)) {
             continue;  // brand-new workspace — no prior state to compare
         }
-        if (oldStatus.value(ws.id) != ws.status) {
+        if (m_lastWorkspaceStatus.value(ws.id) != ws.status) {
             m_notifications.notify(QStringLiteral("Workspace: %1").arg(ws.name),
                                    QStringLiteral("Status changed"),
                                    QStringLiteral("WorkspaceState"));
@@ -243,6 +289,7 @@ void PollingController::loadCache() {
                 for (const auto& v : arr) {
                     list.append(WorkspaceModel::WorkspaceInfo::fromJson(v.toObject()));
                 }
+                applyListScope(list);
                 m_workspaceModel.setWorkspaces(list);
                 qDebug() << "[PollingController] loaded" << list.size() << "workspaces from cache";
             }
