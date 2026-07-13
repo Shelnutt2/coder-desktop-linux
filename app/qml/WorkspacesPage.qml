@@ -76,6 +76,54 @@ Item {
             Layout.fillWidth: true
             spacing: 6
 
+            // Owner scope: Mine / All users (persisted, drives the server-side
+            // owner:me query via PollingController)
+            Repeater {
+                model: [
+                    { label: "Mine",      onlyMine: true },
+                    { label: "All users", onlyMine: false }
+                ]
+
+                Rectangle {
+                    required property var modelData
+                    width: ownerChipLabel.implicitWidth + 20
+                    height: ownerChipLabel.implicitHeight + 10
+                    radius: height / 2
+                    opacity: settingsManager.workspaceListOnlyMineLocked ? 0.5 : 1.0
+                    color: settingsManager.workspaceListOnlyMine === modelData.onlyMine
+                           ? CoderTheme.primary : CoderTheme.surface
+                    border.color: settingsManager.workspaceListOnlyMine === modelData.onlyMine
+                                  ? CoderTheme.primary : CoderTheme.border
+                    border.width: 1
+
+                    Label {
+                        id: ownerChipLabel
+                        anchors.centerIn: parent
+                        text: modelData.label
+                        font.pixelSize: 12
+                        font.weight: Font.Medium
+                        color: settingsManager.workspaceListOnlyMine === modelData.onlyMine
+                               ? CoderTheme.textInvert : CoderTheme.textSecondary
+                    }
+
+                    MouseArea {
+                        anchors.fill: parent
+                        enabled: !settingsManager.workspaceListOnlyMineLocked
+                        cursorShape: Qt.PointingHandCursor
+                        onClicked: settingsManager.setUserPreference(
+                                       "workspaceListOnlyMine", modelData.onlyMine)
+                    }
+                }
+            }
+
+            // Divider between owner-scope and status chips
+            Rectangle {
+                width: 1
+                height: 20
+                color: CoderTheme.border
+                Layout.alignment: Qt.AlignVCenter
+            }
+
             Repeater {
                 model: [
                     { label: "All",     value: "" },
@@ -375,7 +423,10 @@ Item {
                 }
 
                 Label {
-                    text: "Create a workspace to get started"
+                    text: settingsManager.workspaceListOnlyMine
+                          && !settingsManager.workspaceListOnlyMineLocked
+                          ? "Try showing All users, or create a workspace to get started"
+                          : "Create a workspace to get started"
                     font.pixelSize: 13
                     color: CoderTheme.textDisabled
                     Layout.alignment: Qt.AlignHCenter
