@@ -5,6 +5,7 @@
 #include <QDateTime>
 #include <QJsonObject>
 #include <QString>
+#include <QVariantMap>
 
 /// List model exposing Coder workspaces to QML views.
 ///
@@ -65,6 +66,11 @@ public:
     void setWorkspaces(const QList<WorkspaceInfo>& workspaces);
     void updateWorkspace(const WorkspaceInfo& workspace);
     void clear();
+
+    /// Resolves one workspace by ID for QML consumers outside delegate
+    /// bindings (e.g. the agent chat workspace chip). Returns a map with
+    /// keys found (bool), name, and statusString.
+    [[nodiscard]] Q_INVOKABLE QVariantMap infoForId(const QString& id) const;
 
     // -- Observable state --
     [[nodiscard]] bool isLoading() const;
