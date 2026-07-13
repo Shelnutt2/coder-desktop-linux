@@ -524,6 +524,41 @@ Item {
                 locked: settingsManager.notificationsEnabledLocked
             }
 
+            // Only notify for the current user's workspaces
+            SettingToggle {
+                label: "Only notify for my workspaces"
+                subtitle: "Skip status notifications for other users' workspaces"
+                settingKey: "workspaceNotifyOnlyMine"
+                checked: settingsManager.workspaceNotifyOnlyMine
+                locked: settingsManager.workspaceNotifyOnlyMineLocked
+                rowEnabled: settingsManager.notificationsEnabled
+            }
+
+            // ---- section divider ----
+            Rectangle { Layout.fillWidth: true; height: 1; color: CoderTheme.divider }
+
+            // ================================================================
+            // WORKSPACES
+            // ================================================================
+            Label {
+                text: "WORKSPACES"
+                font.pixelSize: 11
+                font.weight: Font.DemiBold
+                color: CoderTheme.textSecondary
+                Layout.fillWidth: true
+                Layout.leftMargin: 16
+                Layout.topMargin: 24
+                Layout.bottomMargin: 8
+            }
+
+            SettingToggle {
+                label: "Show only my workspaces"
+                subtitle: "Limit the workspace list to workspaces you own"
+                settingKey: "workspaceListOnlyMine"
+                checked: settingsManager.workspaceListOnlyMine
+                locked: settingsManager.workspaceListOnlyMineLocked
+            }
+
             // ---- section divider ----
             Rectangle { Layout.fillWidth: true; height: 1; color: CoderTheme.divider }
 
@@ -830,6 +865,11 @@ Item {
         property string settingKey: ""
         property bool checked: false
         property bool locked: false
+        // Optional descriptive line shown when the setting is not MDM-locked.
+        property string subtitle: ""
+        // Allows a dependent toggle to be disabled (e.g. when its master
+        // setting is off) without showing the MDM-locked treatment.
+        property bool rowEnabled: true
 
         // Works in both ColumnLayout (Layout.fillWidth) and Column (width binding).
         Layout.fillWidth: true
@@ -865,17 +905,17 @@ Item {
                 }
 
                 Label {
-                    text: "Managed by your organization"
+                    text: togglePane.locked ? "Managed by your organization" : togglePane.subtitle
                     font.pixelSize: 11
                     color: CoderTheme.textSecondary
-                    visible: togglePane.locked
+                    visible: togglePane.locked || togglePane.subtitle.length > 0
                 }
             }
 
             Switch {
                 Layout.alignment: Qt.AlignRight | Qt.AlignVCenter
                 checked: togglePane.checked
-                enabled: !togglePane.locked
+                enabled: !togglePane.locked && togglePane.rowEnabled
                 Material.accent: CoderTheme.primary
                 onToggled: settingsManager.setUserPreference(togglePane.settingKey, checked)
             }

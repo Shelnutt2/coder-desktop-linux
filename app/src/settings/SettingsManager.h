@@ -99,6 +99,15 @@ public:
     Q_PROPERTY(
         bool notificationsEnabledLocked READ notificationsEnabledLocked NOTIFY settingsChanged)
 
+    // Workspace scope (listing + notifications limited to the signed-in user)
+    Q_PROPERTY(bool workspaceListOnlyMine READ workspaceListOnlyMine NOTIFY settingsChanged)
+    Q_PROPERTY(
+        bool workspaceListOnlyMineLocked READ workspaceListOnlyMineLocked NOTIFY settingsChanged)
+
+    Q_PROPERTY(bool workspaceNotifyOnlyMine READ workspaceNotifyOnlyMine NOTIFY settingsChanged)
+    Q_PROPERTY(bool workspaceNotifyOnlyMineLocked READ workspaceNotifyOnlyMineLocked NOTIFY
+                   settingsChanged)
+
     // Polling / caching
     Q_PROPERTY(int refreshIntervalSec READ refreshIntervalSec NOTIFY settingsChanged)
     Q_PROPERTY(bool refreshIntervalSecLocked READ refreshIntervalSecLocked NOTIFY settingsChanged)
@@ -151,6 +160,8 @@ public:
 
     [[nodiscard]] QString theme() const;
     [[nodiscard]] bool notificationsEnabled() const;
+    [[nodiscard]] bool workspaceListOnlyMine() const;
+    [[nodiscard]] bool workspaceNotifyOnlyMine() const;
     [[nodiscard]] bool checkForUpdates() const;
 
     [[nodiscard]] int refreshIntervalSec() const;
@@ -180,6 +191,8 @@ public:
     [[nodiscard]] bool disableFileDownloadLocked() const;
     [[nodiscard]] bool themeLocked() const;
     [[nodiscard]] bool notificationsEnabledLocked() const;
+    [[nodiscard]] bool workspaceListOnlyMineLocked() const;
+    [[nodiscard]] bool workspaceNotifyOnlyMineLocked() const;
     [[nodiscard]] bool checkForUpdatesLocked() const;
     [[nodiscard]] bool refreshIntervalSecLocked() const;
     [[nodiscard]] bool disableDataCacheLocked() const;
