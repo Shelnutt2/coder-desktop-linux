@@ -31,10 +31,13 @@ Rectangle {
             implicitWidth: 12
             implicitHeight: 12
         }
-        Label {
-            text: "\u{1F4CE}"
+        Image {
             visible: !chip.uploading
-            font.pixelSize: 10
+            source: "qrc:/CoderDesktop/assets/icons/paperclip.svg"
+            sourceSize.width: 11
+            sourceSize.height: 11
+            Layout.preferredWidth: 11
+            Layout.preferredHeight: 11
         }
         Label {
             text: chip.name

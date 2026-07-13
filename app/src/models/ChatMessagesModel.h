@@ -57,6 +57,11 @@ public:
     /// fetch failure).
     void finishLoadOlder(bool hasMore);
 
+    /// True when any row newer than `row` (i.e. a smaller index in this
+    /// newest-first model) is a user message. Used by interactive tool
+    /// cards (ask_user_question) to switch to their answered state.
+    [[nodiscard]] Q_INVOKABLE bool hasNewerUserMessage(int row) const;
+
 signals:
     void countChanged();
     void hasMoreChanged();

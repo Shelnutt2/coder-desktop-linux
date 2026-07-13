@@ -3,9 +3,11 @@ import QtQuick.Controls
 import QtQuick.Layouts
 import CoderDesktop
 
-// Inline card for a sub-agent chat: title plus live status dot. Clicking
-// navigates into the child chat (the chat page shows a breadcrumb back to
-// the parent).
+// Compact row for one sub-agent chat inside the chat page's collapsible
+// sub-agent strip: status dot, title, status text, and a chevron. Clicking
+// navigates into the child chat. Navigation uses a TapHandler with the
+// DragThreshold gesture policy so only a real click activates it; drag or
+// flick scroll gestures over the row are cancelled and never navigate.
 Rectangle {
     id: card
     property string chatId: ""
@@ -13,19 +15,17 @@ Rectangle {
     property string statusString: ""
     signal openRequested(string chatId)
 
-    implicitHeight: row.implicitHeight + 16
+    implicitHeight: 28
     radius: CoderTheme.radiusSm
-    color: ma.containsMouse ? CoderTheme.hoverBg : CoderTheme.surface
-    border.color: CoderTheme.border
-    border.width: 1
+    color: hover.hovered ? CoderTheme.hoverBg : "transparent"
 
     RowLayout {
         id: row
         anchors.left: parent.left
         anchors.right: parent.right
         anchors.verticalCenter: parent.verticalCenter
-        anchors.leftMargin: 10
-        anchors.rightMargin: 10
+        anchors.leftMargin: 8
+        anchors.rightMargin: 8
         spacing: 8
 
         Rectangle {
@@ -39,10 +39,12 @@ Rectangle {
                 return CoderTheme.textDisabled
             }
         }
-        Label {
-            text: "\u2937"
-            color: CoderTheme.textDisabled
-            font.pixelSize: 11
+        Image {
+            source: "qrc:/CoderDesktop/assets/icons/subagent.svg"
+            sourceSize.width: 12
+            sourceSize.height: 12
+            Layout.preferredWidth: 12
+            Layout.preferredHeight: 12
         }
         Label {
             text: card.title.length > 0 ? card.title : "Sub-agent"
@@ -56,13 +58,19 @@ Rectangle {
             color: CoderTheme.textSecondary
             font.pixelSize: 10
         }
+        Label {
+            text: "\u203a"
+            color: CoderTheme.textDisabled
+            font.pixelSize: 12
+        }
     }
 
-    MouseArea {
-        id: ma
-        anchors.fill: parent
-        hoverEnabled: true
+    HoverHandler {
+        id: hover
         cursorShape: Qt.PointingHandCursor
-        onClicked: card.openRequested(card.chatId)
+    }
+    TapHandler {
+        gesturePolicy: TapHandler.DragThreshold
+        onTapped: card.openRequested(card.chatId)
     }
 }
