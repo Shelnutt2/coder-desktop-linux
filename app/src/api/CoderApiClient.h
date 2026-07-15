@@ -54,7 +54,7 @@ public:
 
     // -- High-level fetch (QML-callable) ------------------------------------
     /// Fetch workspaces and emit workspacesReceived() with the JSON array.
-    Q_INVOKABLE void fetchWorkspaces();
+    Q_INVOKABLE void fetchWorkspaces(const QString& query = QString());
     /// Fetch tasks and emit tasksReceived() with the JSON array.
     Q_INVOKABLE void fetchTasks();
     /// Fetch a single workspace and emit workspaceDetailReceived() with the JSON object.

@@ -34,6 +34,8 @@ class PollingController : public QObject {
     Q_PROPERTY(int refreshIntervalSec READ refreshIntervalSec WRITE setRefreshIntervalSec NOTIFY
                    refreshIntervalChanged)
     Q_PROPERTY(bool polling READ isPolling NOTIFY pollingChanged)
+    Q_PROPERTY(QString workspaceQuery READ workspaceQuery WRITE setWorkspaceQuery NOTIFY
+                   workspaceQueryChanged)
 
 public:
     /// All references must outlive this controller.
@@ -44,6 +46,8 @@ public:
     [[nodiscard]] int refreshIntervalSec() const;
     void setRefreshIntervalSec(int sec);
     [[nodiscard]] bool isPolling() const;
+    [[nodiscard]] QString workspaceQuery() const;
+    void setWorkspaceQuery(const QString& query);
 
 public slots:
     /// Load cache from disk (if enabled), issue an immediate API fetch,
@@ -65,6 +69,7 @@ public slots:
 signals:
     void refreshIntervalChanged();
     void pollingChanged();
+    void workspaceQueryChanged();
 
 private:
     // -- Change detection (for notifications) --------------------------------
@@ -91,6 +96,7 @@ private:
     /// Suppresses notifications on the very first data load so the user is
     /// not spammed with "changed" alerts for every existing workspace/task.
     bool m_firstFetch = true;
+    QString m_workspaceQuery = QStringLiteral("owner:me");
 };
 
 #endif  // POLLINGCONTROLLER_H

@@ -74,6 +74,19 @@ bool PollingController::isPolling() const {
     return m_pollTimer.isActive();
 }
 
+QString PollingController::workspaceQuery() const {
+    return m_workspaceQuery;
+}
+
+void PollingController::setWorkspaceQuery(const QString& query) {
+    if (m_workspaceQuery == query) {
+        return;
+    }
+    m_workspaceQuery = query;
+    emit workspaceQueryChanged();
+    refreshNow();
+}
+
 // ---------------------------------------------------------------------------
 // start / stop / refreshNow
 // ---------------------------------------------------------------------------
@@ -95,7 +108,7 @@ void PollingController::stop() {
 
 void PollingController::refreshNow() {
     qDebug() << "[PollingController] refreshNow() — fetching workspaces + tasks";
-    m_api.fetchWorkspaces();
+    m_api.fetchWorkspaces(m_workspaceQuery);
     m_api.fetchTasks();
 }
 

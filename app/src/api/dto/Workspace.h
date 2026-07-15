@@ -6,6 +6,7 @@
 #include <QList>
 #include <QMetaType>
 #include <QString>
+#include <QStringList>
 
 // ---------------------------------------------------------------------------
 // Enums
@@ -113,15 +114,21 @@ struct Agent {
 public:
     QString id;
     QString name;
+    QString parentId;  // non-empty for dev container sub-agents
     AgentStatus status = AgentStatus::Unknown;
     QList<WorkspaceApp> apps;
+    QStringList displayApps;
 
     static Agent fromJson(const QJsonObject& obj) {
         Agent a;
         a.id = obj.value(QLatin1String("id")).toString();
         a.name = obj.value(QLatin1String("name")).toString();
+        a.parentId = obj.value(QLatin1String("parent_id")).toString();
         a.status = agentStatusFromString(obj.value(QLatin1String("status")).toString());
         a.apps = WorkspaceApp::listFromJson(obj.value(QLatin1String("apps")).toArray());
+        for (const auto& v : obj.value(QLatin1String("display_apps")).toArray()) {
+            a.displayApps.append(v.toString());
+        }
         return a;
     }
 
